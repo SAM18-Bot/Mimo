@@ -1,0 +1,56 @@
+# ── Secrets — NEVER commit these ──────────────────────────
+.env
+
+# ── Database ──────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Python ────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.egg-info/
+*.egg
+.eggs/
+
+# ── Test artifacts ────────────────────────────────────────
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# ── Desktop build output ──────────────────────────────────
+dist/
+build/
+*.spec.bak
+desktop/assets/*.png
+!desktop/assets/.gitkeep
+
+# ── Desktop runtime data ──────────────────────────────────
+# (single_instance lock file, logs — created at ~/.mimo, not in repo,
+#  but ignore locally if ever generated inside the project folder)
+.mimo/
+*.log
+
+# ── OS files ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ───────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+
+# ── Logs directory (raw JSON dumps before DB flush) ───────
+logs/*
+!logs/.gitkeep
+
+# ── Alembic — keep migrations, ignore generated cache ─────
+db/migrations/__pycache__/

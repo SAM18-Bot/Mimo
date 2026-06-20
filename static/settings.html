@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mimo — Settings</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07070f;--bg2:#0e0e1c;--bg3:#14142a;
+  --border:rgba(255,255,255,0.07);
+  --text:#e2e2f0;--muted:#5a5a7a;
+  --purple:#7c6fe0;--green:#22c55e;--red:#f03a3a;--amber:#f59e0b;
+  --radius:12px;--font:'Segoe UI',system-ui,sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh}
+a{color:var(--purple);text-decoration:none}
+a:hover{text-decoration:underline}
+
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 28px;border-bottom:1px solid var(--border);
+  background:var(--bg2);position:sticky;top:0;z-index:10;
+}
+.logo{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px}
+.logo em{color:var(--purple);font-style:normal}
+.back-btn{
+  background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  padding:7px 14px;font-size:13px;color:var(--muted);cursor:pointer;
+  font-family:var(--font);transition:all .15s;text-decoration:none;
+}
+.back-btn:hover{color:var(--text);border-color:var(--muted)}
+
+.layout{max-width:720px;margin:0 auto;padding:28px 20px 60px}
+h1{font-size:22px;font-weight:600;margin-bottom:4px}
+.subtitle{font-size:13px;color:var(--muted);margin-bottom:28px}
+
+.section{margin-bottom:28px}
+.section-title{
+  font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:10px;padding-bottom:8px;
+  border-bottom:1px solid var(--border);
+}
+
+.setting-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 0;border-bottom:1px solid var(--border);gap:20px;
+}
+.setting-row:last-child{border-bottom:none}
+.setting-info{flex:1}
+.setting-label{font-size:13px;font-weight:500;margin-bottom:2px}
+.setting-key{font-size:11px;color:var(--muted);font-family:monospace}
+
+/* text input */
+.setting-input{
+  background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  padding:8px 12px;color:var(--text);font-size:13px;font-family:var(--font);
+  outline:none;width:240px;transition:border-color .2s;
+}
+.setting-input:focus{border-color:var(--purple)}
+.setting-input::placeholder{color:var(--muted)}
+
+/* number input */
+.number-wrap{display:flex;align-items:center;gap:8px}
+.setting-input.num{width:100px;text-align:center}
+.num-unit{font-size:12px;color:var(--muted)}
+
+/* toggle */
+.toggle{position:relative;width:42px;height:24px;flex-shrink:0;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{
+  position:absolute;inset:0;background:var(--bg3);border-radius:100px;
+  border:1px solid var(--border);transition:all .25s;
+}
+.toggle input:checked+.toggle-track{background:var(--purple);border-color:var(--purple)}
+.toggle-thumb{
+  position:absolute;width:16px;height:16px;border-radius:50%;
+  background:#fff;top:3px;left:3px;transition:transform .25s;
+}
+.toggle input:checked~.toggle-thumb{transform:translateX(18px)}
+
+/* password field */
+.pw-wrap{position:relative;width:240px}
+.pw-wrap .setting-input{width:100%;padding-right:36px}
+.pw-eye{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:var(--muted);cursor:pointer;
+  font-size:14px;padding:0;
+}
+.pw-eye:hover{color:var(--text)}
+
+/* test button */
+.test-btn{
+  background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  padding:7px 12px;font-size:12px;color:var(--muted);cursor:pointer;
+  font-family:var(--font);transition:all .2s;margin-left:8px;
+}
+.test-btn:hover{border-color:var(--purple);color:var(--text)}
+
+/* action bar */
+.action-bar{
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--bg2);border-top:1px solid var(--border);
+  padding:14px 28px;display:flex;align-items:center;gap:12px;
+}
+.save-btn{
+  background:var(--purple);color:#fff;border:none;border-radius:8px;
+  padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;
+  font-family:var(--font);transition:opacity .2s;
+}
+.save-btn:hover{opacity:.88}
+.save-btn:disabled{opacity:.4;cursor:not-allowed}
+.status-msg{font-size:13px;color:var(--muted);flex:1}
+.status-msg.ok{color:var(--green)}
+.status-msg.err{color:var(--red)}
+
+.restart-note{font-size:12px;color:var(--muted);margin-top:20px;line-height:1.5}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🔥 <em>Mimo</em> Settings</div>
+  <a class="back-btn" href="/">← Back to Dashboard</a>
+</header>
+
+<div class="layout">
+  <h1>Settings</h1>
+  <p class="subtitle">Changes are saved to your .env file. Most take effect immediately. API key changes require a restart.</p>
+
+  <div id="sections-container">
+    <div style="color:var(--muted);font-size:13px;padding:20px 0">Loading settings…</div>
+  </div>
+
+  <p class="restart-note">
+    After changing hardware or voice settings, you may need to
+    <a href="#" onclick="restartServices(); return false;">restart services</a>
+    for changes to take full effect.
+  </p>
+</div>
+
+<div class="action-bar">
+  <button class="save-btn" id="save-btn" onclick="saveAll()">Save all changes</button>
+  <span class="status-msg" id="status-msg"></span>
+</div>
+
+<script>
+const changes = {};   // tracks what user has changed
+
+async function loadSettings() {
+  const r    = await fetch('/settings/data');
+  const data = await r.json();
+  renderSections(data.sections);
+}
+
+function renderSections(sections) {
+  const container = document.getElementById('sections-container');
+  container.innerHTML = '';
+
+  sections.forEach(sec => {
+    const div = document.createElement('div');
+    div.className = 'section';
+    div.innerHTML = `<div class="section-title">${esc(sec.name)}</div>`;
+
+    sec.items.forEach(item => {
+      div.appendChild(renderRow(item));
+    });
+
+    container.appendChild(div);
+  });
+}
+
+function renderRow(item) {
+  const row  = document.createElement('div');
+  row.className = 'setting-row';
+
+  const info = document.createElement('div');
+  info.className = 'setting-info';
+  info.innerHTML = `
+    <div class="setting-label">${esc(item.label)}</div>
+    <div class="setting-key">${esc(item.key)}</div>
+  `;
+
+  let control;
+
+  if (item.type === 'toggle') {
+    const val = ['1','true','True','yes'].includes(String(item.value));
+    control = document.createElement('label');
+    control.className = 'toggle';
+    control.innerHTML = `
+      <input type="checkbox" ${val ? 'checked' : ''} onchange="onChange('${item.key}', this.checked ? '1' : '0')">
+      <div class="toggle-track"></div>
+      <div class="toggle-thumb"></div>
+    `;
+
+  } else if (item.type === 'password') {
+    control = document.createElement('div');
+    control.innerHTML = `
+      <div style="display:flex;align-items:center">
+        <div class="pw-wrap">
+          <input class="setting-input" id="inp-${item.key}" type="password"
+            value="${esc(item.value)}" placeholder="sk-proj-…"
+            onchange="onChange('${item.key}', this.value)">
+          <button class="pw-eye" onclick="togglePw('${item.key}')">👁</button>
+        </div>
+        <button class="test-btn" onclick="testApiKey()">Test key</button>
+      </div>
+    `;
+
+  } else if (item.type === 'number') {
+    control = document.createElement('div');
+    control.className = 'number-wrap';
+    control.innerHTML = `
+      <input class="setting-input num" type="number" value="${esc(item.value)}"
+        onchange="onChange('${item.key}', this.value)">
+    `;
+
+  } else {
+    control = document.createElement('div');
+    control.innerHTML = `
+      <input class="setting-input" type="text" value="${esc(item.value)}"
+        onchange="onChange('${item.key}', this.value)">
+    `;
+  }
+
+  row.appendChild(info);
+  row.appendChild(control);
+  return row;
+}
+
+function onChange(key, value) {
+  changes[key] = value;
+  document.getElementById('status-msg').textContent = 'Unsaved changes…';
+  document.getElementById('status-msg').className = 'status-msg';
+}
+
+async function saveAll() {
+  if (Object.keys(changes).length === 0) {
+    showStatus('Nothing to save.', false);
+    return;
+  }
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  try {
+    const r    = await fetch('/settings/save-all', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ settings: changes }),
+    });
+    const data = await r.json();
+
+    if (data.ok) {
+      showStatus('✓ All settings saved.', true);
+      Object.keys(changes).forEach(k => delete changes[k]);
+    } else {
+      showStatus(`⚠ Some settings failed: ${data.failed.join(', ')}`, false);
+    }
+  } catch(e) {
+    showStatus('❌ Save failed — server error.', false);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save all changes';
+  }
+}
+
+async function restartServices() {
+  const r    = await fetch('/settings/restart', { method: 'POST' });
+  const data = await r.json();
+  showStatus(data.ok ? '✓ Services restarted.' : `❌ ${data.error}`, data.ok);
+}
+
+async function testApiKey() {
+  const inp = document.getElementById('inp-OPENAI_API_KEY');
+  if (inp && inp.value && !inp.value.includes('•')) {
+    // Save key first
+    await fetch('/settings/save', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({key:'OPENAI_API_KEY', value: inp.value}),
+    });
+  }
+  showStatus('Testing API key…', false);
+  const r    = await fetch('/settings/openai-test');
+  const data = await r.json();
+  showStatus(data.ok ? '✓ API key works!' : `❌ ${data.error}`, data.ok);
+}
+
+function togglePw(key) {
+  const inp = document.getElementById(`inp-${key}`);
+  if (inp) inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+function showStatus(msg, ok) {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className   = 'status-msg ' + (ok ? 'ok' : 'err');
+}
+
+const esc = s => String(s||'')
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+loadSettings();
+</script>
+</body>
+</html>

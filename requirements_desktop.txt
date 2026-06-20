@@ -1,0 +1,21 @@
+# ── Desktop app dependencies ──────────────────────────────────
+# Install with: pip install -r requirements_desktop.txt
+
+# System tray icon
+pystray==0.19.5
+
+# Icon generation
+Pillow==10.3.0
+
+# Native webview window (wraps the browser dashboard in a real app window)
+pywebview==5.1
+
+# Native OS notifications (Windows toast, macOS, Linux libnotify)
+plyer==2.1.0
+
+# Build desktop executable
+pyinstaller==6.8.0
+
+# Already in requirements.txt but listed here for clarity
+httpx==0.27.0
+python-dotenv==1.0.1
