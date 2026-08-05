@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mimo - Schedule</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#07070f;--bg2:#0e0e1c;--bg3:#14142a;--border:rgba(255,255,255,.08);--text:#e2e2f0;--muted:#7a7a9a;--purple:#7c6fe0;--green:#22c55e;--red:#f03a3a;--amber:#f59e0b;--blue:#38bdf8;--radius:8px;--font:'Segoe UI',system-ui,sans-serif}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh}
+a{color:var(--purple);text-decoration:none}a:hover{text-decoration:underline}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:10}
+.logo{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px}.logo em{color:var(--purple);font-style:normal}
+.back-btn{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-size:13px;color:var(--muted);cursor:pointer;font-family:var(--font);transition:all .15s;text-decoration:none}.back-btn:hover{color:var(--text);border-color:var(--muted)}
+.layout{max-width:1120px;margin:0 auto;padding:26px 20px 60px;display:grid;grid-template-columns:420px 1fr;gap:24px}
+h1{font-size:22px;font-weight:650;margin-bottom:4px}.subtitle{font-size:13px;color:var(--muted);margin-bottom:22px;line-height:1.45}
+.panel,.day-col{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius)}.panel{padding:18px}
+.section{margin-bottom:22px}.section:last-child{margin-bottom:0}.section-title{font-size:11px;font-weight:750;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:600}
+input,select,textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--font);font-size:13px;padding:9px 10px;outline:none}textarea{min-height:64px;resize:vertical}input:focus,select:focus,textarea:focus{border-color:var(--purple)}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}.day-toggle{position:relative}.day-toggle input{position:absolute;opacity:0}.day-toggle span{display:flex;align-items:center;justify-content:center;height:32px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer}.day-toggle input:checked+span{background:rgba(124,111,224,.18);border-color:var(--purple);color:var(--text)}
+.row-list{display:flex;flex-direction:column;gap:8px}.inline-row{display:grid;grid-template-columns:1fr 96px 72px;gap:8px;align-items:end}.fixed-row{grid-template-columns:1fr 68px 82px 82px 34px}
+.icon-btn{height:37px;border-radius:8px;background:var(--bg3);color:var(--muted);cursor:pointer;font-size:16px;border:1px solid var(--border)}.icon-btn:hover{color:var(--text);border-color:var(--muted)}
+.add-btn,.primary-btn{border:none;border-radius:8px;font-family:var(--font);font-weight:700;cursor:pointer}.add-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:9px 12px;font-size:12px}.primary-btn{background:var(--purple);color:#fff;padding:11px 18px;font-size:14px;width:100%;margin-top:6px}.primary-btn:disabled{opacity:.45;cursor:not-allowed}
+.status{font-size:12px;color:var(--muted);margin-top:10px;min-height:18px}.status.ok{color:var(--green)}.status.err{color:var(--red)}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}.day-col{min-height:240px;overflow:hidden}.day-head{padding:10px;background:var(--bg3);font-size:12px;font-weight:750;color:var(--muted);border-bottom:1px solid var(--border)}
+.block{padding:9px 10px;border-bottom:1px solid var(--border);font-size:12px;line-height:1.35}.block:last-child{border-bottom:none}.time{font-size:10px;color:var(--muted);font-family:'Cascadia Code',monospace;margin-bottom:3px}.title{font-weight:650}.meta{font-size:10px;color:var(--muted);margin-top:3px}.school{border-left:3px solid var(--blue)}.study{border-left:3px solid var(--purple)}.fixed{border-left:3px solid var(--amber)}.empty{color:var(--muted);font-size:13px;padding:18px;text-align:center}
+.toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px}.toolbar-title{font-size:13px;color:var(--muted)}
+@media(max-width:900px){.layout{grid-template-columns:1fr}.week{grid-template-columns:1fr}.inline-row,.fixed-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><div class="logo"><em>Mimo</em> Schedule</div><a class="back-btn" href="/">Back to Dashboard</a></header>
+<main class="layout">
+  <section>
+    <h1>Build Your Week</h1>
+    <p class="subtitle">Set the hard constraints first. Mimo fills movable study blocks around them and keeps the schedule flexible.</p>
+    <div class="panel">
+      <div class="section"><div class="section-title">Daily Boundaries</div><div class="grid">
+        <div><label for="wake">Wake time</label><input id="wake" type="time" value="06:30"></div>
+        <div><label for="sleep">Sleep time</label><input id="sleep" type="time" value="22:30"></div>
+        <div><label for="goal">Study minutes per day</label><input id="goal" type="number" value="120" min="1" max="600"></div>
+        <div><label for="session">Session length</label><input id="session" type="number" value="50" min="15" max="180"></div>
+      </div></div>
+      <div class="section"><div class="section-title">School / Coaching</div><div class="days" id="school-days"></div><div class="grid" style="margin-top:12px">
+        <div><label for="school-start">Start</label><input id="school-start" type="time" value="08:00"></div>
+        <div><label for="school-end">End</label><input id="school-end" type="time" value="15:00"></div>
+      </div></div>
+      <div class="section"><div class="section-title">Subjects</div><div class="row-list" id="subjects"></div><button class="add-btn" onclick="addSubject()">Add subject</button></div>
+      <div class="section"><div class="section-title">Fixed Commitments</div><div class="row-list" id="fixed-blocks"></div><button class="add-btn" onclick="addFixedBlock()">Add fixed block</button></div>
+      <div class="section"><div class="section-title">Notes</div><textarea id="notes" placeholder="Anything Mimo should remember about this schedule"></textarea></div>
+      <button class="primary-btn" id="build-btn" onclick="buildSchedule()">Build schedule</button>
+      <div class="status" id="status"></div>
+    </div>
+  </section>
+  <section>
+    <div class="toolbar"><h1>Generated Week</h1><span class="toolbar-title" id="schedule-state">No schedule loaded</span></div>
+    <div class="week" id="week"></div>
+  </section>
+</main>
+<script>
+const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+function bootDays(){const el=document.getElementById('school-days');el.innerHTML='';DAYS.forEach((day,i)=>{const label=document.createElement('label');label.className='day-toggle';label.innerHTML=`<input type="checkbox" value="${i}" ${i<5?'checked':''}><span>${day}</span>`;el.appendChild(label)})}
+function addSubject(name='',priority='medium'){const row=document.createElement('div');row.className='inline-row subject-row';row.innerHTML=`<div><label>Subject</label><input class="subject-name" value="${esc(name)}" placeholder="Math"></div><div><label>Priority</label><select class="subject-priority"><option value="high" ${priority==='high'?'selected':''}>High</option><option value="medium" ${priority==='medium'?'selected':''}>Medium</option><option value="low" ${priority==='low'?'selected':''}>Low</option></select></div><button class="icon-btn" title="Remove" onclick="this.closest('.subject-row').remove()">x</button>`;document.getElementById('subjects').appendChild(row)}
+function addFixedBlock(data={}){const row=document.createElement('div');row.className='inline-row fixed-row fixed-block-row';row.innerHTML=`<div><label>Title</label><input class="fixed-title" value="${esc(data.title||'')}" placeholder="Tuition"></div><div><label>Day</label><select class="fixed-day">${DAYS.map((d,i)=>`<option value="${i}" ${data.day_of_week===i?'selected':''}>${d}</option>`).join('')}</select></div><div><label>Start</label><input class="fixed-start" type="time" value="${esc(data.start_time||'17:00')}"></div><div><label>End</label><input class="fixed-end" type="time" value="${esc(data.end_time||'18:00')}"></div><button class="icon-btn" title="Remove" onclick="this.closest('.fixed-block-row').remove()">x</button>`;document.getElementById('fixed-blocks').appendChild(row)}
+function readPayload(){const subjects=[...document.querySelectorAll('.subject-row')].map(row=>({name:row.querySelector('.subject-name').value.trim(),priority:row.querySelector('.subject-priority').value})).filter(s=>s.name);const fixed_blocks=[...document.querySelectorAll('.fixed-block-row')].map(row=>({title:row.querySelector('.fixed-title').value.trim(),day_of_week:Number(row.querySelector('.fixed-day').value),start_time:row.querySelector('.fixed-start').value,end_time:row.querySelector('.fixed-end').value})).filter(b=>b.title);return{wake_time:document.getElementById('wake').value,sleep_time:document.getElementById('sleep').value,school_days:[...document.querySelectorAll('#school-days input:checked')].map(i=>Number(i.value)),school_start:document.getElementById('school-start').value||null,school_end:document.getElementById('school-end').value||null,study_goal_minutes:Number(document.getElementById('goal').value||120),session_minutes:Number(document.getElementById('session').value||50),break_minutes:10,subjects,fixed_blocks,notes:document.getElementById('notes').value.trim()||null}}
+async function buildSchedule(){const btn=document.getElementById('build-btn');btn.disabled=true;showStatus('Building schedule...','');try{const r=await fetch('/schedule/onboarding',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(readPayload())});const data=await r.json();if(!r.ok){showStatus(data.detail||'Could not build schedule.','err');return}renderWeek(data.blocks||[]);showStatus('Schedule saved.','ok')}catch{showStatus('Server error while building schedule.','err')}finally{btn.disabled=false}}
+async function loadSchedule(){try{const r=await fetch('/schedule/weekly');renderWeek(await r.json()||[])}catch{renderWeek([])}}
+function renderWeek(blocks){const week=document.getElementById('week');week.innerHTML='';const byDay=Array.from({length:7},()=>[]);(blocks||[]).forEach(block=>byDay[block.day_of_week]?.push(block));byDay.forEach((items,day)=>{const col=document.createElement('div');col.className='day-col';col.innerHTML=`<div class="day-head">${DAYS[day]}</div>`;if(!items.length){col.innerHTML+='<div class="empty">No blocks</div>'}else{items.forEach(block=>{const el=document.createElement('div');el.className=`block ${block.kind}`;el.innerHTML=`<div class="time">${esc(block.start_time)}-${esc(block.end_time)}</div><div class="title">${esc(block.title)}</div><div class="meta">${esc(block.flexibility)} / ${esc(block.status)}</div>`;col.appendChild(el)})}week.appendChild(col)});document.getElementById('schedule-state').textContent=blocks.length?`${blocks.length} blocks in active schedule`:'No schedule loaded'}
+function showStatus(text,cls){const el=document.getElementById('status');el.textContent=text;el.className='status '+(cls||'')}
+function esc(value){return String(value||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+bootDays();addSubject('Math','high');addSubject('Physics','medium');loadSchedule();
+</script>
+</body>
+</html>

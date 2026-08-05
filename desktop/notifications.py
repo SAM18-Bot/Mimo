@@ -11,22 +11,25 @@ Usage:
 
 import logging
 import os
+import sys
 
 log = logging.getLogger(__name__)
 
 _APP_NAME = "Mimo"
 _ICON_PATH = os.path.join(os.path.dirname(__file__), "assets", "mimo_active_64.png")
 
-# Generate icon on import if missing
-def _ensure_icon():
-    if not os.path.exists(_ICON_PATH):
-        try:
-            from desktop.icon_generator import save_icon
-            save_icon("active", 64)
-        except Exception:
-            pass
+def _notification_icon() -> str | None:
+    """Return an icon path accepted by the current notification backend."""
+    if sys.platform == "win32":
+        return None
+    if os.path.exists(_ICON_PATH):
+        return _ICON_PATH
+    return None
 
-_ensure_icon()
+
+def _notifications_disabled() -> bool:
+    disabled = os.environ.get("MIMO_DISABLE_NOTIFICATIONS", "").lower()
+    return disabled in {"1", "true", "yes"} or "PYTEST_CURRENT_TEST" in os.environ
 
 
 def notify(title: str, message: str, timeout: int = 5) -> bool:
@@ -35,15 +38,22 @@ def notify(title: str, message: str, timeout: int = 5) -> bool:
 
     Returns True if notification was delivered, False if not supported.
     """
+    if _notifications_disabled():
+        return False
+
     try:
         from plyer import notification
-        notification.notify(
+        kwargs = dict(
             title       = f"{_APP_NAME} — {title}",
             message     = message,
             app_name    = _APP_NAME,
-            app_icon    = _ICON_PATH if os.path.exists(_ICON_PATH) else "",
             timeout     = timeout,
         )
+        icon = _notification_icon()
+        if icon:
+            kwargs["app_icon"] = icon
+
+        notification.notify(**kwargs)
         log.debug("Notification sent: %s", title)
         return True
 

@@ -11,6 +11,13 @@ def categorize_app(app_name: str, window_title: str = "") -> str:
     app_lower   = (app_name or "").lower()
     title_lower = (window_title or "").lower()
 
+    if "youtube" in app_lower or "youtube" in title_lower:
+        if any(kw in title_lower for kw in config.YOUTUBE_EDUCATIONAL_KEYWORDS):
+            return "productive"
+        if any(kw in title_lower for kw in config.YOUTUBE_DISTRACTING_KEYWORDS):
+            return "distracting"
+        return "distracting"
+
     # Check distracting first (higher priority — a browser showing Instagram is distracting)
     for kw in config.DISTRACTING_KEYWORDS:
         if kw in app_lower or kw in title_lower:

@@ -98,6 +98,8 @@ from api.routes_voice        import router as voice_router         # NEW
 from modules.ai_layer.study_advisor  import router as study_router      # NEW
 from api.routes_settings             import router as settings_router    # NEW
 from api.routes_monitoring           import router as monitoring_router  # NEW
+from api.routes_schedule             import router as schedule_router     # NEW
+from api.routes_auth                 import router as auth_router         # NEW
 
 app.include_router(assignments_router)
 app.include_router(screen_router)
@@ -107,6 +109,8 @@ app.include_router(voice_router)
 app.include_router(study_router)
 app.include_router(settings_router)
 app.include_router(monitoring_router)
+app.include_router(schedule_router)
+app.include_router(auth_router)
 
 # ── WebSocket ─────────────────────────────────────────────────────────────
 @app.websocket("/ws")
@@ -145,6 +149,11 @@ async def websocket_endpoint(ws: WebSocket):
 @app.get("/", response_class=HTMLResponse)
 async def dashboard():
     return FileResponse("static/dashboard.html")
+
+
+@app.get("/schedule", response_class=HTMLResponse)
+async def schedule_page():
+    return FileResponse("static/schedule.html")
 
 
 # ── health ────────────────────────────────────────────────────────────────

@@ -32,6 +32,12 @@ class TestProductiveApps:
     def test_chrome_with_stackoverflow(self):
         assert categorize_app("chrome", "Stack Overflow - How to sort") == "productive"
 
+    def test_chrome_with_educational_youtube(self):
+        assert categorize_app("chrome", "YouTube - Python tutorial for beginners") == "productive"
+
+    def test_chrome_with_exam_youtube(self):
+        assert categorize_app("chrome", "YouTube - Physics exam revision lecture") == "productive"
+
     def test_notion(self):
         assert categorize_app("notion", "Study Notes") == "productive"
 
@@ -49,6 +55,9 @@ class TestDistractingApps:
 
     def test_youtube_in_title(self):
         assert categorize_app("chrome", "YouTube - Lo-fi music") == "distracting"
+
+    def test_youtube_shorts_in_title(self):
+        assert categorize_app("chrome", "YouTube Shorts - trending clips") == "distracting"
 
     def test_netflix(self):
         assert categorize_app("netflix", "") == "distracting"

@@ -9,6 +9,9 @@ load_dotenv()
 OPENAI_API_KEY   = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL     = "gpt-4o"
 OPENAI_FAST_MODEL = "gpt-4o-mini"   # for real-time roasts (cheaper + faster)
+JWT_SECRET_KEY   = os.getenv("JWT_SECRET_KEY", "dev-only-change-me")
+JWT_ALGORITHM    = "HS256"
+JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))
 
 # ─────────────────────────────────────────
 # Database
@@ -91,6 +94,19 @@ DISTRACTING_KEYWORDS = {
     # Other
     "reddit",
     "meme",
+}
+
+YOUTUBE_EDUCATIONAL_KEYWORDS = {
+    "lecture", "tutorial", "course", "lesson", "class", "explained",
+    "study", "exam", "revision", "homework", "assignment", "practice",
+    "calculus", "algebra", "statistics", "physics", "chemistry", "biology",
+    "python", "java", "kotlin", "sql", "algorithm", "dsa", "machine learning",
+}
+
+YOUTUBE_DISTRACTING_KEYWORDS = {
+    "shorts", "vlog", "prank", "reaction", "trailer", "music video",
+    "gaming", "gameplay", "stream", "lo-fi", "lofi", "comedy",
+    "meme", "challenge", "highlights",
 }
 
 NEUTRAL_KEYWORDS = {

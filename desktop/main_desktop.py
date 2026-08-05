@@ -26,6 +26,7 @@ import logging
 import os
 import platform
 import sys
+import tempfile
 import threading
 import time
 
@@ -42,8 +43,36 @@ if sys.platform == "win32" and getattr(sys, "frozen", False):
     )
 
 # ── logging ───────────────────────────────────────────────────────────────
-_LOG_DIR = os.path.join(os.path.expanduser("~"), ".mimo")
-os.makedirs(_LOG_DIR, exist_ok=True)
+def _get_log_dir() -> str:
+    """Return a writable directory for desktop logs."""
+    candidates = []
+
+    override = os.environ.get("MIMO_LOG_DIR")
+    if override:
+        candidates.append(override)
+
+    if sys.platform == "win32":
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if local_app_data:
+            candidates.append(os.path.join(local_app_data, "Mimo", "logs"))
+
+    candidates.extend([
+        os.path.join(os.path.expanduser("~"), ".mimo"),
+        os.path.join(ROOT, "logs"),
+        os.path.join(tempfile.gettempdir(), "mimo"),
+    ])
+
+    for path in candidates:
+        try:
+            os.makedirs(path, exist_ok=True)
+            return path
+        except OSError:
+            continue
+
+    return ROOT
+
+
+_LOG_DIR = _get_log_dir()
 
 _handlers: list = [logging.StreamHandler(sys.stdout)]
 

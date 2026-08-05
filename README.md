@@ -208,9 +208,24 @@ uvicorn main:app --reload
 | GET | `/study/recommendations` | AI study recommendations |
 | GET | `/study/next` | What to study right now |
 | GET | `/study/subjects` | Time per subject this week |
+| GET | `/schedule/onboarding/questions` | First-run schedule onboarding prompts |
+| POST | `/schedule/onboarding` | Build a flexible weekly schedule |
+| GET | `/schedule/status` | Schedule setup status |
+| GET | `/schedule/weekly` | Active weekly schedule blocks |
+| GET | `/schedule/today` | Schedule blocks for a date |
+| PATCH | `/schedule/blocks/{id}` | Update schedule block status |
 | POST | `/voice/command` | Route voice command (no mic) |
 | GET | `/voice/status` | Voice system status |
 | GET | `/voice/intents` | All supported command patterns |
+| POST | `/auth/register` | Create student or parent account |
+| POST | `/auth/login` | Issue account JWT |
+| GET | `/auth/me` | Current authenticated account |
+| POST | `/devices/register` | Link desktop/Android/hardware device to account |
+| GET | `/devices` | List current account devices |
+| POST | `/parent/invites` | Student creates parent invite code |
+| POST | `/parent/link` | Parent links to student via invite |
+| GET | `/parent/children` | Parent lists linked students |
+| GET | `/parent/summary/{student_id}` | Parent weekly student summary |
 | WS | `/ws` | WebSocket for live dashboard |
 
 ---

@@ -15,7 +15,9 @@ Usage:
 import logging
 import os
 import platform
+import shlex
 import sys
+from xml.sax.saxutils import escape
 
 log = logging.getLogger(__name__)
 
@@ -150,8 +152,8 @@ _PLIST_PATH = os.path.expanduser("~/Library/LaunchAgents/com.mimo.app.plist")
 def _plist_content() -> str:
     exe = get_executable_path()
     # Split into key/string pairs for the plist
-    parts = exe.split()
-    args  = "\n".join(f"        <string>{p.strip('\"')}</string>" for p in parts)
+    parts = shlex.split(exe)
+    args  = "\n".join(f"        <string>{escape(p)}</string>" for p in parts)
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
     "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
