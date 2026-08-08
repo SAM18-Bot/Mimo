@@ -7,8 +7,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
-    // Default to localhost emulator address; change for real device
-    var baseUrl: String = "http://10.0.2.2:8000"
+    // Set to the live Render cloud URL
+    var baseUrl: String = "https://mimo-e8u2.onrender.com"
         private set
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {

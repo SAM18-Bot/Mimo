@@ -93,6 +93,8 @@ except KeyboardInterrupt:
         "--onefile",
         "--noconsole",
         "--name", "MimoDesktopTracker",
+        "--hidden-import", "psutil",
+        "--icon", "assets/app_icon.ico",
         "mimo_client.py"
     ], check=True)
     

@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.mimo.app.service.RoastEnforcementService
+import com.mimo.app.tracker.MobileTrackerService
 import com.mimo.app.ui.DashboardScreen
 
 class MainActivity : ComponentActivity() {
@@ -45,16 +46,20 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startRoastService() {
-        val intent = Intent(this, RoastEnforcementService::class.java)
+        val roastIntent = Intent(this, RoastEnforcementService::class.java)
+        val trackerIntent = Intent(this, MobileTrackerService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
+            startForegroundService(roastIntent)
+            startForegroundService(trackerIntent)
         } else {
-            startService(intent)
+            startService(roastIntent)
+            startService(trackerIntent)
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         stopService(Intent(this, RoastEnforcementService::class.java))
+        stopService(Intent(this, MobileTrackerService::class.java))
     }
 }

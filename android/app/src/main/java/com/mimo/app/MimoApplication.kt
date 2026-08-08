@@ -25,12 +25,7 @@ class MimoApplication : Application() {
         instance = this
         createNotificationChannel()
         
-        // Start Foreground Tracker
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(Intent(this, MobileTrackerService::class.java))
-        } else {
-            startService(Intent(this, MobileTrackerService::class.java))
-        }
+        // Note: MobileTrackerService start moved to MainActivity to prevent Android 14 ForegroundService exceptions
 
         // Schedule periodic SyncWorker every 15 minutes (minimum allowed by WorkManager)
         val syncRequest = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES).build()

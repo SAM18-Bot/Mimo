@@ -26,7 +26,7 @@ class WebSocketManager {
     private var shouldReconnect = true
     private var reconnectAttempts = 0
     private val maxReconnectAttempts = 10
-    private var wsUrl: String = "ws://10.0.2.2:8000/ws?token=dev_token"
+    private var wsUrl: String = "wss://mimo-e8u2.onrender.com/ws?token=dev_token"
 
     fun connect(url: String = wsUrl) {
         wsUrl = url
