@@ -23,7 +23,23 @@ _reminder_loop:  ReminderLoop        = None
 def start_scheduler(speak_fn=None, broadcast_fn=None):
     global _scheduler, _reminder_loop
 
-    _scheduler = BackgroundScheduler(timezone="Asia/Kolkata")   # change to your TZ
+    from db.database import get_db_ctx
+    from db.models import ScheduleProfile
+    tz_str = "UTC"
+    try:
+        with get_db_ctx() as db:
+            profile = db.query(ScheduleProfile).filter(ScheduleProfile.active == True).first()
+            if profile and profile.timezone:
+                tz_str = profile.timezone
+    except Exception as e:
+        log.warning("Could not fetch timezone from profile, defaulting to UTC: %s", e)
+
+    import pytz
+    if tz_str not in pytz.all_timezones:
+        log.warning("Invalid timezone '%s', defaulting to UTC", tz_str)
+        tz_str = "UTC"
+
+    _scheduler = BackgroundScheduler(timezone=tz_str)
 
     # ── EOD report @ configured hour ──────────────────────────────────────
     _scheduler.add_job(

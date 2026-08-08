@@ -87,7 +87,12 @@ def current_user(
 ) -> User:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Missing bearer token")
-    token = authorization.split(" ", 1)[1]
+    token = authorization.split(" ", 1)[1].strip()
+
+    from db.models import TokenBlocklist
+    if db.query(TokenBlocklist).filter(TokenBlocklist.token == token).first():
+        raise HTTPException(status_code=401, detail="Token revoked")
+
     try:
         payload = decode_access_token(token)
         user_id = int(payload["sub"])
@@ -107,6 +112,30 @@ def register(payload: RegisterIn, db: Session = Depends(get_db)):
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {"access_token": token, "user": user}
+
+
+@router.post("/auth/logout", status_code=200)
+def logout(
+    authorization: Optional[str] = Header(default=None),
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        payload = decode_access_token(token)
+        from datetime import datetime
+        expires_at = datetime.utcfromtimestamp(payload["exp"])
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+        
+    from db.models import TokenBlocklist
+    block = TokenBlocklist(token=token, expires_at=expires_at)
+    db.add(block)
+    db.commit()
+    return {"status": "logged_out"}
+
 
 
 @router.post("/auth/login", response_model=AuthOut)
@@ -173,10 +202,11 @@ def link_parent(
 def children(user: User = Depends(current_user), db: Session = Depends(get_db)):
     if user.role != "parent":
         raise HTTPException(status_code=403, detail="Parent role required")
+    from db.models import ParentStudentLink
     rows = (
         db.query(User)
-        .join(User.student_links, User.id == User.student_links.property.mapper.class_.student_id)
-        .filter(User.student_links.property.mapper.class_.parent_id == user.id)
+        .join(ParentStudentLink, User.id == ParentStudentLink.student_id)
+        .filter(ParentStudentLink.parent_id == user.id)
         .all()
     )
     return rows

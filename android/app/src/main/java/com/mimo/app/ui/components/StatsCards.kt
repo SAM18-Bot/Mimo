@@ -1,0 +1,166 @@
+package com.mimo.app.ui.components
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.mimo.app.network.DailyStats
+import com.mimo.app.network.ScreenBreakdown
+import com.mimo.app.ui.theme.MimoColors
+
+@Composable
+fun StatsRow(
+    stats: DailyStats,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        StatCard(
+            modifier = Modifier.weight(1f),
+            icon = "⏱️",
+            value = "${stats.productive_min}m",
+            label = "Productive"
+        )
+        StatCard(
+            modifier = Modifier.weight(1f),
+            icon = "📱",
+            value = "${stats.distracting_min}m",
+            label = "Distracting"
+        )
+        StatCard(
+            modifier = Modifier.weight(1f),
+            icon = "🔥",
+            value = "${stats.distraction_count}",
+            label = "Distractions"
+        )
+    }
+}
+
+@Composable
+fun StatCard(
+    icon: String,
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MimoColors.Surface),
+        border = BorderStroke(1.dp, MimoColors.CardBorder),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(12.dp)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = icon, fontSize = 24.sp)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = value,
+                color = MimoColors.TextPrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = label,
+                color = MimoColors.TextSecondary,
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+@Composable
+fun ScreenTimeBar(
+    breakdown: ScreenBreakdown,
+    modifier: Modifier = Modifier
+) {
+    val total = (breakdown.productive_min + breakdown.distracting_min + breakdown.neutral_min).coerceAtLeast(1)
+    val productiveWeight = breakdown.productive_min.toFloat() / total
+    val distractingWeight = breakdown.distracting_min.toFloat() / total
+    val neutralWeight = breakdown.neutral_min.toFloat() / total
+
+    Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        Text(
+            text = "Screen Time Usage",
+            color = MimoColors.TextPrimary,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(24.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MimoColors.SurfaceVariant)
+        ) {
+            if (productiveWeight > 0f) {
+                Box(
+                    modifier = Modifier
+                        .weight(productiveWeight)
+                        .fillMaxHeight()
+                        .background(MimoColors.Success)
+                )
+            }
+            if (neutralWeight > 0f) {
+                Box(
+                    modifier = Modifier
+                        .weight(neutralWeight)
+                        .fillMaxHeight()
+                        .background(MimoColors.Secondary)
+                )
+            }
+            if (distractingWeight > 0f) {
+                Box(
+                    modifier = Modifier
+                        .weight(distractingWeight)
+                        .fillMaxHeight()
+                        .background(MimoColors.Error)
+                )
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            LegendItem(color = MimoColors.Success, label = "Productive")
+            LegendItem(color = MimoColors.Secondary, label = "Neutral")
+            LegendItem(color = MimoColors.Error, label = "Distracting")
+        }
+    }
+}
+
+@Composable
+private fun LegendItem(color: Color, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .clip(RoundedCornerShape(5.dp))
+                .background(color)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(text = label, color = MimoColors.TextSecondary, fontSize = 12.sp)
+    }
+}

@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  mimo-backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://mimo_user:mimo_pass@mimo-db:5432/mimo_db
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - NO_HARDWARE=1
+      - NO_VOICE=1
+      - NO_TRACKER=1
+    depends_on:
+      - mimo-db
+    restart: unless-stopped
+
+  mimo-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=mimo_user
+      - POSTGRES_PASSWORD=mimo_pass
+      - POSTGRES_DB=mimo_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - mimo_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  mimo_db_data:

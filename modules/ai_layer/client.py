@@ -18,26 +18,58 @@ import config
 log = logging.getLogger(__name__)
 
 openai.api_key = config.OPENAI_API_KEY
+from google import genai
+from google.genai import types
 
 _last_call_time: float = 0.0
 _MIN_CALL_INTERVAL = 2.0   # seconds between calls (avoid hammering)
 
 
-def _chat(system: str, user: str, model: str = None, json_mode: bool = False) -> Optional[str]:
-    """Synchronous OpenAI call with basic rate limiting."""
+def _chat(system: str, user: str, model: str = None, json_mode: bool = False, engine: str = "openai", api_key: str = None) -> Optional[str]:
+    """Synchronous AI call with basic rate limiting and multi-engine support."""
     global _last_call_time
-
-    if not config.OPENAI_API_KEY:
-        log.warning("OPENAI_API_KEY not set — skipping AI call")
-        return None
 
     # Rate limit guard
     elapsed = time.time() - _last_call_time
     if elapsed < _MIN_CALL_INTERVAL:
         time.sleep(_MIN_CALL_INTERVAL - elapsed)
+        
+    _last_call_time = time.time()
 
+    if engine == "gemini":
+        key = api_key or os.getenv("GEMINI_API_KEY")
+        if not key:
+            log.warning("GEMINI_API_KEY not set")
+            return None
+            
+        try:
+            client = genai.Client(api_key=key)
+            gemini_model = model or "gemini-2.5-flash"
+            
+            config_args = {
+                "system_instruction": system,
+                "temperature": 0.85,
+            }
+            if json_mode:
+                config_args["response_mime_type"] = "application/json"
+                
+            response = client.models.generate_content(
+                model=gemini_model,
+                contents=user,
+                config=types.GenerateContentConfig(**config_args),
+            )
+            return response.text.strip()
+        except Exception as e:
+            log.error(f"Gemini call failed: {e}")
+            return None
+
+    # Fallback to OpenAI
+    key = api_key or config.OPENAI_API_KEY
+    if not key:
+        log.warning("OPENAI_API_KEY not set")
+        return None
+        
     model = model or config.OPENAI_MODEL
-
     try:
         kwargs = dict(
             model    = model,
@@ -51,13 +83,10 @@ def _chat(system: str, user: str, model: str = None, json_mode: bool = False) ->
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
 
-        resp = openai.chat.completions.create(**kwargs)
-        _last_call_time = time.time()
+        client = openai.OpenAI(api_key=key)
+        resp = client.chat.completions.create(**kwargs)
         return resp.choices[0].message.content.strip()
 
-    except openai.RateLimitError:
-        log.warning("OpenAI rate limit hit")
-        return None
     except Exception as e:
         log.error(f"OpenAI call failed: {e}")
         return None
@@ -69,12 +98,14 @@ def generate_roast(
     time_spent_min: int,
     pending_assignments: str,
     days_until_deadline: int,
+    engine: str = "openai",
+    api_key: str = None,
 ) -> str:
     """Generate a roast. Falls back to pre-written if AI is slow or unavailable."""
     from modules.ai_layer.prompts import ROAST_SYSTEM, ROAST_USER
     import config as cfg
 
-    if cfg.LIVE_ROAST_USE_AI and config.OPENAI_API_KEY:
+    if cfg.LIVE_ROAST_USE_AI:
         user_prompt = ROAST_USER.format(
             trigger             = trigger,
             app_name            = app_name,
@@ -82,7 +113,9 @@ def generate_roast(
             pending_assignments = pending_assignments,
             days_until_deadline = days_until_deadline,
         )
-        result = _chat(ROAST_SYSTEM, user_prompt, model=config.OPENAI_FAST_MODEL)
+        # Use a faster model if openai
+        fast_model = config.OPENAI_FAST_MODEL if engine == "openai" else "gemini-2.5-flash"
+        result = _chat(ROAST_SYSTEM, user_prompt, model=fast_model, engine=engine, api_key=api_key)
         if result:
             return result
 
@@ -91,12 +124,12 @@ def generate_roast(
     return random.choice(roasts)
 
 
-def generate_eod_report(context: dict) -> Optional[dict]:
+def generate_eod_report(context: dict, engine: str = "openai", api_key: str = None) -> Optional[dict]:
     """Generate end-of-day report. Returns parsed JSON dict or None."""
     from modules.ai_layer.prompts import EOD_SYSTEM, EOD_USER
 
     user_prompt = EOD_USER.format(**context)
-    raw = _chat(EOD_SYSTEM, user_prompt, json_mode=True)
+    raw = _chat(EOD_SYSTEM, user_prompt, json_mode=True, engine=engine, api_key=api_key)
 
     if not raw:
         return None
@@ -112,12 +145,12 @@ def generate_eod_report(context: dict) -> Optional[dict]:
         return None
 
 
-def generate_study_recommendations(context: dict) -> Optional[list]:
+def generate_study_recommendations(context: dict, engine: str = "openai", api_key: str = None) -> Optional[list]:
     """Returns list of recommendation dicts or None."""
     from modules.ai_layer.prompts import STUDY_ADVISOR_SYSTEM, STUDY_ADVISOR_USER
 
     user_prompt = STUDY_ADVISOR_USER.format(**context)
-    raw = _chat(STUDY_ADVISOR_SYSTEM, user_prompt, json_mode=True)
+    raw = _chat(STUDY_ADVISOR_SYSTEM, user_prompt, json_mode=True, engine=engine, api_key=api_key)
 
     if not raw:
         return None

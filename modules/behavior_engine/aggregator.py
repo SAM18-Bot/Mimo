@@ -20,7 +20,19 @@ _scorer = ProductivityScorer()
 
 
 def get_daily_stats(db: Session, target_date: Optional[date] = None) -> dict:
-    target_date = target_date or date.today()
+    if target_date is None:
+        from db.models import ScheduleProfile
+        import zoneinfo
+        from datetime import datetime
+        profile = db.query(ScheduleProfile).filter(ScheduleProfile.active == True).first()
+        if profile and profile.timezone:
+            try:
+                tz = zoneinfo.ZoneInfo(profile.timezone)
+                target_date = datetime.now(tz).date()
+            except Exception:
+                target_date = date.today()
+        else:
+            target_date = date.today()
 
     # ── screen sessions ───────────────────────────────────────────────────
     sessions = (

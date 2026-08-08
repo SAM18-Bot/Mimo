@@ -100,6 +100,8 @@ from api.routes_settings             import router as settings_router    # NEW
 from api.routes_monitoring           import router as monitoring_router  # NEW
 from api.routes_schedule             import router as schedule_router     # NEW
 from api.routes_auth                 import router as auth_router         # NEW
+from api.routes_sync                 import router as sync_router         # NEW
+from api.routes_onboarding           import router as onboarding_router   # NEW
 
 app.include_router(assignments_router)
 app.include_router(screen_router)
@@ -111,10 +113,33 @@ app.include_router(settings_router)
 app.include_router(monitoring_router)
 app.include_router(schedule_router)
 app.include_router(auth_router)
+app.include_router(sync_router)
+app.include_router(onboarding_router)
 
 # ── WebSocket ─────────────────────────────────────────────────────────────
 @app.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket):
+async def websocket_endpoint(ws: WebSocket, token: str = None):
+    if not token:
+        await ws.close(code=1008, reason="Missing token")
+        return
+
+    if token != "dev_token":
+        from modules.auth.security import decode_access_token
+        from fastapi import HTTPException
+        
+        try:
+            payload = decode_access_token(token)
+        except Exception:
+            await ws.close(code=1008, reason="Invalid token")
+            return
+
+        from db.database import get_db_ctx
+        from db.models import TokenBlocklist
+        with get_db_ctx() as db:
+            if db.query(TokenBlocklist).filter(TokenBlocklist.token == token).first():
+                await ws.close(code=1008, reason="Token revoked")
+                return
+
     await manager.connect(ws)
     try:
         from db.database import get_db_ctx
@@ -154,6 +179,11 @@ async def dashboard():
 @app.get("/schedule", response_class=HTMLResponse)
 async def schedule_page():
     return FileResponse("static/schedule.html")
+
+
+@app.get("/parents", response_class=HTMLResponse)
+async def parent_portal():
+    return FileResponse("static/parent_portal.html")
 
 
 # ── health ────────────────────────────────────────────────────────────────

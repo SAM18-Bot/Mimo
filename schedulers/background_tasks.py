@@ -18,6 +18,7 @@ roast_engine     = None
 
 NO_HARDWARE = os.getenv("NO_HARDWARE", "1").strip() == "1"  # default: skip hardware
 NO_VOICE    = os.getenv("NO_VOICE",    "1").strip() == "1"  # default: skip voice
+NO_TRACKER  = os.getenv("NO_TRACKER",  "0").strip() == "1"  # default: run tracker
 
 
 class EventDispatcher:
@@ -75,19 +76,22 @@ def start_all(speak_fn=None, broadcast_fn=None):
     )
     log.info("Roast engine ready.")
 
-    # ── Screen tracker ────────────────────────────────────────────────────
-    dispatcher = EventDispatcher(
-        broadcast_fn        = broadcast_fn,
-        on_window_change_fn = roast_engine.on_window_change,
-    )
-    from modules.screen_tracker.tracker import ScreenTracker
-    screen_tracker = ScreenTracker(event_bus=dispatcher)
-    try:
-        screen_tracker.start()
-        log.info("Screen tracker started.")
-    except Exception as e:
-        log.warning(f"Screen tracker failed to start: {e}")
-        log.warning("Use POST /screen/mock to inject window events manually.")
+    # ── Screen tracker (skip if NO_TRACKER) ───────────────────────────────
+    if NO_TRACKER:
+        log.info("NO_TRACKER=1 — Screen tracking disabled. Use POST /screen/mock to inject events.")
+    else:
+        dispatcher = EventDispatcher(
+            broadcast_fn        = broadcast_fn,
+            on_window_change_fn = roast_engine.on_window_change,
+        )
+        from modules.screen_tracker.tracker import ScreenTracker
+        screen_tracker = ScreenTracker(event_bus=dispatcher)
+        try:
+            screen_tracker.start()
+            log.info("Screen tracker started.")
+        except Exception as e:
+            log.warning(f"Screen tracker failed to start: {e}")
+            log.warning("Use POST /screen/mock to inject window events manually.")
 
     # ── CV pipeline (skip if NO_HARDWARE) ────────────────────────────────
     if NO_HARDWARE:

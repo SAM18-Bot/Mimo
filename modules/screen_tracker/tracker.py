@@ -102,6 +102,7 @@ class ScreenTracker:
         self._running   = False
         self._thread    = None
         self._stitcher  = SessionStitcher()
+        self._distracting_buffer_s = 0
 
     # ── lifecycle ─────────────────────────────────────────────────────────
 
@@ -138,6 +139,17 @@ class ScreenTracker:
 
                 if closed:
                     self._save_session(closed)
+
+                # Check if we should block the app
+                if category == "distracting":
+                    self._distracting_buffer_s += config.SCREEN_POLL_INTERVAL
+                    if self._distracting_buffer_s > 600:  # 10 minutes
+                        # Are we in a study block?
+                        if self._is_study_block_active():
+                            self._kill_process(app)
+                            self._distracting_buffer_s = 0
+                else:
+                    self._distracting_buffer_s = 0
 
                 # Always broadcast the current window to dashboard
                 if self._event_bus:
@@ -176,3 +188,35 @@ class ScreenTracker:
             log.debug("Saved session: [%s] %s %ds", session.category, session.app, session.duration_s)
         except Exception as e:
             log.error("Failed to save screen session: %s", e)
+
+    def _is_study_block_active(self) -> bool:
+        """Check the database to see if we are currently inside a 'study' schedule block."""
+        try:
+            from db.models import ScheduleBlock
+            now_time = datetime.now().strftime("%H:%M")
+            today_day = datetime.now().weekday()
+            
+            with get_db_ctx() as db:
+                block = db.query(ScheduleBlock).filter(
+                    ScheduleBlock.day_of_week == today_day,
+                    ScheduleBlock.start_time <= now_time,
+                    ScheduleBlock.end_time >= now_time,
+                    ScheduleBlock.kind == "study"
+                ).first()
+                return block is not None
+        except Exception as e:
+            log.error("Failed to check study block: %s", e)
+            return False
+
+    def _kill_process(self, app_name: str):
+        """Force kill the distracting app."""
+        log.warning(f"Blocking distracting app: {app_name}")
+        try:
+            if _SYSTEM == "Windows":
+                import subprocess
+                subprocess.run(["taskkill", "/F", "/IM", f"{app_name}.exe"], capture_output=True)
+            elif _SYSTEM == "Linux" or _SYSTEM == "Darwin":
+                import subprocess
+                subprocess.run(["killall", "-9", app_name], capture_output=True)
+        except Exception as e:
+            log.error(f"Failed to kill process {app_name}: {e}")

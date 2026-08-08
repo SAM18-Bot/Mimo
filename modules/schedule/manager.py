@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Iterable, Optional
 
 from sqlalchemy.orm import Session
 
-from db.models import ScheduleBlock, ScheduleProfile
+from db.models import Assignment, ScheduleBlock, ScheduleProfile
 
 
 DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 VALID_PRIORITIES = {"low", "medium", "high"}
-VALID_STATUSES = {"planned", "done", "skipped", "moved"}
+VALID_STATUSES = {"planned", "done", "skipped", "moved", "missed"}
 
 
 @dataclass(frozen=True)
@@ -78,8 +78,8 @@ def build_onboarding_schedule(
 ) -> ScheduleProfile:
     wake_min = _parse_time(wake_time)
     sleep_min = _parse_time(sleep_time)
-    if wake_min >= sleep_min:
-        raise ValueError("sleep_time must be later than wake_time on the same day")
+    if wake_min == sleep_min:
+        raise ValueError("wake_time and sleep_time cannot be the same")
     if study_goal_minutes <= 0:
         raise ValueError("study_goal_minutes must be positive")
     if session_minutes <= 0:
@@ -181,6 +181,288 @@ def schedule_status(db: Session) -> dict:
     return {"configured": True, "profile_id": profile.id, "blocks": count}
 
 
+def reschedule_missed_blocks(
+    db: Session,
+    *,
+    target_date: Optional[date] = None,
+) -> list[ScheduleBlock]:
+    """Find skipped/missed study blocks for today and reschedule them into free windows."""
+    target = target_date or date.today()
+    profile = get_active_profile(db)
+    if not profile:
+        return []
+
+    day_of_week = target.weekday()
+    day_blocks = (
+        db.query(ScheduleBlock)
+        .filter(ScheduleBlock.profile_id == profile.id)
+        .filter(ScheduleBlock.day_of_week == day_of_week)
+        .order_by(ScheduleBlock.start_time)
+        .all()
+    )
+
+    missed = [b for b in day_blocks if b.kind == "study" and b.status in ("skipped", "missed")]
+    if not missed:
+        return []
+
+    # Build busy intervals from non-missed blocks
+    busy: list[tuple[int, int]] = []
+    for b in day_blocks:
+        if b.status not in ("skipped", "missed"):
+            busy.append((_parse_time(b.start_time), _parse_time(b.end_time)))
+
+    # Determine schedule bounds
+    wake_min = _parse_time(profile.wake_time)
+    sleep_min = _parse_time(profile.sleep_time)
+    if wake_min < sleep_min:
+        segments = [(wake_min, sleep_min)]
+    else:
+        segments = [(wake_min, 24 * 60), (0, sleep_min)]
+
+    # Find free windows across all segments
+    free: list[tuple[int, int]] = []
+    for seg_start, seg_end in segments:
+        free.extend(_free_windows(seg_start, seg_end, busy))
+
+    rescheduled: list[ScheduleBlock] = []
+    for block in missed:
+        duration = _parse_time(block.end_time) - _parse_time(block.start_time)
+        if duration <= 0:
+            duration = profile.session_minutes or 50
+
+        placed = False
+        for i, (ws, we) in enumerate(free):
+            if we - ws >= duration:
+                new_block = ScheduleBlock(
+                    profile_id=profile.id,
+                    day_of_week=day_of_week,
+                    block_date=target,
+                    start_time=_format_time(ws),
+                    end_time=_format_time(ws + duration),
+                    kind="study",
+                    title=block.title,
+                    subject=block.subject,
+                    flexibility="movable",
+                    source="rescheduled",
+                    priority=block.priority,
+                    status="planned",
+                )
+                db.add(new_block)
+                rescheduled.append(new_block)
+
+                # Shrink the free window
+                new_start = ws + duration + (profile.break_minutes or 0)
+                if new_start < we:
+                    free[i] = (new_start, we)
+                else:
+                    free[i] = (we, we)  # exhausted
+
+                placed = True
+                break
+
+        if not placed:
+            break  # No more free windows
+
+    if rescheduled:
+        db.commit()
+        for b in rescheduled:
+            db.refresh(b)
+
+    return rescheduled
+
+
+def boost_subject_priority(
+    db: Session,
+    *,
+    target_date: Optional[date] = None,
+    lookahead_days: int = 3,
+) -> list[ScheduleBlock]:
+    """Create extra study blocks for subjects with assignments due within lookahead_days."""
+    target = target_date or date.today()
+    profile = get_active_profile(db)
+    if not profile:
+        return []
+
+    deadline = target + timedelta(days=lookahead_days)
+    urgent_assignments = (
+        db.query(Assignment)
+        .filter(Assignment.due_date >= target)
+        .filter(Assignment.due_date <= deadline)
+        .filter(Assignment.status != "done")
+        .all()
+    )
+
+    if not urgent_assignments:
+        return []
+
+    # Collect unique subjects needing boost
+    urgent_subjects: dict[str, int] = {}  # subject -> urgency (days until due)
+    for a in urgent_assignments:
+        subj = (a.subject or "General").strip()
+        days_left = (a.due_date - target).days
+        if subj not in urgent_subjects or days_left < urgent_subjects[subj]:
+            urgent_subjects[subj] = days_left
+
+    day_of_week = target.weekday()
+    day_blocks = (
+        db.query(ScheduleBlock)
+        .filter(ScheduleBlock.profile_id == profile.id)
+        .filter(ScheduleBlock.day_of_week == day_of_week)
+        .order_by(ScheduleBlock.start_time)
+        .all()
+    )
+
+    # Build busy intervals
+    busy: list[tuple[int, int]] = []
+    for b in day_blocks:
+        busy.append((_parse_time(b.start_time), _parse_time(b.end_time)))
+
+    wake_min = _parse_time(profile.wake_time)
+    sleep_min = _parse_time(profile.sleep_time)
+    if wake_min < sleep_min:
+        segments = [(wake_min, sleep_min)]
+    else:
+        segments = [(wake_min, 24 * 60), (0, sleep_min)]
+
+    free: list[tuple[int, int]] = []
+    for seg_start, seg_end in segments:
+        free.extend(_free_windows(seg_start, seg_end, busy))
+
+    session_min = profile.session_minutes or 50
+    boosted: list[ScheduleBlock] = []
+
+    # Sort by urgency (most urgent first)
+    for subj, days_left in sorted(urgent_subjects.items(), key=lambda x: x[1]):
+        placed = False
+        for i, (ws, we) in enumerate(free):
+            if we - ws >= session_min:
+                new_block = ScheduleBlock(
+                    profile_id=profile.id,
+                    day_of_week=day_of_week,
+                    block_date=target,
+                    start_time=_format_time(ws),
+                    end_time=_format_time(ws + session_min),
+                    kind="study",
+                    title=f"Deadline boost: {subj}",
+                    subject=subj,
+                    flexibility="movable",
+                    source="deadline_boost",
+                    priority="high",
+                    status="planned",
+                )
+                db.add(new_block)
+                boosted.append(new_block)
+
+                new_start = ws + session_min + (profile.break_minutes or 0)
+                if new_start < we:
+                    free[i] = (new_start, we)
+                else:
+                    free[i] = (we, we)
+
+                placed = True
+                break
+
+        if not placed:
+            break
+
+    if boosted:
+        db.commit()
+        for b in boosted:
+            db.refresh(b)
+
+    return boosted
+
+
+def smart_suggestions(
+    db: Session,
+    *,
+    target_date: Optional[date] = None,
+) -> list[dict]:
+    """Generate AI-style schedule adjustment suggestions based on current state."""
+    target = target_date or date.today()
+    profile = get_active_profile(db)
+    suggestions: list[dict] = []
+
+    if not profile:
+        suggestions.append({
+            "type": "setup",
+            "priority": "high",
+            "message": "No schedule configured. Complete onboarding to get personalized study blocks.",
+        })
+        return suggestions
+
+    day_of_week = target.weekday()
+    day_blocks = (
+        db.query(ScheduleBlock)
+        .filter(ScheduleBlock.profile_id == profile.id)
+        .filter(ScheduleBlock.day_of_week == day_of_week)
+        .order_by(ScheduleBlock.start_time)
+        .all()
+    )
+
+    study_blocks = [b for b in day_blocks if b.kind == "study"]
+    missed = [b for b in study_blocks if b.status in ("skipped", "missed")]
+    done = [b for b in study_blocks if b.status == "done"]
+
+    # Suggestion: reschedule missed blocks
+    if missed:
+        subjects = list({b.subject or "General" for b in missed})
+        suggestions.append({
+            "type": "reschedule",
+            "priority": "high",
+            "message": f"You have {len(missed)} skipped/missed block(s) for {', '.join(subjects)}. Use POST /schedule/reschedule to find new time slots.",
+            "missed_count": len(missed),
+            "subjects": subjects,
+        })
+
+    # Suggestion: upcoming assignment deadlines
+    deadline = target + timedelta(days=3)
+    urgent = (
+        db.query(Assignment)
+        .filter(Assignment.due_date >= target)
+        .filter(Assignment.due_date <= deadline)
+        .filter(Assignment.status != "done")
+        .all()
+    )
+    if urgent:
+        for a in urgent:
+            days_left = (a.due_date - target).days
+            label = "today" if days_left == 0 else f"in {days_left} day(s)"
+            suggestions.append({
+                "type": "deadline_boost",
+                "priority": "high" if days_left <= 1 else "medium",
+                "message": f"\"{a.title}\" is due {label}. Consider boosting study time for {a.subject or 'this subject'}.",
+                "assignment_id": a.id,
+                "days_left": days_left,
+            })
+
+    # Suggestion: completion rate
+    if study_blocks and not missed:
+        completion = len(done) / len(study_blocks) * 100
+        if completion >= 80:
+            suggestions.append({
+                "type": "praise",
+                "priority": "low",
+                "message": f"Great work! You've completed {len(done)}/{len(study_blocks)} study blocks today ({completion:.0f}%).",
+            })
+        elif completion >= 50:
+            remaining = len(study_blocks) - len(done)
+            suggestions.append({
+                "type": "encouragement",
+                "priority": "medium",
+                "message": f"{remaining} study block(s) remaining today. Keep pushing!",
+            })
+
+    if not suggestions:
+        suggestions.append({
+            "type": "on_track",
+            "priority": "low",
+            "message": "Your schedule looks good for today. Stay focused!",
+        })
+
+    return suggestions
+
+
 def _generate_blocks(
     *,
     profile: ScheduleProfile,
@@ -221,14 +503,21 @@ def _generate_blocks(
             ))
 
         remaining = profile.study_goal_minutes or 120
-        free_windows = _free_windows(
-            _parse_time(profile.wake_time),
-            _parse_time(profile.sleep_time),
-            busy,
-        )
+        wake_min = _parse_time(profile.wake_time)
+        sleep_min = _parse_time(profile.sleep_time)
+
+        # Support overnight schedules (e.g., wake 10:00, sleep 02:00)
+        if wake_min < sleep_min:
+            segments = [(wake_min, sleep_min)]
+        else:
+            segments = [(wake_min, 24 * 60), (0, sleep_min)]
+
+        free_wins: list[tuple[int, int]] = []
+        for seg_start, seg_end in segments:
+            free_wins.extend(_free_windows(seg_start, seg_end, busy))
 
         session_index = 0
-        for start, end in free_windows:
+        for start, end in free_wins:
             cursor = start
             while remaining > 0 and cursor + min(remaining, profile.session_minutes or 50) <= end:
                 duration = min(remaining, profile.session_minutes or 50)

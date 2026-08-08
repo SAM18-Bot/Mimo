@@ -3,9 +3,11 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from contextlib import contextmanager
 import config
 
+connect_args = {"check_same_thread": False} if config.DATABASE_URL.startswith("sqlite") else {}
+
 engine = create_engine(
     config.DATABASE_URL,
-    connect_args={"check_same_thread": False},  # needed for SQLite + FastAPI
+    connect_args=connect_args,
     echo=False,
 )
 

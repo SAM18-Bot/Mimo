@@ -8,12 +8,15 @@ from sqlalchemy.orm import Session
 from api.websocket import push_event
 from db.database import get_db
 from modules.schedule.manager import (
+    boost_subject_priority,
     build_onboarding_schedule,
     get_active_profile,
     get_day_schedule,
     get_weekly_schedule,
     onboarding_questions,
+    reschedule_missed_blocks,
     schedule_status,
+    smart_suggestions,
     update_block_status,
 )
 
@@ -88,7 +91,7 @@ class ScheduleOnboardingOut(BaseModel):
 
 
 class BlockStatusIn(BaseModel):
-    status: Literal["planned", "done", "skipped", "moved"]
+    status: Literal["planned", "done", "skipped", "moved", "missed"]
 
 
 @router.get("/onboarding/questions")
@@ -152,3 +155,41 @@ def set_block_status(block_id: int, payload: BlockStatusIn, db: Session = Depend
         raise HTTPException(status_code=404, detail="Schedule block not found")
     push_event({"type": "schedule_block_updated", "id": block.id, "status": block.status})
     return block
+
+
+@router.post("/reschedule", response_model=list[ScheduleBlockOut])
+def reschedule(target_date: Optional[date] = None, db: Session = Depends(get_db)):
+    """Find skipped/missed blocks for today and reschedule them into free windows."""
+    new_blocks = reschedule_missed_blocks(db, target_date=target_date)
+    if new_blocks:
+        push_event({
+            "type": "schedule_rescheduled",
+            "count": len(new_blocks),
+            "blocks": [b.id for b in new_blocks],
+        })
+    return new_blocks
+
+
+@router.post("/boost", response_model=list[ScheduleBlockOut])
+def boost(
+    target_date: Optional[date] = None,
+    lookahead_days: int = 3,
+    db: Session = Depends(get_db),
+):
+    """Create extra study blocks for subjects with upcoming assignment deadlines."""
+    boosted = boost_subject_priority(
+        db, target_date=target_date, lookahead_days=lookahead_days
+    )
+    if boosted:
+        push_event({
+            "type": "schedule_boosted",
+            "count": len(boosted),
+            "subjects": list({b.subject for b in boosted if b.subject}),
+        })
+    return boosted
+
+
+@router.get("/smart-suggestions")
+def suggestions(target_date: Optional[date] = None, db: Session = Depends(get_db)):
+    """Get AI-powered schedule adjustment suggestions."""
+    return {"suggestions": smart_suggestions(db, target_date=target_date)}

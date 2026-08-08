@@ -156,6 +156,12 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     role          = Column(String(20), nullable=False, default="student")  # student | parent
     display_name  = Column(String(120))
+    ai_engine     = Column(String(20), default="openai")  # openai | gemini
+    api_key       = Column(String(255))
+    course        = Column(String(120))
+    age           = Column(Integer)
+    education_level = Column(String(50))
+    onboarding_completed = Column(Boolean, default=False)
     created_at    = Column(DateTime, default=func.now())
 
     devices        = relationship("Device", back_populates="user", cascade="all, delete")
@@ -196,4 +202,13 @@ class ParentStudentLink(Base):
     id         = Column(Integer, primary_key=True, index=True)
     parent_id  = Column(Integer, ForeignKey("users.id"), nullable=False)
     student_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=func.now())
+
+
+class TokenBlocklist(Base):
+    __tablename__ = "token_blocklist"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    token      = Column(String(500), unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=func.now())
