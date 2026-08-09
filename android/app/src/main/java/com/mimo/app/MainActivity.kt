@@ -66,7 +66,5 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        stopService(Intent(this, RoastEnforcementService::class.java))
-        stopService(Intent(this, MobileTrackerService::class.java))
     }
 }

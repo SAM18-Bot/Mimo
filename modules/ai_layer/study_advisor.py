@@ -44,17 +44,17 @@ class StudyAdvisor:
 
     # ── public API ────────────────────────────────────────────────────────
 
-    def get_subject_report(self, days: int = 7) -> dict:
+    def get_subject_report(self, user_id: int, days: int = 7) -> dict:
         """
         Returns a full subject-level analysis dict:
           subjects, weak_subjects, strong_subjects,
           time_per_subject, last_studied, recommendations
         """
-        time_map   = self._subject_time(days)
-        completion = self._completion_rates()
-        last_seen  = self._last_studied()
-        overdue    = self._overdue_subjects()
-        patterns   = get_weekly_patterns(self._db)
+        time_map   = self._subject_time(user_id, days)
+        completion = self._completion_rates(user_id)
+        last_seen  = self._last_studied(user_id)
+        overdue    = self._overdue_subjects(user_id)
+        patterns   = get_weekly_patterns(self._db, user_id=user_id)
 
         ranked = self._rank_subjects(time_map, completion, last_seen, overdue)
         weak   = [s for s, _ in ranked[:3]]
@@ -79,16 +79,17 @@ class StudyAdvisor:
             "weekly_patterns":    patterns.get("insights", []),
         }
 
-    def get_next_to_study(self) -> str:
+    def get_next_to_study(self, user_id: int) -> str:
         """Single answer: what to study right now."""
-        overdue = self._overdue_subjects()
+        overdue = self._overdue_subjects(user_id)
         if overdue:
             return f"You have overdue work in {overdue[0]}. Start there."
 
-        time_map = self._subject_time(7)
+        time_map = self._subject_time(user_id, 7)
         if not time_map:
             upcoming = (
                 self._db.query(Assignment)
+                .filter(Assignment.user_id == user_id)
                 .filter(Assignment.due_date >= date.today())
                 .filter(Assignment.status != "done")
                 .order_by(Assignment.due_date)
@@ -106,11 +107,12 @@ class StudyAdvisor:
 
     # ── analysis helpers ─────────────────────────────────────────────────
 
-    def _subject_time(self, days: int) -> Dict[str, int]:
+    def _subject_time(self, user_id: int, days: int) -> Dict[str, int]:
         """Minutes spent per subject over the past N days."""
         cutoff   = date.today() - timedelta(days=days)
         sessions = (
             self._db.query(ScreenSession)
+            .filter(ScreenSession.user_id == user_id)
             .filter(ScreenSession.session_date >= cutoff)
             .filter(ScreenSession.category == "productive")
             .all()
@@ -125,6 +127,7 @@ class StudyAdvisor:
         # Also add subjects from assignments (even if no screen time)
         assignments = (
             self._db.query(Assignment)
+            .filter(Assignment.user_id == user_id)
             .filter(Assignment.due_date >= cutoff)
             .all()
         )
@@ -134,9 +137,9 @@ class StudyAdvisor:
 
         return dict(totals)
 
-    def _completion_rates(self) -> Dict[str, float]:
+    def _completion_rates(self, user_id: int) -> Dict[str, float]:
         """Assignment completion % per subject (0–100)."""
-        assignments = self._db.query(Assignment).all()
+        assignments = self._db.query(Assignment).filter(Assignment.user_id == user_id).all()
         by_subject: Dict[str, list] = defaultdict(list)
         for a in assignments:
             if a.subject:
@@ -148,10 +151,11 @@ class StudyAdvisor:
             if done_list
         }
 
-    def _last_studied(self) -> Dict[str, date]:
+    def _last_studied(self, user_id: int) -> Dict[str, date]:
         """Date each subject was last seen in productive screen sessions."""
         sessions = (
             self._db.query(ScreenSession)
+            .filter(ScreenSession.user_id == user_id)
             .filter(ScreenSession.category == "productive")
             .order_by(ScreenSession.session_date.desc())
             .limit(500)
@@ -164,9 +168,10 @@ class StudyAdvisor:
                 last[subj] = s.session_date
         return last
 
-    def _overdue_subjects(self) -> List[str]:
+    def _overdue_subjects(self, user_id: int) -> List[str]:
         overdue = (
             self._db.query(Assignment)
+            .filter(Assignment.user_id == user_id)
             .filter(Assignment.due_date < date.today())
             .filter(Assignment.status != "done")
             .all()
@@ -347,26 +352,28 @@ def _rule_based_recommendations(
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session as DbSession
 from db.database import get_db
+from api.routes_auth import current_user
+from db.models import User
 
 router = APIRouter(prefix="/study", tags=["study"])
 
 
 @router.get("/recommendations")
-def get_recommendations(days: int = 7, db: DbSession = Depends(get_db)):
+def get_recommendations(days: int = 7, user: User = Depends(current_user), db: DbSession = Depends(get_db)):
     """Full weekly subject analysis + study plan + AI recommendations."""
     advisor = StudyAdvisor(db)
-    return advisor.get_subject_report(days=days)
+    return advisor.get_subject_report(user.id, days=days)
 
 
 @router.get("/next")
-def what_to_study_now(db: DbSession = Depends(get_db)):
+def what_to_study_now(user: User = Depends(current_user), db: DbSession = Depends(get_db)):
     """Single answer: what to study right now."""
     advisor = StudyAdvisor(db)
-    return {"recommendation": advisor.get_next_to_study()}
+    return {"recommendation": advisor.get_next_to_study(user.id)}
 
 
 @router.get("/subjects")
-def subject_time_breakdown(days: int = 7, db: DbSession = Depends(get_db)):
+def subject_time_breakdown(days: int = 7, user: User = Depends(current_user), db: DbSession = Depends(get_db)):
     """Raw minutes per subject over the past N days."""
     advisor = StudyAdvisor(db)
-    return advisor._subject_time(days)
+    return advisor._subject_time(user.id, days)

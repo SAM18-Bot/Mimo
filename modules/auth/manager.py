@@ -5,7 +5,10 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from sqlalchemy.orm import Session
+from google.oauth2 import id_token
+from google.auth.transport import requests
 
+import config
 from db.models import DailySummary, Device, ParentInvite, ParentStudentLink, User
 from modules.auth.security import create_access_token, hash_password, verify_password
 
@@ -48,6 +51,44 @@ def login_user(db: Session, *, email: str, password: str) -> tuple[User, str]:
     if not user or not verify_password(password, user.password_hash):
         raise ValueError("invalid email or password")
     return user, create_access_token(user.id, user.role)
+
+
+def google_login_user(db: Session, *, token: str) -> tuple[User, str]:
+    try:
+        idinfo = id_token.verify_oauth2_token(token, requests.Request(), config.GOOGLE_CLIENT_ID)
+        email = idinfo.get("email")
+        google_id = idinfo.get("sub")
+        display_name = idinfo.get("name")
+        
+        if not email or not google_id:
+            raise ValueError("Invalid Google token payload")
+        
+        email = _normalize_email(email)
+        user = db.query(User).filter(User.email == email).first()
+        
+        if not user:
+            user = User(
+                email=email,
+                auth_provider="google",
+                google_id=google_id,
+                display_name=display_name,
+                role="student",
+                onboarding_completed=False,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        else:
+            if not user.google_id:
+                user.google_id = google_id
+                user.auth_provider = "google"
+                db.commit()
+                db.refresh(user)
+                
+        return user, create_access_token(user.id, user.role)
+        
+    except ValueError as e:
+        raise ValueError(f"Invalid token: {e}")
 
 
 def register_device(

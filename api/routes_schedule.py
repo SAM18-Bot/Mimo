@@ -4,6 +4,8 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
+from api.routes_auth import current_user
+from db.models import User
 
 from api.websocket import push_event
 from db.database import get_db
@@ -100,10 +102,11 @@ def get_onboarding_questions():
 
 
 @router.post("/onboarding", response_model=ScheduleOnboardingOut, status_code=201)
-def create_from_onboarding(payload: ScheduleOnboardingIn, db: Session = Depends(get_db)):
+def create_from_onboarding(payload: ScheduleOnboardingIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
     try:
         profile = build_onboarding_schedule(
             db,
+            user_id=user.id,
             wake_time=payload.wake_time,
             sleep_time=payload.sleep_time,
             timezone=payload.timezone,
@@ -120,33 +123,33 @@ def create_from_onboarding(payload: ScheduleOnboardingIn, db: Session = Depends(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    blocks = get_weekly_schedule(db)
+    blocks = get_weekly_schedule(db, user_id=user.id)
     push_event({"type": "schedule_updated", "profile_id": profile.id, "blocks": len(blocks)})
     return {"profile": profile, "blocks": blocks}
 
 
 @router.get("/status")
-def status(db: Session = Depends(get_db)):
-    return schedule_status(db)
+def status(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    return schedule_status(db, user_id=user.id)
 
 
 @router.get("/profile", response_model=Optional[ScheduleProfileOut])
-def profile(db: Session = Depends(get_db)):
-    return get_active_profile(db)
+def profile(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    return get_active_profile(db, user_id=user.id)
 
 
 @router.get("/weekly", response_model=list[ScheduleBlockOut])
-def weekly(db: Session = Depends(get_db)):
-    return get_weekly_schedule(db)
+def weekly(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    return get_weekly_schedule(db, user_id=user.id)
 
 
 @router.get("/today", response_model=list[ScheduleBlockOut])
-def today(target_date: Optional[date] = None, db: Session = Depends(get_db)):
-    return get_day_schedule(db, target_date)
+def today(target_date: Optional[date] = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    return get_day_schedule(db, user_id=user.id, target_date=target_date)
 
 
 @router.patch("/blocks/{block_id}", response_model=ScheduleBlockOut)
-def set_block_status(block_id: int, payload: BlockStatusIn, db: Session = Depends(get_db)):
+def set_block_status(block_id: int, payload: BlockStatusIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
     try:
         block = update_block_status(db, block_id, payload.status)
     except ValueError as exc:
@@ -158,9 +161,9 @@ def set_block_status(block_id: int, payload: BlockStatusIn, db: Session = Depend
 
 
 @router.post("/reschedule", response_model=list[ScheduleBlockOut])
-def reschedule(target_date: Optional[date] = None, db: Session = Depends(get_db)):
+def reschedule(target_date: Optional[date] = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Find skipped/missed blocks for today and reschedule them into free windows."""
-    new_blocks = reschedule_missed_blocks(db, target_date=target_date)
+    new_blocks = reschedule_missed_blocks(db, user_id=user.id, target_date=target_date)
     if new_blocks:
         push_event({
             "type": "schedule_rescheduled",
@@ -174,11 +177,12 @@ def reschedule(target_date: Optional[date] = None, db: Session = Depends(get_db)
 def boost(
     target_date: Optional[date] = None,
     lookahead_days: int = 3,
+    user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
     """Create extra study blocks for subjects with upcoming assignment deadlines."""
     boosted = boost_subject_priority(
-        db, target_date=target_date, lookahead_days=lookahead_days
+        db, user_id=user.id, target_date=target_date, lookahead_days=lookahead_days
     )
     if boosted:
         push_event({
@@ -190,6 +194,6 @@ def boost(
 
 
 @router.get("/smart-suggestions")
-def suggestions(target_date: Optional[date] = None, db: Session = Depends(get_db)):
+def suggestions(target_date: Optional[date] = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Get AI-powered schedule adjustment suggestions."""
-    return {"suggestions": smart_suggestions(db, target_date=target_date)}
+    return {"suggestions": smart_suggestions(db, user_id=user.id, target_date=target_date)}

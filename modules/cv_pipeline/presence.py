@@ -166,7 +166,13 @@ class PresenceMonitor:
     def _log_event(self, event_type: str, ts: datetime):
         try:
             with get_db_ctx() as db:
+                from db.models import User
+                user = db.query(User).first()
+                if not user:
+                    return
+
                 db.add(CVEvent(
+                    user_id      = user.id,
                     event_type   = event_type,
                     timestamp    = ts,
                     session_date = ts.date(),

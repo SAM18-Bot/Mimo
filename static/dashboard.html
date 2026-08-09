@@ -40,6 +40,9 @@
   <!-- Chart.js CDN for Doughnut & Bar Charts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+  <!-- Google OAuth Client -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
   <style>
     /* ═══════════════════════════════════════════════════════════════════════════
        1. CORE RESET & CSS VARIABLE THEME ENGINE
@@ -964,6 +967,55 @@
     </div>
   </div>
 
+  <!-- ══ GOOGLE OAUTH & ONBOARDING OVERLAY ══ -->
+  <div class="modal-overlay" id="auth-overlay">
+    <div class="qa-modal card max-w-md w-full">
+      <!-- Login View -->
+      <div id="auth-login-view">
+        <div class="qa-title text-xl font-bold mb-2">Welcome to Mimo</div>
+        <div class="qa-sub text-sm text-muted mb-6">Sign in to sync your study data and access your dashboard.</div>
+        <div class="flex justify-center">
+          <div id="g_id_onload"
+             data-client_id="YOUR_GOOGLE_CLIENT_ID"
+             data-context="signin"
+             data-ux_mode="popup"
+             data-callback="handleGoogleLogin"
+             data-auto_prompt="false">
+          </div>
+          <div class="g_id_signin"
+             data-type="standard"
+             data-shape="rectangular"
+             data-theme="outline"
+             data-text="signin_with"
+             data-size="large"
+             data-logo_alignment="left">
+          </div>
+        </div>
+      </div>
+
+      <!-- Onboarding View -->
+      <div id="auth-onboard-view" class="hidden">
+        <div class="qa-title text-xl font-bold mb-2">Almost there!</div>
+        <div class="qa-sub text-sm text-muted mb-4">Tell us a bit about yourself so Mimo can tailor your experience.</div>
+        <form id="onboard-form" onsubmit="handleOnboardingSubmit(event)">
+          <div class="mb-3">
+            <label class="block text-xs font-bold text-muted mb-1">Course/Major</label>
+            <input type="text" id="onboard-course" class="w-full p-2 rounded bg-input border border-subtle text-sm text-primary outline-none" required placeholder="e.g. Computer Science">
+          </div>
+          <div class="mb-3">
+            <label class="block text-xs font-bold text-muted mb-1">Age</label>
+            <input type="number" id="onboard-age" class="w-full p-2 rounded bg-input border border-subtle text-sm text-primary outline-none" required min="10" max="99" placeholder="18">
+          </div>
+          <div class="mb-4">
+            <label class="block text-xs font-bold text-muted mb-1">Target Wake Time</label>
+            <input type="time" id="onboard-wake" class="w-full p-2 rounded bg-input border border-subtle text-sm text-primary outline-none" required>
+          </div>
+          <button type="submit" class="w-full py-2 rounded-lg bg-indigo-600 text-white font-bold transition hover:bg-indigo-500">Complete Setup</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- ══ TOAST NOTIFICATION ══ -->
   <div id="toast">Notification text</div>
 
@@ -972,6 +1024,76 @@
     /* ═══════════════════════════════════════════════════════════════════════════
        MIMO DASHBOARD MASTER JS ENGINE
        ═══════════════════════════════════════════════════════════════════════════ */
+
+    // Fetch Interceptor for Auth Token
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+      let [resource, config] = args;
+      if (!config) config = {};
+      if (!config.headers) config.headers = {};
+      const token = localStorage.getItem('mimo_token');
+      if (token && !config.headers['Authorization'] && !config.headers.Authorization) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+      }
+      return await originalFetch(resource, config);
+    };
+
+    function checkAuth() {
+      const token = localStorage.getItem('mimo_token');
+      if (!token) {
+        document.getElementById('auth-overlay').classList.add('open');
+      }
+    }
+
+    async function handleGoogleLogin(response) {
+      const credential = response.credential;
+      try {
+        const res = await fetch('/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: credential })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          localStorage.setItem('mimo_token', data.access_token);
+          
+          if (data.user && data.user.onboarding_completed === false) {
+            document.getElementById('auth-login-view').classList.add('hidden');
+            document.getElementById('auth-onboard-view').classList.remove('hidden');
+          } else {
+            document.getElementById('auth-overlay').classList.remove('open');
+            window.location.reload();
+          }
+        } else {
+          showToast('Login failed');
+        }
+      } catch (e) {
+        showToast('Login error');
+      }
+    }
+
+    async function handleOnboardingSubmit(e) {
+      e.preventDefault();
+      const course = document.getElementById('onboard-course').value;
+      const age = document.getElementById('onboard-age').value;
+      const wakeTime = document.getElementById('onboard-wake').value;
+      
+      try {
+        const res = await fetch('/onboarding/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ course, age: parseInt(age, 10), target_wake_time: wakeTime })
+        });
+        if (res.ok) {
+          document.getElementById('auth-overlay').classList.remove('open');
+          window.location.reload();
+        } else {
+          showToast('Onboarding failed');
+        }
+      } catch (err) {
+        showToast('Onboarding error');
+      }
+    }
 
     // Global State Single-Source-of-Truth
     const S = {
@@ -1023,6 +1145,7 @@
        1. BOOTSTRAP & INITIALIZATION
        ═══════════════════════════════════════════════════════════════════════════ */
     document.addEventListener('DOMContentLoaded', () => {
+      checkAuth();
       applyTheme(S.theme);
       startClock();
       initBreakdownChart();

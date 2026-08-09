@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 DAYS_BACK = 7
 
 
-def get_weekly_patterns(db: Session) -> dict:
+def get_weekly_patterns(db: Session, user_id: int = 1) -> dict:
     """
     Returns a dict with pattern insights and raw weekly stats.
     Used by the AI daily_report to produce personalized recommendations.
@@ -33,6 +33,7 @@ def get_weekly_patterns(db: Session) -> dict:
 
     summaries = (
         db.query(DailySummary)
+        .filter(DailySummary.user_id == user_id)
         .filter(DailySummary.date >= week_ago)
         .order_by(DailySummary.date)
         .all()
@@ -54,6 +55,7 @@ def get_weekly_patterns(db: Session) -> dict:
     hourly = defaultdict(int)
     sessions_this_week = (
         db.query(ScreenSession)
+        .filter(ScreenSession.user_id == user_id)
         .filter(ScreenSession.session_date >= week_ago)
         .filter(ScreenSession.category == "productive")
         .all()

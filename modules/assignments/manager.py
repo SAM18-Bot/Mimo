@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 
 def create_assignment(
     db: Session,
+    user_id: int,
     title: str,
     due_date: date,
     subject: Optional[str] = None,
@@ -23,6 +24,7 @@ def create_assignment(
     notes: Optional[str] = None,
 ) -> Assignment:
     a = Assignment(
+        user_id  = user_id,
         title    = title,
         subject  = subject,
         due_date = due_date,
@@ -41,17 +43,18 @@ def create_assignment(
     return a
 
 
-def get_all_assignments(db: Session, status: Optional[str] = None) -> List[Assignment]:
-    q = db.query(Assignment)
+def get_all_assignments(db: Session, user_id: int, status: Optional[str] = None) -> List[Assignment]:
+    q = db.query(Assignment).filter(Assignment.user_id == user_id)
     if status:
         q = q.filter(Assignment.status == status)
     return q.order_by(Assignment.due_date).all()
 
 
-def get_upcoming(db: Session, days: int = 7) -> List[Assignment]:
+def get_upcoming(db: Session, user_id: int, days: int = 7) -> List[Assignment]:
     cutoff = date.today() + timedelta(days=days)
     return (
         db.query(Assignment)
+        .filter(Assignment.user_id == user_id)
         .filter(Assignment.due_date <= cutoff)
         .filter(Assignment.status != "done")
         .order_by(Assignment.due_date)
@@ -59,36 +62,37 @@ def get_upcoming(db: Session, days: int = 7) -> List[Assignment]:
     )
 
 
-def get_overdue(db: Session) -> List[Assignment]:
+def get_overdue(db: Session, user_id: int) -> List[Assignment]:
     return (
         db.query(Assignment)
+        .filter(Assignment.user_id == user_id)
         .filter(Assignment.due_date < date.today())
         .filter(Assignment.status != "done")
         .all()
     )
 
 
-def mark_done(db: Session, assignment_id: int) -> Optional[Assignment]:
+def mark_done(db: Session, assignment_id: int, user_id: int) -> Optional[Assignment]:
     a = db.get(Assignment, assignment_id)
-    if a:
+    if a and a.user_id == user_id:
         a.status = "done"
         db.commit()
         db.refresh(a)
     return a
 
 
-def update_status(db: Session, assignment_id: int, status: str) -> Optional[Assignment]:
+def update_status(db: Session, assignment_id: int, status: str, user_id: int) -> Optional[Assignment]:
     a = db.get(Assignment, assignment_id)
-    if a:
+    if a and a.user_id == user_id:
         a.status = status
         db.commit()
         db.refresh(a)
     return a
 
 
-def delete_assignment(db: Session, assignment_id: int) -> bool:
+def delete_assignment(db: Session, assignment_id: int, user_id: int) -> bool:
     a = db.get(Assignment, assignment_id)
-    if a:
+    if a and a.user_id == user_id:
         db.delete(a)
         db.commit()
         return True

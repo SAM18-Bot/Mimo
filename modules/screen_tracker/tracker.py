@@ -176,7 +176,13 @@ class ScreenTracker:
             return   # skip noise
         try:
             with get_db_ctx() as db:
+                from db.models import User
+                user = db.query(User).first()
+                if not user:
+                    return # No logged in user yet
+                
                 db.add(ScreenSession(
+                    user_id      = user.id,
                     app_name     = session.app,
                     window_title = session.title,
                     category     = session.category,
@@ -197,7 +203,13 @@ class ScreenTracker:
             today_day = datetime.now().weekday()
             
             with get_db_ctx() as db:
+                from db.models import User
+                user = db.query(User).first()
+                if not user:
+                    return False
+                    
                 block = db.query(ScheduleBlock).filter(
+                    ScheduleBlock.profile.has(user_id=user.id),
                     ScheduleBlock.day_of_week == today_day,
                     ScheduleBlock.start_time <= now_time,
                     ScheduleBlock.end_time >= now_time,

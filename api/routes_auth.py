@@ -11,6 +11,7 @@ from modules.auth.manager import (
     consume_parent_invite,
     create_parent_invite,
     login_user,
+    google_login_user,
     mark_device_seen,
     parent_can_access_student,
     register_device,
@@ -27,6 +28,7 @@ class UserOut(BaseModel):
     email: str
     role: str
     display_name: Optional[str]
+    onboarding_completed: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -47,6 +49,9 @@ class RegisterIn(BaseModel):
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
+
+class GoogleLoginIn(BaseModel):
+    token: str
 
 
 class DeviceRegisterIn(BaseModel):
@@ -142,6 +147,14 @@ def logout(
 def login(payload: LoginIn, db: Session = Depends(get_db)):
     try:
         user, token = login_user(db, email=payload.email, password=payload.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    return {"access_token": token, "user": user}
+
+@router.post("/auth/google", response_model=AuthOut)
+def google_login(payload: GoogleLoginIn, db: Session = Depends(get_db)):
+    try:
+        user, token = google_login_user(db, token=payload.token)
     except ValueError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     return {"access_token": token, "user": user}

@@ -11,6 +11,7 @@ class ScreenSession(Base):
     __tablename__ = "screen_sessions"
 
     id           = Column(Integer, primary_key=True, index=True)
+    user_id      = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     app_name     = Column(String(200), nullable=False)
     window_title = Column(String(500))
     category     = Column(String(20))          # productive | neutral | distracting
@@ -18,21 +19,27 @@ class ScreenSession(Base):
     ended_at     = Column(DateTime)
     duration_s   = Column(Integer, default=0)
     session_date = Column(Date)
+    
+    user = relationship("User", back_populates="screen_sessions")
 
 
 class CVEvent(Base):
     __tablename__ = "cv_events"
 
     id           = Column(Integer, primary_key=True, index=True)
+    user_id      = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     event_type   = Column(String(20))          # present | absent | distracted | returned
     timestamp    = Column(DateTime, nullable=False, default=func.now())
     session_date = Column(Date)
+    
+    user = relationship("User", back_populates="cv_events")
 
 
 class Assignment(Base):
     __tablename__ = "assignments"
 
     id         = Column(Integer, primary_key=True, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     title      = Column(String(300), nullable=False)
     subject    = Column(String(100))
     due_date   = Column(Date, nullable=False)
@@ -42,6 +49,7 @@ class Assignment(Base):
     created_at = Column(DateTime, default=func.now())
     reminded_at = Column(DateTime)
 
+    user = relationship("User", back_populates="assignments")
     reminders  = relationship("Reminder", back_populates="assignment", cascade="all, delete")
 
 
@@ -49,17 +57,21 @@ class AccountabilityLog(Base):
     __tablename__ = "accountability_logs"
 
     id          = Column(Integer, primary_key=True, index=True)
+    user_id     = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     date        = Column(Date, nullable=False)
     question    = Column(Text)
     answer      = Column(Text)
     recorded_at = Column(DateTime, default=func.now())
+    
+    user = relationship("User", back_populates="accountability_logs")
 
 
 class DailySummary(Base):
     __tablename__ = "daily_summaries"
 
     id                = Column(Integer, primary_key=True, index=True)
-    date              = Column(Date, unique=True, nullable=False)
+    user_id           = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    date              = Column(Date, nullable=False)
     productive_time_s = Column(Integer, default=0)
     distracted_time_s = Column(Integer, default=0)
     neutral_time_s    = Column(Integer, default=0)
@@ -72,23 +84,29 @@ class DailySummary(Base):
     ai_report_text    = Column(Text)
     peak_hour         = Column(Integer)           # 0–23
     created_at        = Column(DateTime, default=func.now())
+    
+    user = relationship("User", back_populates="daily_summaries")
 
 
 class StudySession(Base):
     __tablename__ = "study_sessions"
 
     id         = Column(Integer, primary_key=True, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     subject    = Column(String(100))
     started_at = Column(DateTime, nullable=False)
     ended_at   = Column(DateTime)
     duration_s = Column(Integer)
     source     = Column(String(20), default="auto")  # manual | auto
+    
+    user = relationship("User", back_populates="study_sessions")
 
 
 class ScheduleProfile(Base):
     __tablename__ = "schedule_profiles"
 
     id                 = Column(Integer, primary_key=True, index=True)
+    user_id            = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     timezone           = Column(String(80), default="local")
     wake_time          = Column(String(5), nullable=False)
     sleep_time         = Column(String(5), nullable=False)
@@ -102,6 +120,7 @@ class ScheduleProfile(Base):
     created_at         = Column(DateTime, default=func.now())
     updated_at         = Column(DateTime, default=func.now(), onupdate=func.now())
 
+    user = relationship("User", back_populates="schedule_profiles")
     blocks = relationship("ScheduleBlock", back_populates="profile", cascade="all, delete")
 
 
@@ -142,10 +161,13 @@ class RoastLog(Base):
     __tablename__ = "roast_logs"
 
     id           = Column(Integer, primary_key=True, index=True)
+    user_id      = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     trigger      = Column(String(100))   # instagram | absent | youtube | etc.
     message      = Column(Text)
     timestamp    = Column(DateTime, default=func.now())
     session_date = Column(Date)
+    
+    user = relationship("User", back_populates="roast_logs")
 
 
 class User(Base):
@@ -153,20 +175,37 @@ class User(Base):
 
     id            = Column(Integer, primary_key=True, index=True)
     email         = Column(String(255), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=True) # Now optional because of Google Auth
     role          = Column(String(20), nullable=False, default="student")  # student | parent
     display_name  = Column(String(120))
     ai_engine     = Column(String(20), default="openai")  # openai | gemini
     api_key       = Column(String(255))
+    
+    # Onboarding fields
     course        = Column(String(120))
     age           = Column(Integer)
     education_level = Column(String(50))
     onboarding_completed = Column(Boolean, default=False)
+    
+    # Provider
+    auth_provider = Column(String(50), default="local") # local | google
+    google_id     = Column(String(255), unique=True, index=True)
+    
     created_at    = Column(DateTime, default=func.now())
 
     devices        = relationship("Device", back_populates="user", cascade="all, delete")
     parent_links   = relationship("ParentStudentLink", foreign_keys="ParentStudentLink.parent_id", cascade="all, delete")
     student_links  = relationship("ParentStudentLink", foreign_keys="ParentStudentLink.student_id", cascade="all, delete")
+    
+    # Added relationships for tracking models
+    screen_sessions = relationship("ScreenSession", back_populates="user", cascade="all, delete")
+    cv_events       = relationship("CVEvent", back_populates="user", cascade="all, delete")
+    assignments     = relationship("Assignment", back_populates="user", cascade="all, delete")
+    accountability_logs = relationship("AccountabilityLog", back_populates="user", cascade="all, delete")
+    daily_summaries = relationship("DailySummary", back_populates="user", cascade="all, delete")
+    study_sessions  = relationship("StudySession", back_populates="user", cascade="all, delete")
+    schedule_profiles = relationship("ScheduleProfile", back_populates="user", cascade="all, delete")
+    roast_logs      = relationship("RoastLog", back_populates="user", cascade="all, delete")
 
 
 class Device(Base):

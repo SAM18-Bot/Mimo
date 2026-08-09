@@ -5,16 +5,18 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from db.models import CVEvent
+from db.models import CVEvent, User
+from api.routes_auth import current_user
 
 router = APIRouter(prefix="/cv", tags=["cv"])
 
 
 @router.get("/events")
-def get_cv_events(target_date: Optional[date] = None, db: Session = Depends(get_db)):
+def get_cv_events(target_date: Optional[date] = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     target_date = target_date or date.today()
     events = (
         db.query(CVEvent)
+        .filter(CVEvent.user_id == user.id)
         .filter(CVEvent.session_date == target_date)
         .order_by(CVEvent.timestamp.desc())
         .limit(100)
@@ -36,9 +38,9 @@ def current_presence():
 
 
 @router.get("/focus/today")
-def focus_today(db: Session = Depends(get_db)):
+def focus_today(user: User = Depends(current_user), db: Session = Depends(get_db)):
     from modules.behavior_engine.aggregator import get_daily_stats
-    stats = get_daily_stats(db)
+    stats = get_daily_stats(db, user_id=user.id)
     return {
         "focus_score":      stats["focus_score"],
         "distraction_count": stats["distraction_count"],
@@ -54,7 +56,7 @@ class MockCVEvent(_BM):
     event: str   # present | absent | distracted | returned
 
 @router.post("/mock")
-def mock_cv_event(payload: MockCVEvent):
+def mock_cv_event(payload: MockCVEvent, user: User = Depends(current_user)):
     """
     Inject a fake CV event for testing without ESP32-CAM.
     Called by mock_cv.py or manually via /docs.
@@ -72,6 +74,7 @@ def mock_cv_event(payload: MockCVEvent):
     now = datetime.now()
     with get_db_ctx() as db:
         db.add(CVEvent(
+            user_id      = user.id,
             event_type   = payload.event,
             timestamp    = now,
             session_date = now.date(),

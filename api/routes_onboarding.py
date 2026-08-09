@@ -5,11 +5,11 @@ from sqlalchemy.orm import Session
 from db.database import get_db
 from db.models import User, ScheduleProfile, ScheduleBlock
 from datetime import date
+from api.routes_auth import current_user
 
 router = APIRouter(prefix="/onboarding", tags=["Onboarding"])
 
 class OnboardingRequest(BaseModel):
-    user_id: int
     course: str
     age: int
     education_level: str
@@ -20,10 +20,9 @@ class OnboardingRequest(BaseModel):
     study_goal_minutes: int = 120
 
 @router.post("/complete")
-def complete_onboarding(data: OnboardingRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.id == data.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+def complete_onboarding(data: OnboardingRequest, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if user.onboarding_completed:
+        return {"status": "success", "message": "Onboarding already completed."}
 
     user.course = data.course
     user.age = data.age
@@ -35,6 +34,7 @@ def complete_onboarding(data: OnboardingRequest, db: Session = Depends(get_db)):
 
     # Generate a default schedule profile based on the onboarding data
     profile = ScheduleProfile(
+        user_id=user.id,
         wake_time=data.wake_time,
         sleep_time=data.sleep_time,
         study_goal_minutes=data.study_goal_minutes,

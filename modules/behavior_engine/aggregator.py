@@ -19,12 +19,12 @@ log = logging.getLogger(__name__)
 _scorer = ProductivityScorer()
 
 
-def get_daily_stats(db: Session, target_date: Optional[date] = None) -> dict:
+def get_daily_stats(db: Session, target_date: Optional[date] = None, user_id: int = 1) -> dict:
     if target_date is None:
         from db.models import ScheduleProfile
         import zoneinfo
         from datetime import datetime
-        profile = db.query(ScheduleProfile).filter(ScheduleProfile.active == True).first()
+        profile = db.query(ScheduleProfile).filter(ScheduleProfile.active == True, ScheduleProfile.user_id == user_id).first()
         if profile and profile.timezone:
             try:
                 tz = zoneinfo.ZoneInfo(profile.timezone)
@@ -37,6 +37,7 @@ def get_daily_stats(db: Session, target_date: Optional[date] = None) -> dict:
     # ── screen sessions ───────────────────────────────────────────────────
     sessions = (
         db.query(ScreenSession)
+        .filter(ScreenSession.user_id == user_id)
         .filter(ScreenSession.session_date == target_date)
         .all()
     )
@@ -61,6 +62,7 @@ def get_daily_stats(db: Session, target_date: Optional[date] = None) -> dict:
     # ── CV events ─────────────────────────────────────────────────────────
     cv_events = (
         db.query(CVEvent)
+        .filter(CVEvent.user_id == user_id)
         .filter(CVEvent.session_date == target_date)
         .all()
     )
@@ -80,10 +82,11 @@ def get_daily_stats(db: Session, target_date: Optional[date] = None) -> dict:
     )
 
     # ── assignments ───────────────────────────────────────────────────────
-    due_today = db.query(Assignment).filter(Assignment.due_date == target_date).all()
+    due_today = db.query(Assignment).filter(Assignment.user_id == user_id, Assignment.due_date == target_date).all()
     done_today = [a for a in due_today if a.status == "done"]
     overdue = (
         db.query(Assignment)
+        .filter(Assignment.user_id == user_id)
         .filter(Assignment.due_date < target_date)
         .filter(Assignment.status != "done")
         .all()

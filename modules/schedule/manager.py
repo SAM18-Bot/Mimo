@@ -63,6 +63,7 @@ def onboarding_questions() -> list[dict]:
 def build_onboarding_schedule(
     db: Session,
     *,
+    user_id: int,
     wake_time: str,
     sleep_time: str,
     timezone: str = "local",
@@ -97,8 +98,9 @@ def build_onboarding_schedule(
     subject_list = _normalize_subjects(subjects)
     fixed_list = _normalize_fixed_blocks(fixed_blocks)
 
-    db.query(ScheduleProfile).update({ScheduleProfile.active: False})
+    db.query(ScheduleProfile).filter(ScheduleProfile.user_id == user_id).update({ScheduleProfile.active: False})
     profile = ScheduleProfile(
+        user_id=user_id,
         timezone=timezone or "local",
         wake_time=wake_time,
         sleep_time=sleep_time,
@@ -126,17 +128,18 @@ def build_onboarding_schedule(
     return profile
 
 
-def get_active_profile(db: Session) -> Optional[ScheduleProfile]:
+def get_active_profile(db: Session, user_id: int) -> Optional[ScheduleProfile]:
     return (
         db.query(ScheduleProfile)
+        .filter(ScheduleProfile.user_id == user_id)
         .filter(ScheduleProfile.active == True)  # noqa: E712
         .order_by(ScheduleProfile.created_at.desc(), ScheduleProfile.id.desc())
         .first()
     )
 
 
-def get_weekly_schedule(db: Session) -> list[ScheduleBlock]:
-    profile = get_active_profile(db)
+def get_weekly_schedule(db: Session, user_id: int) -> list[ScheduleBlock]:
+    profile = get_active_profile(db, user_id)
     if not profile:
         return []
     return (
@@ -147,9 +150,9 @@ def get_weekly_schedule(db: Session) -> list[ScheduleBlock]:
     )
 
 
-def get_day_schedule(db: Session, target_date: Optional[date] = None) -> list[ScheduleBlock]:
+def get_day_schedule(db: Session, user_id: int, target_date: Optional[date] = None) -> list[ScheduleBlock]:
     target = target_date or date.today()
-    profile = get_active_profile(db)
+    profile = get_active_profile(db, user_id)
     if not profile:
         return []
     return (
@@ -173,8 +176,8 @@ def update_block_status(db: Session, block_id: int, status: str) -> Optional[Sch
     return block
 
 
-def schedule_status(db: Session) -> dict:
-    profile = get_active_profile(db)
+def schedule_status(db: Session, user_id: int) -> dict:
+    profile = get_active_profile(db, user_id)
     if not profile:
         return {"configured": False, "profile_id": None, "blocks": 0}
     count = db.query(ScheduleBlock).filter(ScheduleBlock.profile_id == profile.id).count()
@@ -183,12 +186,13 @@ def schedule_status(db: Session) -> dict:
 
 def reschedule_missed_blocks(
     db: Session,
+    user_id: int,
     *,
     target_date: Optional[date] = None,
 ) -> list[ScheduleBlock]:
     """Find skipped/missed study blocks for today and reschedule them into free windows."""
     target = target_date or date.today()
-    profile = get_active_profile(db)
+    profile = get_active_profile(db, user_id)
     if not profile:
         return []
 
@@ -273,13 +277,14 @@ def reschedule_missed_blocks(
 
 def boost_subject_priority(
     db: Session,
+    user_id: int,
     *,
     target_date: Optional[date] = None,
     lookahead_days: int = 3,
 ) -> list[ScheduleBlock]:
     """Create extra study blocks for subjects with assignments due within lookahead_days."""
     target = target_date or date.today()
-    profile = get_active_profile(db)
+    profile = get_active_profile(db, user_id)
     if not profile:
         return []
 
@@ -375,12 +380,13 @@ def boost_subject_priority(
 
 def smart_suggestions(
     db: Session,
+    user_id: int,
     *,
     target_date: Optional[date] = None,
 ) -> list[dict]:
     """Generate AI-style schedule adjustment suggestions based on current state."""
     target = target_date or date.today()
-    profile = get_active_profile(db)
+    profile = get_active_profile(db, user_id)
     suggestions: list[dict] = []
 
     if not profile:

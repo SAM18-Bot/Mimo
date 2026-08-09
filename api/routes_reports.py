@@ -6,9 +6,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from db.models import DailySummary, AccountabilityLog, RoastLog
+from db.models import DailySummary, AccountabilityLog, RoastLog, User
 from modules.behavior_engine.aggregator import get_daily_stats
 from api.websocket import push_event
+from api.routes_auth import current_user
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -20,17 +21,18 @@ class AccountabilityAnswer(BaseModel):
 
 # ── stats ─────────────────────────────────────────────────────────────────
 @router.get("/stats")
-def today_stats(target_date: Optional[date] = None, db: Session = Depends(get_db)):
+def today_stats(target_date: Optional[date] = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Live aggregated stats for the dashboard. Called on page load + periodically."""
-    stats = get_daily_stats(db, target_date)
+    stats = get_daily_stats(db, target_date, user_id=user.id)
     return stats
 
 
 @router.get("/history")
-def history(days: int = 7, db: Session = Depends(get_db)):
+def history(days: int = 7, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Last N days of daily summaries for trend charts."""
     rows = (
         db.query(DailySummary)
+        .filter(DailySummary.user_id == user.id)
         .order_by(DailySummary.date.desc())
         .limit(days)
         .all()
@@ -50,25 +52,26 @@ def history(days: int = 7, db: Session = Depends(get_db)):
 
 # ── EOD report ────────────────────────────────────────────────────────────
 @router.post("/eod")
-def trigger_eod(background_tasks: BackgroundTasks):
+def trigger_eod(background_tasks: BackgroundTasks, user: User = Depends(current_user)):
     """Manually trigger the end-of-day report (useful for testing)."""
     from modules.ai_layer.daily_report import run_eod_report
     from modules.voice.speaker import speak
 
-    def _run():
+    def _run(u_id: int):
         report = run_eod_report(
+            user_id      = u_id,
             speak_fn     = speak,
             broadcast_fn = push_event,
         )
         return report
 
-    background_tasks.add_task(_run)
+    background_tasks.add_task(_run, user.id)
     return {"ok": True, "message": "EOD report generating in background..."}
 
 
 @router.get("/eod/latest")
-def latest_eod(db: Session = Depends(get_db)):
-    row = db.query(DailySummary).order_by(DailySummary.date.desc()).first()
+def latest_eod(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    row = db.query(DailySummary).filter(DailySummary.user_id == user.id).order_by(DailySummary.date.desc()).first()
     if not row:
         return {"message": "No report yet"}
     return {
@@ -81,8 +84,9 @@ def latest_eod(db: Session = Depends(get_db)):
 
 # ── accountability Q&A ────────────────────────────────────────────────────
 @router.post("/accountability", status_code=201)
-def log_accountability(payload: AccountabilityAnswer, db: Session = Depends(get_db)):
+def log_accountability(payload: AccountabilityAnswer, user: User = Depends(current_user), db: Session = Depends(get_db)):
     entry = AccountabilityLog(
+        user_id  = user.id,
         date     = date.today(),
         question = payload.question,
         answer   = payload.answer,
@@ -93,9 +97,10 @@ def log_accountability(payload: AccountabilityAnswer, db: Session = Depends(get_
 
 
 @router.get("/accountability/today")
-def today_accountability(db: Session = Depends(get_db)):
+def today_accountability(user: User = Depends(current_user), db: Session = Depends(get_db)):
     logs = (
         db.query(AccountabilityLog)
+        .filter(AccountabilityLog.user_id == user.id)
         .filter(AccountabilityLog.date == date.today())
         .all()
     )
@@ -104,9 +109,10 @@ def today_accountability(db: Session = Depends(get_db)):
 
 # ── roast log ─────────────────────────────────────────────────────────────
 @router.get("/roasts")
-def today_roasts(db: Session = Depends(get_db)):
+def today_roasts(user: User = Depends(current_user), db: Session = Depends(get_db)):
     roasts = (
         db.query(RoastLog)
+        .filter(RoastLog.user_id == user.id)
         .filter(RoastLog.session_date == date.today())
         .order_by(RoastLog.timestamp.desc())
         .all()
@@ -115,17 +121,17 @@ def today_roasts(db: Session = Depends(get_db)):
 
 
 @router.get("/patterns")
-def weekly_patterns(db: Session = Depends(get_db)):
+def weekly_patterns(user: User = Depends(current_user), db: Session = Depends(get_db)):
     """
     7-day behavioral pattern analysis:
     peak productive hours, distraction trends, worst day, subject avoidance.
     """
     from modules.behavior_engine.pattern_detector import get_weekly_patterns
-    return get_weekly_patterns(db)
+    return get_weekly_patterns(db, user_id=user.id)
 
 
 @router.get("/score/breakdown")
-def score_breakdown(target_date: Optional[date] = None, db: Session = Depends(get_db)):
+def score_breakdown(target_date: Optional[date] = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """
     Detailed focus score breakdown:
     productive_pts, presence_pts, penalty, bonus, letter_grade, verdict.
@@ -136,8 +142,8 @@ def score_breakdown(target_date: Optional[date] = None, db: Session = Depends(ge
 
     target_date = target_date or date.today()
 
-    sessions  = db.query(ScreenSession).filter(ScreenSession.session_date == target_date).all()
-    cv_events = db.query(CVEvent).filter(CVEvent.session_date == target_date).all()
+    sessions  = db.query(ScreenSession).filter(ScreenSession.user_id == user.id).filter(ScreenSession.session_date == target_date).all()
+    cv_events = db.query(CVEvent).filter(CVEvent.user_id == user.id).filter(CVEvent.session_date == target_date).all()
 
     productive_s  = sum(s.duration_s or 0 for s in sessions if s.category == "productive")
     total_s       = sum(s.duration_s or 0 for s in sessions)

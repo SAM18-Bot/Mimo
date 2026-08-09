@@ -30,4 +30,7 @@ interface MimoApiService {
 
     @GET("/sync/pull")
     suspend fun pullSync(): SyncPayload
+
+    @POST("/auth/google")
+    suspend fun authenticateGoogle(@Body body: Map<String, String>): Map<String, Any>
 }

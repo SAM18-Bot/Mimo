@@ -6,7 +6,8 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from db.database import get_db
-from db.models import ScreenSession
+from db.models import ScreenSession, User
+from api.routes_auth import current_user
 
 router = APIRouter(prefix="/screen", tags=["screen"])
 
@@ -45,9 +46,10 @@ class MockWindowEvent(BaseModel):
 def get_sessions(
     target_date: Optional[date] = Query(default=None),
     category:    Optional[str]  = Query(default=None),
+    user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    q = db.query(ScreenSession)
+    q = db.query(ScreenSession).filter(ScreenSession.user_id == user.id)
     if target_date:
         q = q.filter(ScreenSession.session_date == target_date)
     if category:
@@ -58,10 +60,12 @@ def get_sessions(
 @router.get("/breakdown", response_model=DailyBreakdown)
 def daily_breakdown(
     target_date: Optional[date] = Query(default=None),
+    user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
     target_date = target_date or date.today()
     sessions = db.query(ScreenSession).filter(
+        ScreenSession.user_id == user.id,
         ScreenSession.session_date == target_date
     ).all()
 
@@ -101,7 +105,7 @@ def live_status():
 
 
 @router.post("/mock")
-def mock_window_change(payload: MockWindowEvent, db: Session = Depends(get_db)):
+def mock_window_change(payload: MockWindowEvent, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """
     Inject a fake window-change event for testing without real OS hooks.
     Called by mock_screen.py or /docs.
@@ -114,6 +118,7 @@ def mock_window_change(payload: MockWindowEvent, db: Session = Depends(get_db)):
     now = datetime.now()
 
     db.add(ScreenSession(
+        user_id      = user.id,
         app_name     = payload.app,
         window_title = payload.title,
         category     = cat,

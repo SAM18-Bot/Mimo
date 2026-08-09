@@ -107,4 +107,9 @@ dependencies {
     testImplementation("io.mockk:mockk:1.13.9")
     testImplementation("androidx.test:rules:1.5.0")
     testImplementation("androidx.arch.core:core-testing:2.2.0")
+
+    // Credential Manager for Google Sign-In
+    implementation("androidx.credentials:credentials:1.2.1")
+    implementation("androidx.credentials:credentials-play-services-auth:1.2.1")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.0")
 }

@@ -62,11 +62,21 @@ class WindowManager:
 
         except ImportError:
             log.warning("pywebview not installed — will use default browser.")
+            self._handle_fallback()
             return False
 
         except Exception as e:
             log.error("Failed to create webview window: %s", e)
+            self._handle_fallback()
             return False
+
+    def _handle_fallback(self):
+        webbrowser.open(self._url)
+        try:
+            from desktop.notifications import notify
+            notify("Mimo running", "Mimo is running in your system tray", timeout=5)
+        except Exception as e:
+            log.debug("Fallback notification failed: %s", e)
 
     def on_webview_start(self):
         """

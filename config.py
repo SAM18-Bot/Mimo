@@ -12,22 +12,6 @@ OPENAI_FAST_MODEL = "gpt-4o-mini"   # for real-time roasts (cheaper + faster)
 JWT_SECRET_KEY   = os.getenv("JWT_SECRET_KEY", "dev-only-change-me")
 JWT_ALGORITHM    = "HS256"
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))
-
-# ─────────────────────────────────────────
-# Database
-# ─────────────────────────────────────────
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./accountability.db")
-
-# ─────────────────────────────────────────
-# ESP32-CAM
-# ─────────────────────────────────────────
-ESP32_STREAM_URL     = os.getenv("ESP32_STREAM_URL", "http://192.168.1.100:81/stream")
-CV_FRAME_INTERVAL    = 1.0    # seconds between frame grabs (1 FPS is enough)
-ABSENCE_THRESHOLD    = 30     # seconds before logging as "absent"
-DISTRACTION_THRESHOLD = 12    # seconds looking away before logging "distracted"
-
-# ─────────────────────────────────────────
-# Screen tracking
 # ─────────────────────────────────────────
 SCREEN_POLL_INTERVAL  = 2     # seconds
 SESSION_GAP_THRESHOLD = 10    # seconds of same app before stitching into one session

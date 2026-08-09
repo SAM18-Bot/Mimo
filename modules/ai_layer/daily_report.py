@@ -17,6 +17,7 @@ log = logging.getLogger(__name__)
 
 
 def run_eod_report(
+    user_id:      int = 1,
     speak_fn:     Optional[Callable] = None,
     broadcast_fn: Optional[Callable] = None,
 ):
@@ -30,8 +31,8 @@ def run_eod_report(
     6. Save to DB, speak, broadcast to dashboard
     """
     with get_db_ctx() as db:
-        stats = get_daily_stats(db)
-        accountability_answers = _get_accountability_answers(db)
+        stats = get_daily_stats(db, user_id=user_id)
+        accountability_answers = _get_accountability_answers(db, user_id)
 
         # 7-day pattern insights
         weekly_insights = ""
@@ -39,7 +40,7 @@ def run_eod_report(
         peak_window     = "unknown"
         try:
             from modules.behavior_engine.pattern_detector import get_weekly_patterns
-            patterns       = get_weekly_patterns(db)
+            patterns       = get_weekly_patterns(db, user_id=user_id)
             weekly_insights = "\n".join(patterns.get("insights", []))
             weekly_data     = patterns.get("weekly_data", "")
             peak_window     = _fmt_peak(patterns.get("peak_productive_hour"))
@@ -50,7 +51,7 @@ def run_eod_report(
         next_to_study = "Check your assignment list."
         try:
             from modules.ai_layer.study_advisor import StudyAdvisor
-            next_to_study = StudyAdvisor(db).get_next_to_study()
+            next_to_study = StudyAdvisor(db).get_next_to_study(user_id=user_id)
         except Exception as e:
             log.debug("Study advisor failed: %s", e)
 
@@ -70,7 +71,7 @@ def run_eod_report(
         log.warning("EOD report generation failed — using fallback")
         report = _fallback_report(stats)
 
-    _save_report(stats, report)
+    _save_report(stats, report, user_id)
 
     spoken = _format_spoken_report(report, stats)
     log.info("EOD Summary:\n%s", spoken)
@@ -97,9 +98,10 @@ def run_eod_report(
 
 # ── helpers ───────────────────────────────────────────────────────────────
 
-def _get_accountability_answers(db) -> str:
+def _get_accountability_answers(db, user_id: int) -> str:
     logs = (
         db.query(AccountabilityLog)
+        .filter(AccountabilityLog.user_id == user_id)
         .filter(AccountabilityLog.date == date.today())
         .all()
     )
@@ -107,10 +109,11 @@ def _get_accountability_answers(db) -> str:
     return "\n".join(lines)
 
 
-def _save_report(stats: dict, report: dict):
+def _save_report(stats: dict, report: dict, user_id: int):
     with get_db_ctx() as db:
         save_daily_summary(db, stats)
         row = db.query(DailySummary).filter(
+            DailySummary.user_id == user_id,
             DailySummary.date == date.fromisoformat(stats["date"])
         ).first()
         if row:
