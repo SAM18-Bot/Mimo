@@ -90,6 +90,7 @@ except KeyboardInterrupt:
     # Run PyInstaller
     subprocess.run([
         sys.executable, "-m", "PyInstaller",
+        "-y",
         "--noconsole",
         "--name", "MimoDesktopTracker",
         "--hidden-import", "psutil",
