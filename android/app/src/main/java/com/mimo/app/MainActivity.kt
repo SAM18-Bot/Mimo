@@ -8,10 +8,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.*
 import androidx.core.content.ContextCompat
+import com.mimo.app.data.TokenManager
 import com.mimo.app.service.RoastEnforcementService
 import com.mimo.app.tracker.MobileTrackerService
 import com.mimo.app.ui.DashboardScreen
+import com.mimo.app.ui.LoginScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -19,12 +22,13 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            startRoastService()
+            startServices()
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        TokenManager.init(this)
 
         // Request notification permission on Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -32,20 +36,30 @@ class MainActivity : ComponentActivity() {
                     this, Manifest.permission.POST_NOTIFICATIONS
                 ) == PackageManager.PERMISSION_GRANTED
             ) {
-                startRoastService()
+                startServices()
             } else {
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         } else {
-            startRoastService()
+            startServices()
         }
 
         setContent {
-            DashboardScreen()
+            var isLoggedIn by remember { mutableStateOf(TokenManager.isLoggedIn(this@MainActivity)) }
+
+            if (isLoggedIn) {
+                DashboardScreen()
+            } else {
+                LoginScreen(
+                    onLoginSuccess = {
+                        isLoggedIn = true
+                    }
+                )
+            }
         }
     }
 
-    private fun startRoastService() {
+    private fun startServices() {
         val roastIntent = Intent(this, RoastEnforcementService::class.java)
         val trackerIntent = Intent(this, MobileTrackerService::class.java)
         runCatching {
@@ -62,9 +76,5 @@ class MainActivity : ComponentActivity() {
                 startService(trackerIntent)
             }
         }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
     }
 }

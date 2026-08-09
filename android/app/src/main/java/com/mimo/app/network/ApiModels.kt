@@ -1,5 +1,58 @@
 package com.mimo.app.network
 
+// POST /auth/login request
+data class LoginRequest(
+    val email: String,
+    val password: String
+)
+
+// POST /auth/register request
+data class RegisterRequest(
+    val email: String,
+    val password: String,
+    val role: String = "student",
+    val display_name: String? = null
+)
+
+// User info output
+data class UserOut(
+    val id: Int = 0,
+    val email: String = "",
+    val role: String = "student",
+    val display_name: String? = null,
+    val onboarding_completed: Boolean = false
+)
+
+// Auth response from login / register
+data class AuthResponse(
+    val access_token: String = "",
+    val token_type: String = "bearer",
+    val user: UserOut = UserOut()
+)
+
+// GET /schedule/ or /schedule/today
+data class ScheduleBlock(
+    val id: Int = 0,
+    val day_of_week: Int = 0,
+    val block_date: String? = null,
+    val start_time: String = "",
+    val end_time: String = "",
+    val kind: String = "study",
+    val title: String = "",
+    val subject: String? = null,
+    val flexibility: String = "flexible",
+    val source: String = "user",
+    val priority: String = "medium",
+    val status: String = "planned"
+)
+
+// POST /screen/mock
+data class MockWindowEvent(
+    val app: String,
+    val title: String = "",
+    val category: String = ""
+)
+
 // GET /reports/stats
 data class DailyStats(
     val date: String = "",

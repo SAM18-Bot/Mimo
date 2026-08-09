@@ -67,6 +67,9 @@ class DashboardViewModel @JvmOverloads constructor(
             initialValue = emptyList()
         )
 
+    private val _schedule = MutableStateFlow<List<ScheduleBlock>>(emptyList())
+    val schedule: StateFlow<List<ScheduleBlock>> = _schedule.asStateFlow()
+
     private val _history = MutableStateFlow<List<DailyHistoryItem>>(emptyList())
     val history: StateFlow<List<DailyHistoryItem>> = _history.asStateFlow()
 
@@ -100,7 +103,7 @@ class DashboardViewModel @JvmOverloads constructor(
                         "tasks_list" -> event.tasks?.let { remoteTasks ->
                             assignmentDao.insertAll(remoteTasks.map { it.toEntity(isSynced = true) })
                         }
-                        "assignment_done", "assignment_added", "assignment_updated" -> refresh()
+                        "assignment_done", "assignment_added", "assignment_updated", "schedule_updated" -> refresh()
                     }
                 }
             }
@@ -131,6 +134,17 @@ class DashboardViewModel @JvmOverloads constructor(
                 } catch (e: Exception) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
                     // Network exception on assignments - proceed offline
+                }
+
+                try {
+                    _schedule.value = apiService.getSchedule()
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    try {
+                        _schedule.value = apiService.getScheduleToday()
+                    } catch (e2: Exception) {
+                        if (e2 is kotlinx.coroutines.CancellationException) throw e2
+                    }
                 }
 
                 try {
@@ -177,6 +191,7 @@ class DashboardViewModel @JvmOverloads constructor(
     fun markAssignmentDone(id: Int) {
         viewModelScope.launch(ioDispatcher) {
             assignmentDao.markDone(id)
+            runCatching { apiService.markAssignmentDone(id) }
         }
     }
 

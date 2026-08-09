@@ -30,6 +30,7 @@ class MimoApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        com.mimo.app.data.TokenManager.init(this)
         createNotificationChannel()
         
         // Note: MobileTrackerService start moved to MainActivity to prevent Android 14 ForegroundService exceptions

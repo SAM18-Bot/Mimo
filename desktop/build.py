@@ -31,8 +31,8 @@ def build_executable():
         "--hidden-import", "pydantic",
         # Include static and assets directories
         "--add-data", f"static{os.pathsep}static",
-        "--add-data", f"desktop/assets{os.pathsep}desktop/assets",
-        "--icon", "desktop/assets/app_icon.ico",
+        "--add-data", f"assets{os.pathsep}assets",
+        "--icon", "assets/app_icon.ico",
         "run_desktop.py"
     ], check=True)
     

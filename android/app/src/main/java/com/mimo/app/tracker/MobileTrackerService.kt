@@ -1,5 +1,6 @@
 package com.mimo.app.tracker
 
+import android.app.AppOpsManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -11,10 +12,14 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.mimo.app.MimoApplication
+import com.mimo.app.data.DailyStatsEntity
 import com.mimo.app.data.MimoDatabase
+import com.mimo.app.network.ApiClient
+import com.mimo.app.network.MockWindowEvent
 import kotlinx.coroutines.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -28,7 +33,7 @@ class MobileTrackerService : Service() {
     private var lastRoastTime = 0L
     private val ROAST_COOLDOWN_MS = 5 * 60 * 1000L // 5 minutes
 
-    // Simple categorization for demo purposes
+    // Categorization
     private val distractingApps = setOf(
         "com.instagram.android",
         "com.zhiliaoapp.musically", // TikTok
@@ -64,9 +69,44 @@ class MobileTrackerService : Service() {
             startForeground(1002, notification)
         }
 
+        if (!hasUsageStatsPermission()) {
+            requestUsageStatsPermission()
+        }
+
         startTracking()
 
         return START_STICKY
+    }
+
+    private fun hasUsageStatsPermission(): Boolean {
+        val appOps = getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager ?: return false
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(),
+                packageName
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            appOps.checkOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(),
+                packageName
+            )
+        }
+        return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    private fun requestUsageStatsPermission() {
+        Log.w("MobileTracker", "PACKAGE_USAGE_STATS permission not granted. Launching Settings...")
+        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e("MobileTracker", "Could not open Usage Access Settings", e)
+        }
     }
 
     private fun startTracking() {
@@ -79,6 +119,12 @@ class MobileTrackerService : Service() {
             val db = MimoDatabase.getDatabase(applicationContext).dailyStatsDao()
 
             while (isActive) {
+                if (!hasUsageStatsPermission()) {
+                    Log.w("MobileTracker", "Waiting for PACKAGE_USAGE_STATS permission...")
+                    delay(30_000)
+                    continue
+                }
+
                 try {
                     val endTime = System.currentTimeMillis()
                     val startTime = endTime - 1000 * 60 // last minute
@@ -98,6 +144,20 @@ class MobileTrackerService : Service() {
                         if (currentForegroundApp != null) {
                             val category = categorizeApp(currentForegroundApp)
                             Log.d("MobileTracker", "Foreground App: $currentForegroundApp ($category)")
+
+                            // Sync data to /screen/mock endpoint
+                            try {
+                                ApiClient.api.syncMockScreen(
+                                    MockWindowEvent(
+                                        app = currentForegroundApp,
+                                        title = currentForegroundApp.substringAfterLast("."),
+                                        category = category
+                                    )
+                                )
+                                Log.d("MobileTracker", "Synced $currentForegroundApp to /screen/mock")
+                            } catch (e: Exception) {
+                                Log.e("MobileTracker", "Failed to sync to /screen/mock: ${e.message}")
+                            }
 
                             if (category == "distracting") {
                                 distractingMinutes++
@@ -125,7 +185,7 @@ class MobileTrackerService : Service() {
                                 val total = prod + dist + neut
                                 val score = if (total > 0) (prod.toDouble() / (prod + dist).coerceAtLeast(1)) * 100.0 else 0.0
 
-                                val updatedEntity = com.mimo.app.data.DailyStatsEntity(
+                                val updatedEntity = DailyStatsEntity(
                                     date = today,
                                     productiveMin = prod,
                                     distractingMin = dist,
@@ -139,6 +199,7 @@ class MobileTrackerService : Service() {
                     }
                 } catch (e: SecurityException) {
                     Log.e("MobileTracker", "SecurityException during usage stats query: ${e.message}")
+                    requestUsageStatsPermission()
                 } catch (e: Exception) {
                     Log.e("MobileTracker", "Exception during usage stats query: ${e.message}")
                 }

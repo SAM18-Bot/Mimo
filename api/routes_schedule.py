@@ -143,6 +143,8 @@ def weekly(user: User = Depends(current_user), db: Session = Depends(get_db)):
     return get_weekly_schedule(db, user_id=user.id)
 
 
+@router.get("", response_model=list[ScheduleBlockOut])
+@router.get("/", response_model=list[ScheduleBlockOut])
 @router.get("/today", response_model=list[ScheduleBlockOut])
 def today(target_date: Optional[date] = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     return get_day_schedule(db, user_id=user.id, target_date=target_date)

@@ -19,6 +19,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mimo.app.network.WebSocketManager
 import com.mimo.app.ui.components.AssignmentList
 import com.mimo.app.ui.components.FocusScoreGauge
+import com.mimo.app.ui.components.ScheduleList
 import com.mimo.app.ui.components.ScreenTimeBar
 import com.mimo.app.ui.components.StatsRow
 import com.mimo.app.ui.theme.MimoTheme
@@ -28,7 +29,7 @@ import com.mimo.app.ui.theme.MimoTheme
 fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
     val stats by viewModel.stats.collectAsState()
     val assignments by viewModel.assignments.collectAsState()
-    val history by viewModel.history.collectAsState()
+    val schedule by viewModel.schedule.collectAsState()
     val screenBreakdown by viewModel.screenBreakdown.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -91,7 +92,17 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "Tasks",
+                            text = "Today's Schedule",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold
+                        )
+                        ScheduleList(schedule = schedule)
+                    }
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Assignments",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Bold
