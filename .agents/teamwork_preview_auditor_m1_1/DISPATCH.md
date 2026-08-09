@@ -1,21 +1,12 @@
-## 2026-08-07T09:17:15Z
-<USER_REQUEST>
-You are Forensic Auditor 1 for Milestone 1 (Android Local Data Layer - Room DB).
-Your working directory is: c:\Users\samee\projects\Mimo\.agents\teamwork_preview_auditor_m1_1
-Identity: teamwork_preview_auditor
+## 2026-08-08T07:51:51Z
+Role: teamwork_preview_auditor
+Working directory: c:\Users\samee\projects\Mimo\.agents\teamwork_preview_auditor_m1_1
+Original Request: c:\Users\samee\projects\Mimo\.agents\ORIGINAL_REQUEST.md
+Scope Document: c:\Users\samee\projects\Mimo\.agents\orchestrator\PROJECT.md
+Worker Handoff: c:\Users\samee\projects\Mimo\.agents\teamwork_preview_worker_m1_1\handoff.md
 
 Task:
-1. Read ORIGINAL_REQUEST.md at c:\Users\samee\projects\Mimo\ORIGINAL_REQUEST.md
-2. Read PROJECT.md at c:\Users\samee\projects\Mimo\PROJECT.md
-3. Read Worker M1 handoff at c:\Users\samee\projects\Mimo\.agents\teamwork_preview_worker_m1\handoff.md
-4. Conduct a forensic integrity audit on all files created/modified for M1:
-   - android/build.gradle.kts
-   - android/app/build.gradle.kts
-   - android/app/src/main/java/com/mimo/app/data/*
-   - android/app/src/main/java/com/mimo/app/MimoApplication.kt
-   - android/app/src/main/java/com/mimo/app/ui/DashboardViewModel.kt
-   - android/app/src/test/java/com/mimo/app/data/DatabaseEntityTest.kt
-5. Check for cheating, fake/dummy implementations, hardcoded test values, or shortcuts. Verify that Room Database and DAOs are genuine and fully operational.
-6. Write progress.md and handoff.md in your working directory (c:\Users\samee\projects\Mimo\.agents\teamwork_preview_auditor_m1_1\handoff.md). State your verdict clearly: CLEAN or INTEGRITY VIOLATION.
-7. Send a summary message back to parent when complete.
-</USER_REQUEST>
+Perform Forensic Integrity Audit on Milestone 1 code changes.
+1. Inspect all files modified by `worker_m1_1`: `AssignmentList.kt`, `MainActivity.kt`, `MobileTrackerService.kt`, `DashboardViewModelTest.kt`, `DashboardViewModelStressTest.kt`, `build.gradle.kts`, `desktop/test_requirements.txt`.
+2. Check for integrity violations: hardcoded test results, facade implementations, disabling core functionality, or bypassing checks.
+3. Render explicit verdict (CLEAN or VIOLATION) with detailed evidence chain in `c:\Users\samee\projects\Mimo\.agents\teamwork_preview_auditor_m1_1\handoff.md`.

@@ -48,12 +48,19 @@ class MainActivity : ComponentActivity() {
     private fun startRoastService() {
         val roastIntent = Intent(this, RoastEnforcementService::class.java)
         val trackerIntent = Intent(this, MobileTrackerService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(roastIntent)
-            startForegroundService(trackerIntent)
-        } else {
-            startService(roastIntent)
-            startService(trackerIntent)
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(roastIntent)
+            } else {
+                startService(roastIntent)
+            }
+        }
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(trackerIntent)
+            } else {
+                startService(trackerIntent)
+            }
         }
     }
 

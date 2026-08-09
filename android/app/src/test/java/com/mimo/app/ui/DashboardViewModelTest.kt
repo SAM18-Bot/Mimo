@@ -62,6 +62,23 @@ class FakeMimoApiService(
         if (shouldThrowError) throw IOException("Network connection offline")
         return breakdownToReturn
     }
+
+    override suspend fun pushSync(payload: SyncPayload): Map<String, Any> {
+        if (shouldThrowError) throw IOException("Network connection offline")
+        return mapOf("status" to "ok")
+    }
+
+    override suspend fun pullSync(): SyncPayload {
+        if (shouldThrowError) throw IOException("Network connection offline")
+        return SyncPayload(
+            date = "2026-08-07",
+            mobileProductiveMin = 0,
+            mobileDistractingMin = 0,
+            mobileNeutralMin = 0,
+            assignments = emptyList(),
+            mergedStats = null
+        )
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

@@ -1,34 +1,37 @@
 # Original User Request
 
-## Initial Request — 2026-08-07T09:10:53Z
+## Initial Request — 2026-08-08T13:14:58+05:30
 
 <USER_REQUEST>
-Convert the existing Mimo Android companion app into a fully standalone productivity tracking application with offline capabilities and a sync engine.
+The goal is to thoroughly debug the instant crash on the Mimo Android app, create isolated testing environments for both the Python Desktop App and the Android App, and write and run a comprehensive unit test suite to ensure neither app crashes on startup.
 
 Working directory: c:\Users\samee\projects\Mimo
-Integrity mode: benchmark
+Integrity mode: development
 
 ## Requirements
 
-### R1. Android Local Data Layer
-The Android app must store data locally so it can function entirely offline.
-Implement an Android Room Database in `com/mimo/app/data/` with tables for `AssignmentEntity` and `DailyStatsEntity`. Update the `DashboardViewModel` to read from and write to this local Room database instead of fetching live data from the Retrofit API.
+### R1. Resolve the Android Instant Crash
+Investigate and completely fix the bug causing the Mimo Android app to instantly crash (close within 1-2 seconds) upon opening. The fix must be applied to the Kotlin source code without disabling core functionality (such as background tracking or networking).
 
-### R2. Mobile Screen Tracking
-The Android app must track screen time natively on the device.
-Implement a background service (`MobileTrackerService`) utilizing Android's `UsageStatsManager` to track time spent on mobile applications (e.g., social media vs productivity apps). This service should periodically check distraction thresholds and fire local "roast" notifications independently of the PC backend.
+### R2. Establish Isolated Test Environments
+Set up a clean Python `venv` specifically for running desktop tests, and ensure the Android Gradle project is configured to run isolated local JVM tests (`testDebugUnitTest`). 
 
-### R3. Sync Engine (PC & Mobile)
-The system must support merging mobile and PC data when the devices connect.
-In the Python backend, create a new `api/routes_sync.py` with endpoints to push mobile data and pull merged data. In the Android app, create a `SyncWorker` using Android `WorkManager` to periodically upload local mobile usage stats to the PC backend and download the aggregated focus score and assignments.
+### R3. Comprehensive Mocked Unit Testing
+Write and execute comprehensive unit tests for both the Desktop app (using `pytest` or `unittest`) and the Android app (using `JUnit` and `Robolectric`/`MockK`). These tests must mock the backend API and verify that every major component (e.g., UI initialization, network clients, background services) can initialize successfully without exceptions.
 
 ## Acceptance Criteria
 
-### Standalone Functionality
-- [ ] An agent-as-judge can run the Android app on an emulator with network access disabled and successfully create, view, and mark assignments as done locally.
-- [ ] The Android app successfully tracks the active foreground app on the emulator using `UsageStatsManager` and logs it to the local Room database.
+### Crash Resolution
+- [ ] The Android app compiles via `.\gradlew assembleDebug` successfully.
+- [ ] No `Exception` or `Crash` logs are thrown in `logcat` when simulating the app startup via Robolectric tests.
 
-### Sync Verification
-- [ ] When network access is restored, the Android `SyncWorker` successfully hits the Python backend's `/sync/push` endpoint.
-- [ ] After a sync, a programmatic test can hit `GET /reports/stats` on the Python backend and verify that the mobile screen time has been successfully added to the total `desk_time_min` and focus score calculations.
+### Desktop Testing
+- [ ] A dedicated `test_requirements.txt` or equivalent is created to install `pytest` and mocking libraries in an isolated `.venv`.
+- [ ] A test suite exists in `desktop/tests/` that mocks the `mimo-e8u2.onrender.com` backend.
+- [ ] Running `pytest desktop/tests/` passes with 100% success and covers app initialization.
+
+### Android Testing
+- [ ] A test suite exists in `android/app/src/test/` using Robolectric or equivalent mocking frameworks.
+- [ ] Running `.\gradlew testDebugUnitTest` passes with 100% success.
+- [ ] The Android test suite explicitly verifies `MainActivity`, `DashboardViewModel`, and background services can initialize without crashing.
 </USER_REQUEST>

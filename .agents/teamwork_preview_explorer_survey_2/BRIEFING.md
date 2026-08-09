@@ -1,38 +1,37 @@
-# BRIEFING — 2026-08-07T09:11:18Z
+# BRIEFING — 2026-08-08T07:45:44Z
 
 ## Mission
-Investigate Python backend codebase (API, DB models, sync routes, dependencies, pytest suite, run scripts) in c:\Users\samee\projects\Mimo\ for PC & Mobile sync.
+Investigate R2 & R3 requirements for Android local JVM tests (`testDebugUnitTest`), gradle config, Robolectric/MockK setup, and unit test plan for MainActivity, DashboardViewModel, and MimoRoastService.
 
 ## 🔒 My Identity
-- Archetype: survey explorer 2
-- Roles: Teamwork explorer (read-only exploration)
+- Archetype: teamwork_preview_explorer
+- Roles: explorer, analyst
 - Working directory: c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_2
-- Original parent: a1b70ffb-b813-4a08-9870-fed0059a21e5
-- Milestone: backend survey and analysis
+- Original parent: 4dddf826-15fd-4339-8edd-cabb04fe5c4c
+- Milestone: Android Local JVM Testing Architecture (R2 & R3)
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement code changes to project files
-- Write analysis and findings to working directory (.agents/teamwork_preview_explorer_survey_2/)
+- Read-only investigation — do NOT modify source code files in `android/` directly.
+- Produce structured analysis.md and handoff.md in working directory.
 
 ## Current Parent
-- Conversation ID: a1b70ffb-b813-4a08-9870-fed0059a21e5
-- Updated: 2026-08-07T09:11:18Z
+- Conversation ID: 4dddf826-15fd-4339-8edd-cabb04fe5c4c
+- Updated: 2026-08-08T07:47:30Z
 
 ## Investigation State
-- **Explored paths**: `main.py`, `run_server.py`, `config.py`, `db/database.py`, `db/models.py`, `api/` (all routers), `modules/behavior_engine/` (`aggregator.py`, `scorer.py`), `modules/assignments/manager.py`, `requirements.txt`, `pytest.ini`, `tests/` (`conftest.py`, `test_api.py`, `test_auth_device_parent.py`, etc.), `ORIGINAL_REQUEST.md`, `PROJECT.md`, `SETUP_AND_TEST.md`.
+- **Explored paths**: `android/app/build.gradle.kts`, `android/build.gradle.kts`, `android/app/src/main/java/com/mimo/app/`, `android/app/src/test/java/com/mimo/app/`
 - **Key findings**:
-  - Backend framework: FastAPI 0.111.0 + Uvicorn 0.29.0 + SQLAlchemy 2.0.30 (SQLite at `accountability.db`).
-  - Key tables: `ScreenSession`, `Assignment`, `DailySummary`, `CVEvent`, `User`, `Device`, `ScheduleProfile`, etc.
-  - Aggregator: `get_daily_stats()` in `aggregator.py` calculates `desk_time_min`, `focus_score`, `productive_min`, `distracting_min` based on `ScreenSession` records.
-  - `routes_sync.py` is missing and needs to be created (`POST /sync/push` and `GET /sync/pull`).
-  - Test suite: `pytest` with 321 test cases and isolated per-test SQLite fixtures in `tests/conftest.py`.
-- **Unexplored areas**: None.
+  1. Execution of `.\gradlew testDebugUnitTest` failed at `:app:compileDebugUnitTestKotlin` because `FakeMimoApiService` in `DashboardViewModelTest.kt` and `DashboardViewModelStressTest.kt` is missing implementations of newly added `pushSync()` and `pullSync()` methods on `MimoApiService`.
+  2. `android/app/build.gradle.kts` lacks `io.mockk:mockk:1.13.9`, `androidx.test:rules:1.5.0`, and `isReturnDefaultValues = true`.
+  3. No unit tests currently exist for `MainActivity`, `RoastEnforcementService`, or `MobileTrackerService`.
+- **Unexplored areas**: None (investigation complete).
 
 ## Key Decisions Made
-- Completed systematic backend exploration and documented all details in `handoff.md`.
+- Designed comprehensive Gradle configuration updates and test file specifications using MockK and Robolectric.
+- Documented full findings, logic chain, and implementation code in `analysis.md` and `handoff.md`.
 
 ## Artifact Index
-- DISPATCH.md — incoming dispatch instructions
-- BRIEFING.md — briefing document
-- progress.md — progress log
-- handoff.md — structured handoff report
+- c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_2\DISPATCH.md — Task dispatch log
+- c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_2\BRIEFING.md — Persistent memory state
+- c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_2\analysis.md — Comprehensive R2 & R3 Testing Architecture Report
+- c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_2\handoff.md — Handoff report with 5-component structure

@@ -8,6 +8,8 @@ import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -56,7 +58,11 @@ class MobileTrackerService : Service() {
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .build()
 
-        startForeground(1002, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(1002, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            startForeground(1002, notification)
+        }
 
         startTracking()
 
@@ -65,64 +71,76 @@ class MobileTrackerService : Service() {
 
     private fun startTracking() {
         serviceScope.launch {
-            val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+            val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+            if (usageStatsManager == null) {
+                Log.w("MobileTracker", "UsageStatsManager service unavailable")
+                return@launch
+            }
             val db = MimoDatabase.getDatabase(applicationContext).dailyStatsDao()
 
             while (isActive) {
-                val endTime = System.currentTimeMillis()
-                val startTime = endTime - 1000 * 60 // last minute
+                try {
+                    val endTime = System.currentTimeMillis()
+                    val startTime = endTime - 1000 * 60 // last minute
 
-                val events = usageStatsManager.queryEvents(startTime, endTime)
-                val event = UsageEvents.Event()
-                var currentForegroundApp: String? = null
+                    val events = usageStatsManager.queryEvents(startTime, endTime)
+                    if (events != null) {
+                        val event = UsageEvents.Event()
+                        var currentForegroundApp: String? = null
 
-                while (events.hasNextEvent()) {
-                    events.getNextEvent(event)
-                    if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
-                        currentForegroundApp = event.packageName
-                    }
-                }
-
-                if (currentForegroundApp != null) {
-                    val category = categorizeApp(currentForegroundApp)
-                    Log.d("MobileTracker", "Foreground App: $currentForegroundApp ($category)")
-
-                    if (category == "distracting") {
-                        distractingMinutes++
-                        if (distractingMinutes >= 2 && (System.currentTimeMillis() - lastRoastTime) > ROAST_COOLDOWN_MS) {
-                            fireLocalRoast(currentForegroundApp)
-                            lastRoastTime = System.currentTimeMillis()
-                            distractingMinutes = 0 // reset after roasting
+                        while (events.hasNextEvent()) {
+                            events.getNextEvent(event)
+                            if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
+                                currentForegroundApp = event.packageName
+                            }
                         }
-                    } else {
-                        distractingMinutes = 0 // reset if they switch to something else
-                    }
 
-                    // Update local stats every minute
-                    val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                    val currentStats = db.getByDate(today)
-                    
-                    val prodDelta = if (category == "productive") 1 else 0
-                    val distDelta = if (category == "distracting") 1 else 0
-                    val neutDelta = if (category == "neutral") 1 else 0
-                    
-                    if (prodDelta > 0 || distDelta > 0 || neutDelta > 0) {
-                        val prod = (currentStats?.productiveMin ?: 0) + prodDelta
-                        val dist = (currentStats?.distractingMin ?: 0) + distDelta
-                        val neut = (currentStats?.neutralMin ?: 0) + neutDelta
-                        val total = prod + dist + neut
-                        val score = if (total > 0) (prod.toDouble() / (prod + dist).coerceAtLeast(1)) * 100.0 else 0.0
+                        if (currentForegroundApp != null) {
+                            val category = categorizeApp(currentForegroundApp)
+                            Log.d("MobileTracker", "Foreground App: $currentForegroundApp ($category)")
 
-                        val updatedEntity = com.mimo.app.data.DailyStatsEntity(
-                            date = today,
-                            productiveMin = prod,
-                            distractingMin = dist,
-                            neutralMin = neut,
-                            focusScore = score,
-                            isSynced = false
-                        )
-                        db.insertOrUpdate(updatedEntity)
+                            if (category == "distracting") {
+                                distractingMinutes++
+                                if (distractingMinutes >= 2 && (System.currentTimeMillis() - lastRoastTime) > ROAST_COOLDOWN_MS) {
+                                    fireLocalRoast(currentForegroundApp)
+                                    lastRoastTime = System.currentTimeMillis()
+                                    distractingMinutes = 0 // reset after roasting
+                                }
+                            } else {
+                                distractingMinutes = 0 // reset if they switch to something else
+                            }
+
+                            // Update local stats every minute
+                            val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                            val currentStats = db.getByDate(today)
+                            
+                            val prodDelta = if (category == "productive") 1 else 0
+                            val distDelta = if (category == "distracting") 1 else 0
+                            val neutDelta = if (category == "neutral") 1 else 0
+                            
+                            if (prodDelta > 0 || distDelta > 0 || neutDelta > 0) {
+                                val prod = (currentStats?.productiveMin ?: 0) + prodDelta
+                                val dist = (currentStats?.distractingMin ?: 0) + distDelta
+                                val neut = (currentStats?.neutralMin ?: 0) + neutDelta
+                                val total = prod + dist + neut
+                                val score = if (total > 0) (prod.toDouble() / (prod + dist).coerceAtLeast(1)) * 100.0 else 0.0
+
+                                val updatedEntity = com.mimo.app.data.DailyStatsEntity(
+                                    date = today,
+                                    productiveMin = prod,
+                                    distractingMin = dist,
+                                    neutralMin = neut,
+                                    focusScore = score,
+                                    isSynced = false
+                                )
+                                db.insertOrUpdate(updatedEntity)
+                            }
+                        }
                     }
+                } catch (e: SecurityException) {
+                    Log.e("MobileTracker", "SecurityException during usage stats query: ${e.message}")
+                } catch (e: Exception) {
+                    Log.e("MobileTracker", "Exception during usage stats query: ${e.message}")
                 }
 
                 delay(60_000) // Check once a minute

@@ -90,7 +90,6 @@ except KeyboardInterrupt:
     # Run PyInstaller
     subprocess.run([
         sys.executable, "-m", "PyInstaller",
-        "--onefile",
         "--noconsole",
         "--name", "MimoDesktopTracker",
         "--hidden-import", "psutil",
@@ -98,7 +97,7 @@ except KeyboardInterrupt:
         "mimo_client.py"
     ], check=True)
     
-    print("Build complete! Executable is in the 'dist' folder.")
+    print("Build complete! Executable is in the 'dist/MimoDesktopTracker' folder.")
 
 if __name__ == "__main__":
     build_executable()

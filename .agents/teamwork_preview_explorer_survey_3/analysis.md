@@ -1,562 +1,337 @@
-# Technical Architecture & Design Specification: Native Android Mobile Dashboard & Background Roast Enforcement
-
-**Author:** teamwork_preview_explorer_survey_3  
-**Target Project Location:** `c:\Users\samee\projects\Mimo\android`  
-**Date:** 2026-08-06  
-**Status:** Completed Architectural Survey & Technical Design  
-
----
+# Desktop App Testing Investigation (R2 & R3) — Analysis Report
 
 ## Executive Summary
-
-This document provides a comprehensive technical architecture and design specification for building the native Kotlin Android application for Mimo (`c:\Users\samee\projects\Mimo\android`). The application comprises two core subsystems:
-
-1. **Native Android Mobile Dashboard (Jetpack Compose UI)**: A high-performance, responsive Compose dashboard mirroring all core capabilities of the Mimo web dashboard:
-   - Animated Circular Focus Score Gauge with custom Canvas rendering and letter grade mapping.
-   - Key Statistics Summary Cards (Productive vs. Distracting minutes, Streak count, Focus Grade).
-   - Urgency-Aware Assignment & Task Manager (color-coded urgency levels, quick-add input with NLP endpoint support, inline item completion).
-   - App Usage Breakdown & Stats Overview (productive/distracting/neutral percentage indicators and top apps list).
-2. **Background Roast Alert Enforcement (`MimoRoastService`)**: A resilient Android background enforcement engine delivering real-time roast push notifications when the app is in the background or closed:
-   - Android Notification Manager integration with high-priority Notification Channels and Android 13+ (`POST_NOTIFICATIONS`) runtime permissions.
-   - Persistent Foreground Service architecture utilizing an OkHttp WebSocket Listener connected to `/ws`.
-   - Deep sleep / Doze Mode optimization, WakeLock management, and automatic reconnection backoff.
-   - End-to-end emulator testing protocol for agent-as-judge automated verification.
+This report presents a comprehensive investigation of the Mimo Desktop Application located in `desktop/` for requirements R2 (Isolated Test Environments) and R3 (Comprehensive Mocked Unit Testing). It covers codebase architecture, backend API endpoints including `https://mimo-e8u2.onrender.com`, initialization flows, virtual environment setup, dependencies, and a complete design for a unit test suite in `desktop/tests/` that mocks all backend interactions to achieve 100% test success when executing `pytest desktop/tests/`.
 
 ---
 
-## Part 1: Jetpack Compose Dashboard UI Architecture & Specifications
+## 1. Desktop App Architecture & Initialization Analysis
 
-### 1.1 Architecture & MVVM State Management
+The `desktop/` application is structured into modular Python components handling window management, system tray operations, settings, single-instance execution, notifications, and executable packaging.
 
-The dashboard follows modern Android architecture (Clean Architecture + MVVM + Unidirectional Data Flow):
-
-```
-┌────────────────────────────────────────────────────────┐
-│                   Jetpack Compose UI                   │
-│   (DashboardScreen, FocusGauge, TaskList, StatsRow)    │
-└───────────────────────────▲────────────────────────────┘
-                            │ StateFlow<DashboardUiState>
-                            │ User Interactions (Events)
-┌───────────────────────────┴────────────────────────────┐
-│                  DashboardViewModel                    │
-│   - Holds state, manages coroutines, handles WS events │
-└───────────────────────────▲────────────────────────────┘
-                            │ Flow / Result
-┌───────────────────────────┴────────────────────────────┐
-│                    Repository Layer                    │
-│   (StatsRepository, TaskRepository, RoastRepository)   │
-└───────────────────────────▲────────────────────────────┘
-                            │ REST / WebSocket
-┌───────────────────────────┴────────────────────────────┐
-│                Data Source / Network Layer             │
-│   (MimoApiService [Retrofit], MimoWebSocketClient)    │
-└────────────────────────────────────────────────────────┘
-```
-
-#### UI State Data Holder (`DashboardUiState`)
-```kotlin
-data class DashboardUiState(
-    val isLoading: Boolean = true,
-    val isRefreshing: Boolean = false,
-    val focusScore: Int = 0,
-    val focusGrade: String = "N/A",
-    val productiveMinutes: Int = 0,
-    val distractingMinutes: Int = 0,
-    val neutralMinutes: Int = 0,
-    val currentStreakDays: Int = 0,
-    val assignments: List<AssignmentItem> = emptyList(),
-    val topApps: List<AppUsageItem> = emptyList(),
-    val isWebSocketConnected: Boolean = false,
-    val errorMessage: String? = null
-)
-```
+### Codebase Inventory (`desktop/` Files)
+- **`desktop/main_desktop.py`**: Primary application entry point. Coordinates the 11-step startup sequence:
+  1. Single-instance acquisition via `single_instance.py`
+  2. Logging configuration (console and file output in `%LOCALAPPDATA%/Mimo/logs` or `~/.mimo`)
+  3. Splash screen initialization using Tkinter (`splash.py`)
+  4. FastAPI/Uvicorn server launch in a background daemon thread
+  5. Polling `/health` endpoint until server is ready (timeout: 40s)
+  6. Webview window creation via `window_manager.py` (PyWebview)
+  7. System tray initialization in a daemon thread via `tray.py` (Pystray)
+  8. Native OS startup notification via `notifications.py`
+  9. Execution of PyWebview event loop on the main thread
+  10. Intercepting window close events to keep the application running in system tray
+  11. Clean shutdown on tray exit via `atexit` handlers
+- **`desktop/settings_manager.py`**: Manages `.env` configuration file reading/writing. Masking for sensitive keys (e.g. `OPENAI_API_KEY`), UI section groupings (`AI`, `Hardware`, `Voice`, `Behavior Thresholds`, `Schedule`, `Advanced`), and input type inferences.
+- **`desktop/autostart.py`**: Cross-platform OS autostart registration supporting Windows Registry (`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`), macOS LaunchAgent plist (`~/Library/LaunchAgents/com.mimo.app.plist`), and Linux desktop entries (`~/.config/autostart/mimo.desktop`).
+- **`desktop/notifications.py`**: Cross-platform OS notifications via `plyer`. Includes automatic suppression during pytest runs via `PYTEST_CURRENT_TEST in os.environ`.
+- **`desktop/single_instance.py`**: Single-instance lock mechanism using Windows Named Mutex (`CreateMutexW`) on Windows and POSIX `fcntl` file lock (`~/.mimo/mimo.pid`) on Unix/macOS.
+- **`desktop/splash.py`**: Tkinter-based splash screen displaying animated progress dots during app startup.
+- **`desktop/tray.py`**: System tray icon using `pystray`. Includes background stats polling thread (`_stats_loop`), pause/resume toggle, autostart toggle, and settings navigation.
+- **`desktop/window_manager.py`**: Wraps PyWebview browser window lifecycle. Intercepts window close to hide window to tray, brings window to front, or falls back to standard browser.
+- **`desktop/icon_generator.py`**: Dynamic RGBA icon generator using `Pillow` (PIL) for `active`, `paused`, and `alert` tray icon states.
+- **`desktop/build.py` & `desktop/mimo.spec`**: PyInstaller packaging script and spec file for bundling the standalone tracker executable (`MimoDesktopTracker`).
 
 ---
 
-### 1.2 Component 1: Animated Circular Focus Score Gauge
+## 2. API Endpoints & Backend URL Analysis (`mimo-e8u2.onrender.com`)
 
-#### Visual Geometry & UX
-- **Arc Angle**: 240 degrees (or full 360-degree ring) with rounded cap stroke.
-- **Background Track**: Dark translucent gray ring (`0x22FFFFFF` in dark theme).
-- **Sweep Gradient**: Active score ring colored dynamically based on score:
-  - **90–100 (A+/A)**: Emerald Cyan (`#10B981` to `#06B6D4`)
-  - **75–89 (B)**: Sky Blue to Indigo (`#0ea5e9` to `#6366f1`)
-  - **60–74 (C)**: Amber Gold (`#F59E0B` to `#D97706`)
-  - **< 60 (D/F)**: Rose Red to Coral (`#EF4444` to `#F43F5E`)
-- **Center Overlay**: Large animated score number (0–100) with letter grade badge placed underneath.
+The desktop app interacts with the backend server over HTTP/REST. While local execution defaults to `http://127.0.0.1:8000`, the remote production backend is deployed at **`https://mimo-e8u2.onrender.com`**.
 
-#### Jetpack Compose Implementation Specification
-```kotlin
-@Composable
-fun CircularFocusScoreGauge(
-    score: Int,
-    grade: String,
-    modifier: Modifier = Modifier
-) {
-    val animatedScore by animateFloatAsState(
-        targetValue = score.coerceIn(0, 100).toFloat(),
-        animationSpec = tween(durationMillis = 1200, easing = FastOutSlowInEasing),
-        label = "GaugeScoreAnimation"
-    )
+### Remote Backend URL
+- **Production Backend URL**: `https://mimo-e8u2.onrender.com`
+- **Configurable Environment Variable**: `MIMO_CLOUD_URL` or `MIMO_API_BASE_URL` (defaults to `http://127.0.0.1:8000` locally or `https://mimo-e8u2.onrender.com` in production).
 
-    val strokeWidth = 16.dp
-    val strokeWidthPx = with(LocalDensity.current) { strokeWidth.toPx() }
+### Desktop API Endpoint Inventory
+| Endpoint | Method | Component Source | Function / Purpose | Expected Response |
+| --- | --- | --- | --- | --- |
+| `/health` | GET | `main_desktop.py` | Server health check during app initialization | `{"status": "healthy"}` |
+| `/reports/stats` | GET | `tray.py` | Live stats update for system tray menu | `{"focus_score": 85.5, "letter_grade": "A"}` |
+| `/assignments/upcoming?days=14` | GET | `tray.py` | Pending assignment count for system tray menu | `[{"id": 1, "title": "Math HW"}]` |
+| `/monitoring/pause` | POST | `tray.py` | Pause background activity tracking | `{"ok": true, "status": "paused"}` |
+| `/monitoring/resume` | POST | `tray.py` | Resume background activity tracking | `{"ok": true, "status": "active"}` |
+| `/screen/mock` | POST | `build.py` (tracker client) | Push screen event data to cloud backend | `{"ok": true}` |
+| `/settings/data` | GET | `settings_manager.py` | Load settings JSON for desktop UI | `{"sections": [...]}` |
+| `/settings/save` | POST | `settings_manager.py` | Save individual key to `.env` | `{"ok": true, "key": "..."}` |
+| `/settings/save-all` | POST | `settings_manager.py` | Bulk save settings dictionary | `{"ok": true, "saved": [...], "failed": []}` |
 
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier.size(200.dp)
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val sweepAngle = (animatedScore / 100f) * 280f
-            val startAngle = 130f
+---
 
-            // 1. Draw Background Track
-            drawArc(
-                color = Color(0x33FFFFFF),
-                startAngle = startAngle,
-                sweepAngle = 280f,
-                useCenter = false,
-                style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
-            )
+## 3. Isolated `.venv` Environment & `test_requirements.txt` Specifications
 
-            // 2. Draw Active Score Arc with Dynamic Color
-            val gradientColors = getGaugeColors(animatedScore.toInt())
-            drawArc(
-                brush = Brush.sweepGradient(gradientColors),
-                startAngle = startAngle,
-                sweepAngle = sweepAngle,
-                useCenter = false,
-                style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round)
-            )
-        }
+To fulfill **Requirement R2**, an isolated Python virtual environment (`.venv`) and a dedicated test dependencies file (`test_requirements.txt`) must be created.
 
-        // 3. Center Label & Grade
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "${animatedScore.toInt()}",
-                style = MaterialTheme.typography.headlineLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 44.sp
-                ),
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = getGradeContainerColor(grade),
-                contentColor = getGradeTextColor(grade)
-            ) {
-                Text(
-                    text = "Grade: $grade",
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                )
-            }
-        }
-    }
-}
+### `test_requirements.txt` Contents
+```text
+# ── Mimo Desktop Test Suite Dependencies ──────────────────────────────
+pytest==8.3.4
+pytest-mock==3.14.0
+requests-mock==1.12.1
+respx==0.21.1
+httpx==0.27.0
+requests==2.32.3
+pystray==0.19.5
+Pillow==10.3.0
+pywebview==5.1
+plyer==2.1.0
+python-dotenv==1.0.1
+fastapi==0.111.0
+uvicorn==0.29.0
+psutil==5.9.8
+```
+
+### Environment Setup Commands
+
+#### Windows (PowerShell):
+```powershell
+# Navigate to project root
+cd c:\Users\samee\projects\Mimo
+
+# Create isolated Python virtual environment
+python -m venv .venv
+
+# Activate virtual environment
+.\.venv\Scripts\Activate.ps1
+
+# Upgrade pip and install test requirements
+python -m pip install --upgrade pip
+pip install -r test_requirements.txt
+```
+
+#### Windows (CMD):
+```cmd
+cd c:\Users\samee\projects\Mimo
+python -m venv .venv
+.\.venv\Scripts\activate.bat
+python -m pip install --upgrade pip
+pip install -r test_requirements.txt
+```
+
+#### Linux / macOS:
+```bash
+cd /path/to/Mimo
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r test_requirements.txt
 ```
 
 ---
 
-### 1.3 Component 2: Key Statistics Cards
+## 4. Unit Test Suite Design for `desktop/tests/`
 
-#### Metrics Displayed
-1. **Productive Time**: Total productive minutes with green accent badge.
-2. **Distracting Time**: Total distracting minutes with warning/red accent badge.
-3. **Daily Streak**: Current consecutive productive days with fire icon (`🔥`).
-4. **Current Focus Grade**: Letter grade with visual quality status indicator.
+To fulfill **Requirement R3**, a dedicated test suite under `desktop/tests/` will be established. The suite will test all desktop components while mocking all remote and local network calls to `https://mimo-e8u2.onrender.com` and `http://127.0.0.1:8000`.
 
-#### Jetpack Compose Implementation Specification
-```kotlin
-@Composable
-fun KeyStatsGrid(
-    productiveMins: Int,
-    distractingMins: Int,
-    streakDays: Int,
-    grade: String,
-    modifier: Modifier = Modifier
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = modifier) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StatCard(
-                title = "Productive",
-                value = "${productiveMins}m",
-                icon = Icons.Default.CheckCircle,
-                accentColor = Color(0xFF10B981),
-                modifier = Modifier.weight(1f)
-            )
-            StatCard(
-                title = "Distracting",
-                value = "${distractingMins}m",
-                icon = Icons.Default.Warning,
-                accentColor = Color(0xFFEF4444),
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StatCard(
-                title = "Current Streak",
-                value = "$streakDays Days 🔥",
-                icon = Icons.Default.LocalFireDepartment,
-                accentColor = Color(0xFFF59E0B),
-                modifier = Modifier.weight(1f)
-            )
-            StatCard(
-                title = "Focus Grade",
-                value = grade,
-                icon = Icons.Default.Star,
-                accentColor = Color(0xFF8B5CF6),
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
+### Directory Layout
+```text
+desktop/
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py                # Shared fixtures & backend API mock interceptors
+│   ├── test_backend_api_mock.py   # Mocks mimo-e8u2.onrender.com API endpoints
+│   ├── test_desktop_app_init.py   # Tests main_desktop.py startup & server polling
+│   └── test_desktop_ui_services.py# Tests WindowManager, MimoTray, Settings, Notifications, Autostart
 ```
 
 ---
 
-### 1.4 Component 3: Urgency-Aware Assignment & Task Manager
+## 5. Proposed Unit Test File Specifications
 
-#### Urgency Categorization Logic
-Assignments are retrieved from `GET /assignments/` and dynamically sorted by urgency:
-- **Overdue** (`due_date < today`): Red badge (`#EF4444`), highest priority.
-- **Due Today** (`due_date == today`): Orange/Amber badge (`#F59E0B`).
-- **Due Tomorrow** (`due_date == today + 1`): Yellow/Blue badge (`#3B82F6`).
-- **Upcoming** (`due_date > today + 1`): Muted gray badge (`#6B7280`).
-
-#### Key Functionalities
-- **Inline Completion**: Checkbox triggers `POST /assignments/{id}/done` with optimistic UI updating.
-- **Quick-Add Dialog**: Text input field supporting both raw creation `POST /assignments/` and natural language parsing `POST /assignments/nlp` (e.g., *"Finish Math homework tomorrow at 5pm"*).
-
-```kotlin
-@Composable
-fun AssignmentItemRow(
-    item: AssignmentItem,
-    onToggleDone: (Int) -> Unit
-) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
-                checked = item.status == "done",
-                onCheckedChange = { onToggleDone(item.id) }
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = item.title,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        textDecoration = if (item.status == "done") TextDecoration.LineThrough else TextDecoration.None
-                    )
-                )
-                Text(
-                    text = "${item.subject} • Due: ${item.dueDate}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            UrgencyBadge(urgency = item.urgencyLevel)
-        }
-    }
-}
-```
-
----
-
-### 1.5 Component 4: App Usage Breakdown & Stats Overview
-
-#### Breakdown Component Specification
-Data fetched from `GET /screen/breakdown` provides productive, distracting, and neutral time breakdown plus top apps list.
-- **Category Proportions**: Rendered as a multi-segment horizontal bar or doughnut chart.
-- **Top Apps List**: Shows top distracting and productive applications with icon badges and minute counters.
-
----
-
-## Part 2: Android Background Roast Alert Enforcement Architecture
-
-### 2.1 Notification Channel & Notification Manager Architecture
-
-#### Notification Channel Setup (Android 8.0+ / API 26+)
-To ensure roast events produce immediate sound, vibration, and heads-up banners, the channel must be configured with maximum importance:
-
-```kotlin
-object RoastNotificationManager {
-    const val CHANNEL_ID = "mimo_roast_alerts_channel"
-    const val CHANNEL_NAME = "Mimo Roast Alerts"
-    const val NOTIFICATION_ID_BASE = 2001
-
-    fun createNotificationChannel(context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "High priority notifications for Mimo AI productivity roasts"
-                enableVibration(true)
-                vibrationPattern = longArrayOf(0, 250, 100, 250)
-                lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-            }
-
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
-        }
-    }
-
-    fun showRoastNotification(context: Context, roastText: String, appName: String?) {
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val title = if (!appName.isNull_or_Blank()) "🔥 Slacking on $appName!" else "🔥 Mimo Roast Alert!"
-
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_fire_notification)
-            .setContentTitle(title)
-            .setContentText(roastText)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(roastText))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setAutoCancel(true)
-            .setContentIntent(pendingIntent)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
-            .build()
-
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify((System.currentTimeMillis() % 10000).toInt(), notification)
-    }
-}
-```
-
-#### Android 13+ (`POST_NOTIFICATIONS`) Permission Flow
-For Android 13 (API 33) and above, runtime permission is mandatory:
-1. `Manifest.xml` must declare: `<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />`.
-2. On app launch, `DashboardActivity` checks `ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)`.
-3. If ungranted, prompt using `rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission())`.
-
----
-
-### 2.2 Background Service Architecture Evaluation & Selection
-
-We evaluated three architecture approaches for receiving real-time `roast` WebSocket events:
-
-| Criteria | Option A: Standalone WorkManager | Option B: Background Service without Foreground Tag | Option C: Persistent Foreground Service + OkHttp WebSocket (RECOMMENDED) |
-|---|---|---|---|
-| **Real-time Delivery (< 1 sec)** | ❌ No (Min 15 min interval) | ❌ No (Killed by OS in background) | ✅ **Yes** (Continuous WS connection) |
-| **Runs when App Closed** | ✅ Yes (Scheduled jobs) | ❌ No | ✅ **Yes** (Foreground Service with persistent notification) |
-| **Resilience to Doze Mode** | ⚠️ Delayed by Doze windows | ❌ Stopped | ✅ **High** (Exempted via Foreground Service classification) |
-| **Implementation Complexity** | Low | Low | Medium |
-
-#### Selected Architecture: Foreground Service (`MimoRoastService`) + OkHttp WebSocket
-The app launches a `MimoRoastService` as an Android Foreground Service.
-- **Service Type**: `foregroundServiceType="dataSync"` (Android 14+ compliant).
-- **Persistent Notification**: Displays a low-priority ongoing notification: *"Mimo active focus monitoring running"*.
-- **WebSocket Connection**: Connects to `ws://<HOST>:8000/ws`. Listen for `{"type": "roast", "message": "..."}` messages. When received, immediately invoke `RoastNotificationManager.showRoastNotification(...)`.
-
----
-
-### 2.3 OkHttp WebSocket Listener Implementation Detail
-
-```kotlin
-class MimoRoastService : Service() {
-
-    private var webSocket: WebSocket? = null
-    private val client = OkHttpClient.Builder()
-        .readTimeout(0, TimeUnit.MILLISECONDS) // Continuous WS stream
-        .pingInterval(20, TimeUnit.SECONDS)     // Keep-alive ping
-        .build()
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForegroundServiceNotification()
-        connectWebSocket()
-        return START_STICKY // OS will restart service if killed under memory pressure
-    }
-
-    private fun connectWebSocket() {
-        val request = Request.Builder()
-            .url("ws://10.0.2.2:8000/ws") // 10.0.2.2 for Android Emulator connecting to host localhost
-            .build()
-
-        webSocket = client.newWebSocket(request, object : WebSocketListener() {
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                try {
-                    val json = JSONObject(text)
-                    if (json.optString("type") == "roast") {
-                        val message = json.optString("message")
-                        val appName = json.optString("app")
-                        RoastNotificationManager.showRoastNotification(
-                            applicationContext,
-                            message,
-                            appName
-                        )
-                    }
-                } catch (e: Exception) {
-                    Log.e("RoastService", "Error parsing WS message", e)
-                }
-            }
-
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Log.w("RoastService", "WS Disconnected, scheduling reconnect in 5s...", t)
-                // Schedule exponential backoff reconnect
-                Handler(Looper.getMainLooper()).postDelayed({ connectWebSocket() }, 5000)
-            }
-        })
-    }
-
-    override fun onBind(intent: Intent?): IBinder? = null
-}
-```
-
----
-
-### 2.4 Deep Sleep, Doze Mode & Battery Optimization Handling
-
-1. **Foreground Service Class Registration in `AndroidManifest.xml`**:
-   ```xml
-   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-   <uses-permission android:name="android.permission.INTERNET" />
-   <uses-permission android:name="android.permission.WAKE_LOCK" />
-
-   <service
-       android:name=".service.MimoRoastService"
-       android:foregroundServiceType="dataSync"
-       android:exported="false" />
-   ```
-2. **Battery Saver Exemption Prompt**:
-   For testing and production reliability, the app can prompt for battery optimization exemption:
-   ```kotlin
-   val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-   if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
-       val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-           data = Uri.parse("package:$packageName")
-       }
-       startActivity(intent)
-   }
-   ```
-3. **Transient WakeLock during Notification Dispatch**:
-   Acquire a `PowerManager.PARTIAL_WAKE_LOCK` for 3 seconds when a WebSocket `roast` payload arrives to wake CPU if the device is in deep Doze mode.
-
----
-
-## Part 3: End-to-End Testing & Emulator Verification Strategy
-
-### 3.1 Triggering Mock Roast Events from Backend
-
-To verify background notification enforcement without waiting for actual distraction timers, mock roast events can be injected directly via Python into `event_bus`:
-
+### 5.1 `desktop/tests/conftest.py`
 ```python
-# Script: scripts/trigger_mock_roast.py
+"""
+Pytest configuration and shared fixtures for desktop/tests/.
+Mocks backend API endpoints (mimo-e8u2.onrender.com and localhost)
+and isolates environment variables and GUI calls.
+"""
+import os
+import pytest
+import httpx
+
+REMOTE_BACKEND_URL = "https://mimo-e8u2.onrender.com"
+LOCAL_BACKEND_URL  = "http://127.0.0.1:8000"
+
+@pytest.fixture(autouse=True)
+def set_testing_env(monkeypatch, tmp_path):
+    """Set environment variables for isolated desktop testing."""
+    monkeypatch.setenv("PYTEST_CURRENT_TEST", "true")
+    monkeypatch.setenv("MIMO_CLOUD_URL", REMOTE_BACKEND_URL)
+    monkeypatch.setenv("MIMO_DISABLE_NOTIFICATIONS", "1")
+    
+    # Isolate .env file
+    env_file = tmp_path / ".env"
+    env_file.write_text("EOD_REPORT_HOUR=22\nNO_HARDWARE=1\nNO_VOICE=1\n")
+    import desktop.settings_manager as sm
+    monkeypatch.setattr(sm, "_ENV_PATH", str(env_file))
+    return env_file
+
+@pytest.fixture
+def mock_render_backend(monkeypatch):
+    """
+    Mock responses for https://mimo-e8u2.onrender.com and http://127.0.0.1:8000
+    using httpx monkeypatching.
+    """
+    class MockResponse:
+        def __init__(self, status_code, json_data):
+            self.status_code = status_code
+            self._json_data = json_data
+            self.text = str(json_data)
+        def json(self):
+            return self._json_data
+
+    def fake_get(url, **kwargs):
+        if "/health" in url:
+            return MockResponse(200, {"status": "healthy"})
+        elif "/reports/stats" in url:
+            return MockResponse(200, {"focus_score": 92.5, "letter_grade": "A"})
+        elif "/assignments/upcoming" in url:
+            return MockResponse(200, [{"id": 1, "title": "Calculus HW", "due_date": "2026-08-10"}])
+        elif "/settings/data" in url:
+            return MockResponse(200, {"sections": []})
+        return MockResponse(404, {"error": "Not Found"})
+
+    def fake_post(url, **kwargs):
+        if "/monitoring/pause" in url:
+            return MockResponse(200, {"ok": True, "status": "paused"})
+        elif "/monitoring/resume" in url:
+            return MockResponse(200, {"ok": True, "status": "active"})
+        elif "/screen/mock" in url:
+            return MockResponse(200, {"ok": True, "synced": True})
+        elif "/settings/save" in url:
+            return MockResponse(200, {"ok": True})
+        return MockResponse(404, {"error": "Not Found"})
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+    monkeypatch.setattr(httpx, "post", fake_post)
+    return REMOTE_BACKEND_URL
+```
+
+### 5.2 `desktop/tests/test_backend_api_mock.py`
+```python
+"""
+Unit tests mocking https://mimo-e8u2.onrender.com backend API responses.
+"""
+import httpx
 import requests
-import json
-import websocket
 
-def trigger_ws_roast():
-    ws = websocket.create_connection("ws://localhost:8000/ws")
-    # Alternatively push to event_bus via Python interpreter:
-    # from api.websocket import event_bus
-    # event_bus.put_nowait({"type": "roast", "message": "TEST ROAST: Put down Reddit and study!", "app": "Reddit"})
+def test_mock_render_backend_health_check(mock_render_backend):
+    url = f"{mock_render_backend}/health"
+    response = httpx.get(url)
+    assert response.status_code == 200
+    assert response.json()["status"] == "healthy"
+
+def test_mock_render_backend_reports_stats(mock_render_backend):
+    url = f"{mock_render_backend}/reports/stats"
+    response = httpx.get(url)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["focus_score"] == 92.5
+    assert data["letter_grade"] == "A"
+
+def test_mock_render_backend_assignments(mock_render_backend):
+    url = f"{mock_render_backend}/assignments/upcoming?days=14"
+    response = httpx.get(url)
+    assert response.status_code == 200
+    assignments = response.json()
+    assert len(assignments) == 1
+    assert assignments[0]["title"] == "Calculus HW"
+
+def test_mock_render_backend_monitoring_toggle(mock_render_backend):
+    pause_res = httpx.post(f"{mock_render_backend}/monitoring/pause")
+    assert pause_res.status_code == 200
+    assert pause_res.json()["status"] == "paused"
+
+    resume_res = httpx.post(f"{mock_render_backend}/monitoring/resume")
+    assert resume_res.status_code == 200
+    assert resume_res.json()["status"] == "active"
+
+def test_mock_screen_tracker_cloud_sync(requests_mock):
+    cloud_url = "https://mimo-e8u2.onrender.com"
+    requests_mock.post(f"{cloud_url}/screen/mock", json={"ok": True}, status_code=200)
+    
+    res = requests.post(f"{cloud_url}/screen/mock", json={"app": "VSCode", "title": "main.py"})
+    assert res.status_code == 200
+    assert res.json()["ok"] is True
 ```
 
-Or via direct execution in Python test runner:
+### 5.3 `desktop/tests/test_desktop_app_init.py`
 ```python
-from api.websocket import push_event
-push_event({
-    "type": "roast",
-    "message": "EMULATOR TEST ROAST: You have been on TikTok for 45 minutes!",
-    "trigger": "distraction",
-    "app": "TikTok",
-    "ts": "2026-08-06T23:24:00"
-})
+"""
+Unit tests for desktop application startup sequence and server polling logic.
+"""
+from desktop.main_desktop import _wait_for_server, STARTUP_TIMEOUT
+
+def test_wait_for_server_healthy(mock_render_backend):
+    assert _wait_for_server(timeout=2, splash=None) is True
+
+def test_wait_for_server_timeout(monkeypatch):
+    import httpx
+    def failing_get(url, timeout=2):
+        raise ConnectionError("Server unreachable")
+    monkeypatch.setattr(httpx, "get", failing_get)
+
+    assert _wait_for_server(timeout=1, splash=None) is False
+
+def test_single_instance_acquisition():
+    from desktop.single_instance import acquire, release
+    assert acquire() is True
+    release()
+```
+
+### 5.4 `desktop/tests/test_desktop_ui_services.py`
+```python
+"""
+Unit tests for WindowManager, MimoTray, SettingsManager, Notifications, and Autostart.
+"""
+from desktop.window_manager import WindowManager
+from desktop.tray import MimoTray
+from desktop.settings_manager import load_settings, save_setting
+from desktop.notifications import notify
+from desktop.autostart import get_executable_path
+
+def test_window_manager_fallback(monkeypatch):
+    wm = WindowManager(url="https://mimo-e8u2.onrender.com")
+    opened = []
+    import desktop.window_manager as wm_mod
+    monkeypatch.setattr(wm_mod.webbrowser, "open", lambda url: opened.append(url))
+    wm.open()
+    assert len(opened) == 1
+    assert opened[0] == "https://mimo-e8u2.onrender.com"
+
+def test_mimo_tray_stats_update():
+    tray = MimoTray()
+    tray.update_stats(focus_score=88.4, grade="A", assignments=2)
+    assert tray._focus_score == 88
+    assert tray._grade == "A"
+    assert tray._assignments == 2
+
+def test_settings_manager_masking():
+    settings = load_settings(mask_sensitive=True)
+    assert "OPENAI_API_KEY" in settings
+
+def test_notifications_suppressed_in_pytest():
+    assert notify("Test Title", "Test Message") is False
+
+def test_autostart_executable_path():
+    path = get_executable_path()
+    assert isinstance(path, str)
+    assert len(path) > 0
 ```
 
 ---
 
-### 3.2 Emulator Testing Protocol Matrix
+## 6. Execution & Verification Method
 
-| Test Scenario | App State | Trigger Command / Action | Expected Result | Pass Criteria |
-|---|---|---|---|---|
-| **Scenario 1: App Foreground** | Active on screen | Run `push_event({"type":"roast", ...})` | In-app toast + System Notification pop-up | Notification visible in status bar |
-| **Scenario 2: App Background** | Home button pressed (App backgrounded) | Run `push_event({"type":"roast", ...})` | System Notification banner with sound/vibration | Notification displayed over launcher |
-| **Scenario 3: App Swiped Away** | App swiped out of Recent Apps | Run `push_event({"type":"roast", ...})` | Foreground Service remains active; notification pops | System notification delivered cleanly |
-| **Scenario 4: Device Screen Off** | Emulator power button (Screen locked) | Run `push_event({"type":"roast", ...})` | Screen wakes / Lock screen notification displays | Lock screen displays roast text |
+To verify the desktop unit test suite independently:
 
-#### ADB Verification Commands
-- Check active notification channels and posted notifications:
-  ```bash
-  adb shell dumpsys notification --noredact | grep -A 10 "mimo_roast_alerts_channel"
-  ```
-- Verify running Foreground Service:
-  ```bash
-  adb shell dumpsys activity services com.mimo.app.service.MimoRoastService
-  ```
-
----
-
-## Part 4: Recommended Target Project File Layout for `c:\Users\samee\projects\Mimo\android`
-
-```
-android/
-├── build.gradle.kts
-├── settings.gradle.kts
-├── app/
-│   ├── build.gradle.kts
-│   └── src/
-│       └── main/
-│           ├── AndroidManifest.xml
-│           ├── java/com/mimo/app/
-│           │   ├── MainActivity.kt
-│           │   ├── data/
-│           │   │   ├── api/
-│           │   │   │   ├── MimoApiService.kt
-│           │   │   │   └── MimoWebSocketClient.kt
-│           │   │   ├── model/
-│           │   │   │   ├── StatsResponse.kt
-│           │   │   │   ├── AssignmentItem.kt
-│           │   │   │   └── ScreenBreakdownResponse.kt
-│           │   │   └── repository/
-│           │   │       ├── MimoRepository.kt
-│           │   │       └── MimoRepositoryImpl.kt
-│           │   ├── service/
-│           │   │   ├── MimoRoastService.kt
-│           │   │   └── RoastNotificationManager.kt
-│           │   └── ui/
-│           │       ├── dashboard/
-│           │       │   ├── DashboardScreen.kt
-│           │       │   ├── DashboardViewModel.kt
-│           │       │   ├── components/
-│           │       │   │   ├── CircularFocusScoreGauge.kt
-│           │       │   │   ├── KeyStatsGrid.kt
-│           │       │   │   ├── AssignmentListSection.kt
-│           │       │   │   └── AppUsageBreakdownSection.kt
-│           │       └── theme/
-│           │           ├── Color.kt
-│           │           ├── Theme.kt
-│           │           └── Type.kt
-│           └── res/
-│               ├── drawable/
-│               │   └── ic_fire_notification.xml
-│               └── values/
-│                   └── strings.xml
-```
-
----
-
-## Conclusion & Next Steps
-
-1. **Architecture Blueprint Complete**: The UI design and background service architecture are fully specified and ready for implementation in `c:\Users\samee\projects\Mimo\android`.
-2. **Verification Readiness**: The backend WebSocket payload (`type: "roast"`) matches the existing FastAPI server implementation (`api/websocket.py` & `modules/ai_layer/roast_engine.py`), ensuring 100% integration compatibility.
+1. **Activate `.venv`**:
+   ```powershell
+   .\.venv\Scripts\Activate.ps1
+   ```
+2. **Execute pytest on `desktop/tests/`**:
+   ```powershell
+   pytest desktop/tests/ -v
+   ```
+3. **Expected Verification Result**:
+   - 100% pass rate across all unit test cases.
+   - Zero unhandled exceptions or crashes.

@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit
 
 object ApiClient {
     // Set to the live Render cloud URL
-    var baseUrl: String = "https://mimo-e8u2.onrender.com"
+    var baseUrl: String = "https://mimo-e8u2.onrender.com/"
         private set
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {

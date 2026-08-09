@@ -192,6 +192,14 @@ class DashboardViewModelStressTest {
             override suspend fun getScreenBreakdown(targetDate: String?): ScreenBreakdown {
                 throw RuntimeException("Database timeout")
             }
+
+            override suspend fun pushSync(payload: SyncPayload): Map<String, Any> {
+                throw UnsupportedOperationException()
+            }
+
+            override suspend fun pullSync(): SyncPayload {
+                throw UnsupportedOperationException()
+            }
         }
 
         val viewModel = DashboardViewModel(

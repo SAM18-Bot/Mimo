@@ -50,7 +50,8 @@ android {
     }
     testOptions {
         unitTests {
-            isIncludeAndroidResources = true
+            isIncludeAndroidResources = false
+            isReturnDefaultValues = true
         }
     }
 }
@@ -103,4 +104,7 @@ dependencies {
     testImplementation("androidx.test:core-ktx:1.5.0")
     testImplementation("androidx.test.ext:junit:1.1.5")
     testImplementation("androidx.room:room-testing:$roomVersion")
+    testImplementation("io.mockk:mockk:1.13.9")
+    testImplementation("androidx.test:rules:1.5.0")
+    testImplementation("androidx.arch.core:core-testing:2.2.0")
 }

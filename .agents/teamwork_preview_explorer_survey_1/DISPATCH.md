@@ -1,12 +1,13 @@
-## 2026-08-07T09:11:18Z
-You are survey explorer 1.
-Your working directory is: c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_1
-Identity: teamwork_preview_explorer (read-only exploration)
+## 2026-08-08T07:45:44Z
+Role: teamwork_preview_explorer
+Working directory: c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_1
+Original Request: c:\Users\samee\projects\Mimo\.agents\ORIGINAL_REQUEST.md
 
-Your Task:
-1. Read the original user request at: c:\Users\samee\projects\Mimo\ORIGINAL_REQUEST.md
-2. Investigate the Android codebase in c:\Users\samee\projects\Mimo\ (look at build.gradle, app module gradle files, package structure, com/mimo/app/ data layer, DashboardViewModel, UI, test configurations).
-3. Check existing dependencies (Room DB, Retrofit, WorkManager, Coroutines, etc.), build commands (e.g. ./gradlew assembleDebug test), and test setups.
-4. Document the exact file locations, existing implementation details, classes, and missing components for Requirements R1, R2, and R3 on the Android side.
-5. Create progress.md and handoff.md in your working directory (c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_1\handoff.md) summarizing your findings in detail.
-6. When done, send a summary message back to parent.
+Task:
+Investigate R1 (Android Instant Startup Crash).
+1. Read `c:\Users\samee\projects\Mimo\.agents\ORIGINAL_REQUEST.md`.
+2. Inspect the Android codebase in `c:\Users\samee\projects\Mimo\android`.
+3. Read `MainActivity.kt`, `MimoApplication.kt`, `DashboardViewModel.kt`, `MimoRoastService.kt`, `MimoApiService.kt`, `MimoWebSocketClient.kt`, `AndroidManifest.xml`, `build.gradle.kts`, `res/` layout/theme files, and dependencies.
+4. Identify the exact root cause of why the app crashes instantly (1-2 seconds after opening). Check for missing initializations, main thread network/WebSocket calls, unhandled exceptions in Coroutines, lifecycle bugs, theme/resource issues, missing permissions, or invalid API URLs (`http://10.0.2.2:8000` vs remote/localhost).
+5. Ensure the fix strategy resolves the crash completely without disabling core functionality (such as background tracking or networking).
+6. Write a comprehensive report `analysis.md` and `handoff.md` in your working directory `c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_1` documenting the precise crash cause, exact code lines affected, and recommended fix implementation plan.

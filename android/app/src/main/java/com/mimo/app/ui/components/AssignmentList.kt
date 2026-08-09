@@ -27,12 +27,11 @@ fun AssignmentList(
     onMarkDone: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LazyColumn(
+    Column(
         modifier = modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(assignments) { assignment ->
+        assignments.forEach { assignment ->
             AssignmentCard(
                 assignment = assignment,
                 onMarkDone = { onMarkDone(assignment.id) }
@@ -47,13 +46,17 @@ fun AssignmentCard(
     onMarkDone: () -> Unit
 ) {
     val today = LocalDate.now()
-    val dueDate = LocalDate.parse(assignment.due_date) // Assuming ISO format YYYY-MM-DD
-    val daysUntilDue = ChronoUnit.DAYS.between(today, dueDate)
+    val dueDate = runCatching { LocalDate.parse(assignment.due_date) }.getOrNull()
 
-    val (statusColor, statusText) = when {
-        daysUntilDue < 0 -> MimoColors.Error to "Overdue"
-        daysUntilDue == 0L -> MimoColors.Warning to "Due Today"
-        else -> MimoColors.Success to "In ${daysUntilDue} days"
+    val (statusColor, statusText) = if (dueDate != null) {
+        val daysUntilDue = ChronoUnit.DAYS.between(today, dueDate)
+        when {
+            daysUntilDue < 0 -> MimoColors.Error to "Overdue"
+            daysUntilDue == 0L -> MimoColors.Warning to "Due Today"
+            else -> MimoColors.Success to "In ${daysUntilDue} days"
+        }
+    } else {
+        MimoColors.TextSecondary to (if (assignment.due_date.isBlank()) "No due date" else assignment.due_date)
     }
 
     Card(

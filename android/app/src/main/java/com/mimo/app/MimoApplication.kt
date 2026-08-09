@@ -14,11 +14,18 @@ import com.mimo.app.sync.SyncWorker
 import com.mimo.app.tracker.MobileTrackerService
 import android.content.Intent
 
-class MimoApplication : Application() {
+import androidx.work.Configuration
+
+class MimoApplication : Application(), Configuration.Provider {
 
     val database: MimoDatabase by lazy {
         MimoDatabase.getDatabase(this)
     }
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setMinimumLoggingLevel(android.util.Log.INFO)
+            .build()
 
     override fun onCreate() {
         super.onCreate()
@@ -28,12 +35,14 @@ class MimoApplication : Application() {
         // Note: MobileTrackerService start moved to MainActivity to prevent Android 14 ForegroundService exceptions
 
         // Schedule periodic SyncWorker every 15 minutes (minimum allowed by WorkManager)
-        val syncRequest = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES).build()
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "MimoSyncWorker",
-            ExistingPeriodicWorkPolicy.KEEP,
-            syncRequest
-        )
+        runCatching {
+            val syncRequest = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES).build()
+            WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "MimoSyncWorker",
+                ExistingPeriodicWorkPolicy.KEEP,
+                syncRequest
+            )
+        }
     }
 
     private fun createNotificationChannel() {

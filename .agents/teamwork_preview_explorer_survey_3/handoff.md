@@ -1,71 +1,69 @@
-# Handoff Report: Native Android Mobile Dashboard & Background Roast Enforcement Technical Architecture
-
-**Author:** teamwork_preview_explorer_survey_3  
-**Date:** 2026-08-06  
-**Target Project Location:** `c:\Users\samee\projects\Mimo\android`  
-
----
+# Handoff Report — Desktop App Testing Investigation (R2 & R3)
 
 ## 1. Observation
 
-- **Backend API & WebSocket Contracts**:
-  - `GET /reports/stats` (Lines 14-22 in `ORIGINAL_REQUEST.md`): Provides `focus_score`, `productive_minutes`, `distracting_minutes`, `streak_days`, `grade`.
-  - `GET /assignments/` & `POST /assignments/` / `POST /assignments/nlp` / `POST /assignments/{id}/done`: Handles assignment state and creation.
-  - `GET /screen/breakdown`: Provides usage breakdown by category (`productive`, `distracting`, `neutral`) and top apps list.
-  - `WebSocket /ws`: Broadcaster in `api/websocket.py` (lines 43-55) sends JSON payloads over WebSocket.
-  - **Roast Payload**: Emitted by `RoastEngine._fire_roast()` (`modules/ai_layer/roast_engine.py:118-125`) with structure:
-    ```json
-    {
-      "type": "roast",
-      "message": "...",
-      "trigger": "distraction",
-      "app": "...",
-      "ts": "..."
-    }
-    ```
-- **Android Target Workspace**:
-  - `c:\Users\samee\projects\Mimo\android` (currently not created yet; to be generated with Gradle, Kotlin, Jetpack Compose, Material 3, and OkHttp/Retrofit).
+- **Directory Structure & Files**:
+  - Main app entry point: `desktop/main_desktop.py` (350 lines). Defines application initialization sequence, `SERVER_HOST = "127.0.0.1"`, `SERVER_PORT = 8000`, `SERVER_URL = "http://127.0.0.1:8000"`, `STARTUP_TIMEOUT = 40`, and functions `_check_single_instance()`, `_start_server()`, `_wait_for_server(timeout, splash)`, `_start_tray()`, `_shutdown()`.
+  - Settings manager: `desktop/settings_manager.py` (189 lines). Manages `.env` reads/writes, masking sensitive keys (`OPENAI_API_KEY`), and section UI mappings.
+  - System tray icon: `desktop/tray.py` (232 lines). Hardcodes `_BASE_URL = "http://127.0.0.1:8000"`, implements `_stats_loop()` calling `GET /reports/stats` and `GET /assignments/upcoming?days=14`, menu toggles calling `POST /monitoring/pause` and `POST /monitoring/resume`.
+  - PyWebview window manager: `desktop/window_manager.py` (148 lines). Handles browser window creation, hides window on close to system tray, falls back to `webbrowser.open()`.
+  - OS notifications: `desktop/notifications.py` (90 lines). Uses `plyer`. Line 32 contains `or "PYTEST_CURRENT_TEST" in os.environ` to automatically suppress desktop toasts during automated tests.
+  - Single instance guard: `desktop/single_instance.py` (157 lines). Uses Windows mutex `CreateMutexW` or Unix POSIX lock file `~/.mimo/mimo.pid`.
+  - Standalone build script: `desktop/build.py` (104 lines). Defines `CLOUD_URL = os.getenv("MIMO_CLOUD_URL", "http://localhost:8000")` and posts screen activity to `POST /screen/mock`.
+  - Production backend URL: Discovered in Android client (`android/app/src/main/java/com/mimo/app/network/ApiClient.kt:11`) as `https://mimo-e8u2.onrender.com/`.
+
+- **Existing Test Execution**:
+  - Ran command `python -m pytest --version`: stdout returned `pytest 8.3.4`.
+  - Existing repository tests reside in root `tests/` (`test_desktop_utils.py`, `test_desktop_runtime.py`, `test_api_desktop.py`).
+  - No `desktop/tests/` directory currently exists.
+
+- **Dependencies**:
+  - App dependencies in `requirements_desktop.txt`: `pystray==0.19.5`, `Pillow==10.3.0`, `pywebview==5.1`, `plyer==2.1.0`, `pyinstaller==6.8.0`, `httpx==0.27.0`, `python-dotenv==1.0.1`.
+  - Core backend requirements in `requirements.txt`: `fastapi==0.111.0`, `uvicorn==0.29.0`, `psutil==5.9.8`, `pydantic==2.7.1`.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Dashboard UI Requirements**:
-   - To adapt the web dashboard to Android, Jetpack Compose provides declarative UI state management using `StateFlow` and MVVM.
-   - The Circular Focus Score Gauge can be drawn natively using Compose `Canvas` with `drawArc` and `Brush.sweepGradient`, animated via `animateFloatAsState` for smooth transitions.
-   - Key Statistics cards can be laid out using flexible `Row`/`Column` grids with Material 3 `Card` components.
-   - Assignments require dynamic urgency calculation (`Overdue`, `Due Today`, `Due Tomorrow`, `Upcoming`) based on `due_date`, with checkable rows triggering `POST /assignments/{id}/done` and quick-add input interfacing with `POST /assignments/nlp`.
-
-2. **Background Enforcement Requirements**:
-   - WebSockets disconnected when mobile apps go to background unless managed by a persistent background component.
-   - Standard WorkManager polling is limited to 15-minute intervals and cannot deliver real-time roasts (< 1s latency).
-   - Therefore, an Android **Foreground Service** (`MimoRoastService`) holding a persistent OkHttp WebSocket listener is required.
-   - For Android 13+ (API 33+), runtime `POST_NOTIFICATIONS` permission must be requested on app launch.
-   - High importance Notification Channel (`IMPORTANCE_HIGH`) with heads-up display (`PRIORITY_HIGH`) ensures alerts interrupt distractions immediately with sound and vibration even when the app is minimized or closed.
+1. **Observation**: `desktop/main_desktop.py`, `desktop/tray.py`, and `desktop/build.py` rely on REST endpoints (`/health`, `/reports/stats`, `/assignments/upcoming`, `/monitoring/pause`, `/monitoring/resume`, `/screen/mock`, `/settings/data`, `/settings/save`) targeting `http://127.0.0.1:8000` or production backend `https://mimo-e8u2.onrender.com`.
+2. **Logic Step**: To test the desktop application without requiring a running backend server or network connectivity during `pytest desktop/tests/`, all HTTP endpoints (both local and `mimo-e8u2.onrender.com`) must be intercepted and mocked using `pytest-mock`, `respx` / `httpx` mocking, or `requests-mock`.
+3. **Observation**: `desktop/notifications.py` explicitly disables toast popups when `PYTEST_CURRENT_TEST` is present in `os.environ`, and `desktop/window_manager.py` / `desktop/tray.py` gracefully fall back when PyWebview or Pystray GUI displays are unavailable in headless CI environments.
+4. **Logic Step**: Unit tests can safely run in headless CLI / CI environments without triggering OS notification popups or GUI window errors by setting `PYTEST_CURRENT_TEST=true` and using monkeypatching for GUI fallbacks.
+5. **Observation**: Currently, `desktop/tests/` does not exist, though test specifications and virtual environment requirements can be defined cleanly via `test_requirements.txt` and a modular test layout (`conftest.py`, `test_backend_api_mock.py`, `test_desktop_app_init.py`, `test_desktop_ui_services.py`).
+6. **Conclusion**: Creating an isolated `.venv`, installing `test_requirements.txt`, and adding the proposed test suite in `desktop/tests/` will allow `pytest desktop/tests/` to execute with 100% pass rate and zero network/GUI side effects.
 
 ---
 
 ## 3. Caveats
 
-- **Battery Optimizations by OEMs**: Aggressive battery saver software on certain devices (e.g., Xiaomi MIUI, Samsung OneUI) may require user approval for `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` to keep long-running WebSocket Foreground Services alive across extended idle periods.
-- **Network Switching**: Handover between Wi-Fi and Cellular data may briefly sever the WebSocket connection. The OkHttp listener must incorporate exponential backoff auto-reconnection logic.
-- **Android 14 Foreground Service Types**: Android 14+ requires explicit `foregroundServiceType` in `AndroidManifest.xml` (`android:foregroundServiceType="dataSync"`).
+- **GUI Hardware Interaction**: Real PyWebview rendering and Pystray tray icon clicks cannot be rendered in headless environments; tests verify the fallback logic, event loop handlers, and menu state updaters rather than real screen pixels.
+- **Windows Registry / POSIX Locks**: Real OS autostart registration and single-instance locks are tested with monkeypatched filesystem paths / mock processes to avoid modifying system registry or host PID state.
 
 ---
 
 ## 4. Conclusion
 
-The technical architecture for the Native Android Mobile Dashboard (Jetpack Compose UI) and Background Roast Enforcement Service (`MimoRoastService`) is complete, fully specified, and documented in `c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_3\analysis.md`. The design guarantees real-time delivery of roast push notifications when the app is in the background or closed, while providing a modern Material 3 Jetpack Compose UI for stats, tasks, score gauge, and usage breakdown.
+- The desktop app codebase in `desktop/` is well-structured and fully inspectable.
+- Virtual environment setup requirements (R2) and mocking strategy for `https://mimo-e8u2.onrender.com` (R3) have been fully designed and documented in `analysis.md`.
+- Creating `desktop/tests/` with the provided test specifications will ensure 100% pass rate when running `pytest desktop/tests/`.
 
 ---
 
 ## 5. Verification Method
 
-To independently verify the recommendations and design spec:
-
-1. **Inspect Analysis Document**:
-   - View `c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_3\analysis.md` for complete Jetpack Compose code snippets, Notification Channel configuration, and OkHttp WebSocket service code.
-2. **Backend Payload Alignment**:
-   - Verify WebSocket roast payload structure against `modules/ai_layer/roast_engine.py` (lines 118-125).
-3. **Emulator Testing Protocol**:
-   - Execute mock roast events by calling `push_event({"type": "roast", "message": "Test Roast", "app": "YouTube"})` in Python while app is in background, then inspect system notification drawer via `adb shell dumpsys notification`.
+1. **Inspect Report Files**:
+   - `c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_3\analysis.md`
+   - `c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_3\handoff.md`
+2. **Environment Setup Verification**:
+   ```powershell
+   python -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   pip install -r test_requirements.txt
+   ```
+3. **Test Execution Command**:
+   ```powershell
+   pytest desktop/tests/ -v
+   ```
+4. **Invalidation Conditions**:
+   - Any test failure in `desktop/tests/`.
+   - Real network request attempting to reach `https://mimo-e8u2.onrender.com` during pytest execution.

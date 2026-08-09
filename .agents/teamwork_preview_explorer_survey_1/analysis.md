@@ -1,144 +1,178 @@
-# Android Project Survey & Feasibility Analysis
-
-**Target Workspace**: `c:\Users\samee\projects\Mimo\android`  
-**Date**: 2026-08-06  
-**Investigator**: `teamwork_preview_explorer_survey_1`  
-
----
+# Root Cause Analysis Report: Android Instant Startup Crash (R1)
 
 ## Executive Summary
-
-A comprehensive survey of `c:\Users\samee\projects\Mimo\android` was performed. The directory **does not exist** yet in the workspace root. No Android Gradle configuration, Kotlin source code, Jetpack Compose components, or background service implementations currently exist in the repository.
-
-To meet requirements **R1 (Native Android Mobile Dashboard)** and **R2 (Background Enforcement / Roast-Plus-Alert)**, a brand new Android Gradle project must be bootstrapped from scratch under `c:\Users\samee\projects\Mimo\android`.
+The Mimo Android application experiences an instant crash (1-2 seconds after launch) due to a critical Jetpack Compose layout violation combined with an unhandled date parsing exception in the UI layer. In addition, the Android unit test suite fails to compile due to missing mock implementations in `FakeMimoApiService`.
 
 ---
 
-## Detailed Survey Findings
+## 1. Primary Root Causes Identified
 
-### 1. Project Directory & Gradle Configuration
-- **Status**: Directory `c:\Users\samee\projects\Mimo\android` is missing.
-- **Root `settings.gradle.kts`**: Missing.
-- **Root `build.gradle.kts`**: Missing.
-- **`app/build.gradle.kts`**: Missing.
-- **Gradle Wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/`)**: Missing.
-- **Versions Status**:
-  - Android Gradle Plugin (AGP): Unconfigured (Recommended: `8.2.2` or `8.4.0`)
-  - Kotlin Version: Unconfigured (Recommended: `1.9.22` or `2.0.0`)
-  - Min SDK: Unconfigured (Recommended: `26` for Android 8.0+)
-  - Target/Compile SDK: Unconfigured (Recommended: `34` for Android 14)
-  - Compose BOM Version: Unconfigured (Recommended: `2024.02.02` / Compose Compiler `1.5.8`)
-
-### 2. Source Files (`android/app/src/main`)
-- **Status**: Missing directory tree `android/app/src/main`.
-- **`AndroidManifest.xml`**: Missing.
-- **Kotlin Classes / MainActivity**: Missing.
-- **Theme & Composables**: Missing.
-- **Background Service & Notification Channels**: Missing.
-
-### 3. Dependencies Checklist
-
-| Category | Recommended Library | Present vs Missing | Purpose |
-|---|---|---|---|
-| **UI Framework** | Jetpack Compose UI + Material 3 | ❌ Missing | Modern declarative mobile UI |
-| **HTTP Client** | Retrofit 2 + OkHttp 4 | ❌ Missing | Backend REST API integration (`/reports/stats`, `/assignments/`, etc.) |
-| **JSON Parser** | Gson or kotlinx.serialization | ❌ Missing | Deserializing API responses & WebSocket JSON payloads |
-| **WebSockets** | OkHttp WebSocket / Ktor Client | ❌ Missing | Real-time connection to `ws://10.0.2.2:8000/ws` for `roast` events |
-| **Async / Threading** | Kotlin Coroutines + Flow | ❌ Missing | Asynchronous API calls and state management |
-| **ViewModel / Lifecycle** | AndroidX Lifecycle & ViewModel | ❌ Missing | UI state retention across lifecycle events |
-| **Background Execution** | Foreground Service / WorkManager | ❌ Missing | Keeping WebSocket active in background for background alerts |
-| **System Notifications** | AndroidX Core Notifications | ❌ Missing | Displaying roast alerts via NotificationManager |
-
-### 4. Build Test Execution
-- Command executed check: Gradle wrapper unavailable because `./gradlew` does not exist.
-- Build status: **CANNOT COMPILE** until project files are generated.
-
----
-
-## Technical Blueprint for Bootstrap & Implementation
-
-### A. Recommended Directory Structure
-```
-c:\Users\samee\projects\Mimo\android/
-├── build.gradle.kts
-├── settings.gradle.kts
-├── gradle.properties
-├── gradlew
-├── gradlew.bat
-├── gradle/
-│   └── wrapper/
-│       ├── gradle-wrapper.jar
-│       └── gradle-wrapper.properties
-└── app/
-    ├── build.gradle.kts
-    ├── proguard-rules.pro
-    └── src/
-        ├── main/
-        │   ├── AndroidManifest.xml
-        │   └── java/com/mimo/app/
-        │       ├── MainActivity.kt
-        │       ├── MimoApplication.kt
-        │       ├── data/
-        │       │   ├── model/
-        │       │   │   ├── Models.kt (StatsResponse, TaskItem, RoastEvent, etc.)
-        │       │   └── api/
-        │       │       ├── MimoApiService.kt
-        │       │       └── MimoWebSocketManager.kt
-        │       ├── service/
-        │       │   └── RoastBackgroundService.kt
-        │       ├── ui/
-        │       │   ├── theme/
-        │       │   │   ├── Color.kt
-        │       │   │   ├── Theme.kt
-        │       │   │   └── Type.kt
-        │       │   ├── components/
-        │       │   │   ├── FocusScoreGauge.kt
-        │       │   │   ├── WeeklyBarChart.kt
-        │       │   │   ├── AppBreakdownCard.kt
-        │       │   │   └── TaskListCard.kt
-        │       │   └── dashboard/
-        │       │       ├── DashboardScreen.kt
-        │       │       └── DashboardViewModel.kt
-        │       └── util/
-        │           └── NotificationHelper.kt
-```
-
-### B. Required Android Permissions in Manifest
-```xml
-<uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-```
-
-### C. Backend API Integration Mapping
-- **Emulator Host IP**: `http://10.0.2.2:8000` (or configurable base URL)
-- **Endpoints to integrate**:
-  1. `GET /reports/stats` -> Focus score (0-100), streak, grade, productive/distracting mins.
-  2. `GET /assignments/` -> List of assignments with title, subject, due_date, priority.
-  3. `POST /assignments/` & `POST /assignments/nlp` -> Quick add tasks.
-  4. `POST /assignments/{id}/done` -> Complete task.
-  5. `GET /screen/breakdown` -> App usage categories.
-  6. `WebSocket ws://10.0.2.2:8000/ws` -> Listen for `"type": "roast"` messages to fire notifications.
+### Root Cause 1: Jetpack Compose Infinite Height Measurement Crash (`IllegalStateException`)
+- **File**: `android/app/src/main/java/com/mimo/app/ui/DashboardScreen.kt` (Lines 76–104)
+- **File**: `android/app/src/main/java/com/mimo/app/ui/components/AssignmentList.kt` (Lines 30–41)
+- **Code Observation**:
+  `DashboardScreen.kt`:
+  ```kotlin
+  Column(
+      modifier = Modifier
+          .fillMaxSize()
+          .verticalScroll(rememberScrollState())
+          .padding(16.dp),
+      verticalArrangement = Arrangement.spacedBy(24.dp)
+  ) {
+      ...
+      AssignmentList(
+          assignments = assignments,
+          onMarkDone = { id -> viewModel.markAssignmentDone(id) }
+      )
+  }
+  ```
+  `AssignmentList.kt`:
+  ```kotlin
+  @Composable
+  fun AssignmentList(
+      assignments: List<Assignment>,
+      onMarkDone: (Int) -> Unit,
+      modifier: Modifier = Modifier
+  ) {
+      LazyColumn(
+          modifier = modifier.fillMaxWidth(),
+          contentPadding = PaddingValues(16.dp),
+          verticalArrangement = Arrangement.spacedBy(12.dp)
+      ) {
+          items(assignments) { assignment -> ... }
+      }
+  }
+  ```
+- **Mechanism**: Jetpack Compose forbids nesting a lazy scrollable container (`LazyColumn`) inside a parent container with vertical scrolling (`Column` with `verticalScroll`), because the parent provides infinite maximum height constraints.
+- **Exception Thrown**: `java.lang.IllegalStateException: Vertically scrollable component was measured with an infinity maximum height constraints, which is disallowed.`
+- **Timing**: Fires immediately on the first UI measure/layout pass when `setContent { DashboardScreen() }` executes during `MainActivity.onCreate()` (approx 1-2 seconds into launch).
 
 ---
 
-## Action Plan for Implementation Stage
+### Root Cause 2: Uncaught `DateTimeParseException` during UI Rendering
+- **File**: `android/app/src/main/java/com/mimo/app/ui/components/AssignmentList.kt` (Line 50)
+- **Code Observation**:
+  ```kotlin
+  @Composable
+  fun AssignmentCard(
+      assignment: Assignment,
+      onMarkDone: () -> Unit
+  ) {
+      val today = LocalDate.now()
+      val dueDate = LocalDate.parse(assignment.due_date) // Assuming ISO format YYYY-MM-DD
+  ```
+- **Mechanism**: `Assignment.due_date` defaults to `""` in `ApiModels.kt` (Line 43). When `LocalDate.parse("")` is called on an uninitialized or empty date string, Java 8 `java.time` throws `DateTimeParseException: Text '' could not be parsed`.
+- **Timing**: Fires during composition/recomposition when task items with blank or invalid date strings are rendered.
 
-1. **Bootstrap Project Shell**:
-   - Create directory `c:\Users\samee\projects\Mimo\android`.
-   - Write root `build.gradle.kts`, `settings.gradle.kts`, `gradle.properties`, wrapper files, and `app/build.gradle.kts`.
-2. **Build Manifest & Permissions**:
-   - Create `AndroidManifest.xml` with required services, permissions, and `MimoApplication`.
-3. **Data Layer**:
-   - Implement Retrofit interface `MimoApiService` and OkHttp WebSocket listener `MimoWebSocketManager`.
-4. **Background Enforcement Service**:
-   - Implement `RoastBackgroundService` (Foreground service with ongoing status notification).
-   - Implement `NotificationHelper` creating notification channel `mimo_roasts` with high priority.
-5. **Jetpack Compose UI**:
-   - Build custom Canvas `FocusScoreGauge` (animated arc, grade badge, color gradients).
-   - Build `WeeklyBarChart` and `TaskListCard` with quick-add dialog and complete button.
-   - Assemble `DashboardScreen` with ViewModel lifecycle data fetching.
-6. **Build & Verify**:
-   - Execute `./gradlew assembleDebug` to verify compilation.
+---
+
+### Root Cause 3: Unit Test Suite Compilation Failure (`compileDebugUnitTestKotlin FAILED`)
+- **File**: `android/app/src/test/java/com/mimo/app/ui/DashboardViewModelTest.kt` (Lines 21–65)
+- **File**: `android/app/src/test/java/com/mimo/app/ui/DashboardViewModelStressTest.kt` (Lines 171–195)
+- **Code Observation**:
+  ```kotlin
+  class FakeMimoApiService(...) : MimoApiService { ... }
+  ```
+- **Mechanism**: `MimoApiService.kt` defines `suspend fun pushSync(payload: SyncPayload): Map<String, Any>` and `suspend fun pullSync(): SyncPayload`. However, the mock test implementations `FakeMimoApiService` and `throwingApiService` in `DashboardViewModelTest.kt` and `DashboardViewModelStressTest.kt` do not implement these two methods.
+- **Gradle Result**: Running `.\gradlew testDebugUnitTest` fails with:
+  `error: class 'FakeMimoApiService' is not abstract and does not implement abstract member public abstract suspend fun pullSync(): SyncPayload defined in com.mimo.app.network.MimoApiService`
+
+---
+
+### Root Cause 4: Potential Android 14 Foreground Service and Usage Stats Exceptions
+- **File**: `android/app/src/main/java/com/mimo/app/MainActivity.kt` (Lines 48–58)
+- **File**: `android/app/src/main/java/com/mimo/app/tracker/MobileTrackerService.kt` (Lines 74–90)
+- **Code Observation**:
+  In `MainActivity.kt`:
+  ```kotlin
+  private fun startRoastService() {
+      val roastIntent = Intent(this, RoastEnforcementService::class.java)
+      val trackerIntent = Intent(this, MobileTrackerService::class.java)
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+          startForegroundService(roastIntent)
+          startForegroundService(trackerIntent)
+      }
+  }
+  ```
+  In `MobileTrackerService.kt`:
+  ```kotlin
+  val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+  val events = usageStatsManager.queryEvents(startTime, endTime)
+  ```
+- **Mechanism**:
+  1. Starting two foreground services concurrently in `MainActivity.onCreate()` using `startForegroundService` without verifying Android 14 foreground service launch conditions or try-catch blocks can cause `ForegroundServiceStartNotAllowedException`.
+  2. In `MobileTrackerService`, accessing `UsageStatsManager` without checking if `usageStatsManager` is null or catching `SecurityException` when usage access permission is revoked can lead to uncaught service crashes.
+
+---
+
+## 2. Recommended Fix Implementation Plan
+
+### Fix 1: Resolve Nested Scroll Crash in `DashboardScreen.kt` / `AssignmentList.kt`
+- Option A (Recommended): Replace `LazyColumn` in `AssignmentList.kt` with a standard `Column` using `forEach` (since tasks are displayed inside the parent `verticalScroll` Column). Or pass `Modifier` without nested scrolling.
+- Option B: Use `item` blocks within a single root `LazyColumn` in `DashboardScreen.kt`.
+
+Proposed code for `AssignmentList.kt`:
+```kotlin
+@Composable
+fun AssignmentList(
+    assignments: List<Assignment>,
+    onMarkDone: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        assignments.forEach { assignment ->
+            AssignmentCard(
+                assignment = assignment,
+                onMarkDone = { onMarkDone(assignment.id) }
+            )
+        }
+    }
+}
+```
+
+### Fix 2: Safe Date Parsing in `AssignmentCard`
+Wrap `LocalDate.parse` in `runCatching` or provide a fallback for blank/invalid dates.
+
+Proposed code for `AssignmentCard` in `AssignmentList.kt`:
+```kotlin
+val today = LocalDate.now()
+val dueDate = runCatching { LocalDate.parse(assignment.due_date) }.getOrNull()
+val daysUntilDue = if (dueDate != null) ChronoUnit.DAYS.between(today, dueDate) else 0L
+
+val (statusColor, statusText) = when {
+    dueDate == null -> MimoColors.TextMuted to "No Due Date"
+    daysUntilDue < 0 -> MimoColors.Error to "Overdue"
+    daysUntilDue == 0L -> MimoColors.Warning to "Due Today"
+    else -> MimoColors.Success to "In ${daysUntilDue} days"
+}
+```
+
+### Fix 3: Update `FakeMimoApiService` for Unit Tests
+Implement `pushSync` and `pullSync` in `FakeMimoApiService` and `throwingApiService` in `DashboardViewModelTest.kt` and `DashboardViewModelStressTest.kt`.
+
+```kotlin
+override suspend fun pushSync(payload: SyncPayload): Map<String, Any> {
+    if (shouldThrowError) throw IOException("Network connection offline")
+    return mapOf("status" to "success")
+}
+
+override suspend fun pullSync(): SyncPayload {
+    if (shouldThrowError) throw IOException("Network connection offline")
+    return SyncPayload(date = "2026-08-07", mobileProductiveMin = 0, mobileDistractingMin = 0, mobileNeutralMin = 0)
+}
+```
+
+### Fix 4: Safeguard Service Initialization & `UsageStatsManager`
+In `MainActivity.kt`: Wrap service calls in try-catch blocks for `ForegroundServiceStartNotAllowedException` / `SecurityException`.
+In `MobileTrackerService.kt`: Wrap `queryEvents` in try-catch to prevent service crash when `PACKAGE_USAGE_STATS` is not granted.
+
+---
+
+## 3. Scope & Verification Strategy
+- Compiles via `.\gradlew assembleDebug`.
+- Unit tests compile and pass 100% via `.\gradlew testDebugUnitTest`.
+- Robolectric / ViewModel tests verify initialization without exceptions.
