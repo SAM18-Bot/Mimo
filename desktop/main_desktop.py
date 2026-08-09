@@ -152,6 +152,7 @@ def _start_server():
                 host      = SERVER_HOST,
                 port      = SERVER_PORT,
                 log_level = "warning",    # quieter in desktop mode
+                log_config= None,         # prevents 'Unable to configure formatter' crash in PyInstaller
                 reload    = False,
                 workers   = 1,
             )
