@@ -39,29 +39,27 @@ def _chat(system: str, user: str, model: str = None, json_mode: bool = False, en
     if engine == "gemini":
         key = api_key or os.getenv("GEMINI_API_KEY")
         if not key:
-            log.warning("GEMINI_API_KEY not set")
-            return None
-            
-        try:
-            client = genai.Client(api_key=key)
-            gemini_model = model or "gemini-2.5-flash"
-            
-            config_args = {
-                "system_instruction": system,
-                "temperature": 0.85,
-            }
-            if json_mode:
-                config_args["response_mime_type"] = "application/json"
+            log.warning("GEMINI_API_KEY not set. Falling back to OpenAI.")
+        else:
+            try:
+                client = genai.Client(api_key=key)
+                gemini_model = model or "gemini-2.5-flash"
                 
-            response = client.models.generate_content(
-                model=gemini_model,
-                contents=user,
-                config=types.GenerateContentConfig(**config_args),
-            )
-            return response.text.strip()
-        except Exception as e:
-            log.error(f"Gemini call failed: {e}")
-            return None
+                config_args = {
+                    "system_instruction": system,
+                    "temperature": 0.85,
+                }
+                if json_mode:
+                    config_args["response_mime_type"] = "application/json"
+                    
+                response = client.models.generate_content(
+                    model=gemini_model,
+                    contents=user,
+                    config=types.GenerateContentConfig(**config_args),
+                )
+                return response.text.strip()
+            except Exception as e:
+                log.error(f"Gemini call failed: {e}. Falling back to OpenAI...")
 
     # Fallback to OpenAI
     key = api_key or config.OPENAI_API_KEY
