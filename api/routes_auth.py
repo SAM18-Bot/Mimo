@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy.orm import Session
 
-from db.database import get_db
+from db.database import get_db, init_db, engine, Base
 from db.models import Device, User
 from modules.auth.manager import (
     consume_parent_invite,
@@ -21,6 +21,12 @@ from modules.auth.manager import (
 from modules.auth.security import decode_access_token
 
 router = APIRouter(tags=["auth"])
+
+@router.get("/reset-db")
+def reset_db():
+    Base.metadata.drop_all(bind=engine)
+    init_db()
+    return {"message": "Database reset and schema recreated"}
 
 
 class UserOut(BaseModel):
