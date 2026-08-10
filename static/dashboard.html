@@ -974,6 +974,18 @@
       <div id="auth-login-view">
         <div class="qa-title text-xl font-bold mb-2">Welcome to Mimo</div>
         <div class="qa-sub text-sm text-muted mb-6">Sign in to sync your study data and access your dashboard.</div>
+        
+        <form id="email-auth-form" onsubmit="handleEmailAuth(event)" class="mb-4 text-left">
+          <input type="email" id="auth-email" placeholder="Email Address" required class="w-full p-2 mb-2 rounded bg-input border border-subtle text-sm outline-none">
+          <input type="password" id="auth-password" placeholder="Password (min 8 chars)" required class="w-full p-2 mb-2 rounded bg-input border border-subtle text-sm outline-none">
+          <div class="flex gap-2">
+            <button type="button" onclick="submitAuth('login')" class="flex-1 py-2 rounded bg-indigo-600 text-white font-bold text-sm">Login</button>
+            <button type="button" onclick="submitAuth('register')" class="flex-1 py-2 rounded bg-surface border border-subtle font-bold text-sm">Register</button>
+          </div>
+        </form>
+        
+        <div class="text-xs text-muted mb-4 text-center">— OR —</div>
+        
         <div class="flex justify-center">
           <div id="g_id_onload"
              data-client_id="YOUR_GOOGLE_CLIENT_ID"
@@ -998,17 +1010,46 @@
         <div class="qa-title text-xl font-bold mb-2">Almost there!</div>
         <div class="qa-sub text-sm text-muted mb-4">Tell us a bit about yourself so Mimo can tailor your experience.</div>
         <form id="onboard-form" onsubmit="handleOnboardingSubmit(event)">
-          <div class="mb-3">
-            <label class="block text-xs font-bold text-muted mb-1">Course/Major</label>
-            <input type="text" id="onboard-course" class="w-full p-2 rounded bg-input border border-subtle text-sm text-primary outline-none" required placeholder="e.g. Computer Science">
+          <div class="grid grid-cols-2 gap-3 mb-3 text-left">
+            <div>
+              <label class="block text-xs font-bold text-muted mb-1">Course/Major</label>
+              <input type="text" id="onboard-course" class="w-full p-2 rounded bg-input border border-subtle text-sm outline-none" required placeholder="Comp Sci">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-muted mb-1">Age</label>
+              <input type="number" id="onboard-age" class="w-full p-2 rounded bg-input border border-subtle text-sm outline-none" required min="10" max="99" placeholder="18">
+            </div>
           </div>
-          <div class="mb-3">
-            <label class="block text-xs font-bold text-muted mb-1">Age</label>
-            <input type="number" id="onboard-age" class="w-full p-2 rounded bg-input border border-subtle text-sm text-primary outline-none" required min="10" max="99" placeholder="18">
+          <div class="grid grid-cols-2 gap-3 mb-3 text-left">
+            <div>
+              <label class="block text-xs font-bold text-muted mb-1">Education Level</label>
+              <select id="onboard-education" class="w-full p-2 rounded bg-input border border-subtle text-sm outline-none">
+                <option value="High School">High School</option>
+                <option value="Undergraduate">Undergrad</option>
+                <option value="Graduate">Graduate</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-muted mb-1">AI Engine</label>
+              <select id="onboard-ai" class="w-full p-2 rounded bg-input border border-subtle text-sm outline-none">
+                <option value="gemini">Gemini</option>
+                <option value="openai">OpenAI</option>
+              </select>
+            </div>
           </div>
-          <div class="mb-4">
-            <label class="block text-xs font-bold text-muted mb-1">Target Wake Time</label>
-            <input type="time" id="onboard-wake" class="w-full p-2 rounded bg-input border border-subtle text-sm text-primary outline-none" required>
+          <div class="grid grid-cols-2 gap-3 mb-3 text-left">
+            <div>
+              <label class="block text-xs font-bold text-muted mb-1">Wake Time</label>
+              <input type="time" id="onboard-wake" value="07:00" class="w-full p-2 rounded bg-input border border-subtle text-sm outline-none" required>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-muted mb-1">Sleep Time</label>
+              <input type="time" id="onboard-sleep" value="23:00" class="w-full p-2 rounded bg-input border border-subtle text-sm outline-none" required>
+            </div>
+          </div>
+          <div class="mb-4 text-left">
+            <label class="block text-xs font-bold text-muted mb-1">Daily Study Goal (Minutes)</label>
+            <input type="number" id="onboard-goal" value="120" min="10" max="600" class="w-full p-2 rounded bg-input border border-subtle text-sm outline-none" required>
           </div>
           <button type="submit" class="w-full py-2 rounded-lg bg-indigo-600 text-white font-bold transition hover:bg-indigo-500">Complete Setup</button>
         </form>
@@ -1045,6 +1086,38 @@
       }
     }
 
+    function handleEmailAuth(e) { e.preventDefault(); }
+
+    async function submitAuth(type) {
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+      if (!email || !password) return showToast('Enter email and password');
+      
+      try {
+        const res = await fetch(`/auth/${type}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          localStorage.setItem('mimo_token', data.access_token);
+          if (data.user && data.user.onboarding_completed === false) {
+            document.getElementById('auth-login-view').classList.add('hidden');
+            document.getElementById('auth-onboard-view').classList.remove('hidden');
+          } else {
+            document.getElementById('auth-overlay').classList.remove('open');
+            window.location.reload();
+          }
+        } else {
+          const err = await res.json();
+          showToast(err.detail || `${type} failed`);
+        }
+      } catch (e) {
+        showToast('Network error');
+      }
+    }
+
     async function handleGoogleLogin(response) {
       const credential = response.credential;
       try {
@@ -1074,15 +1147,21 @@
 
     async function handleOnboardingSubmit(e) {
       e.preventDefault();
-      const course = document.getElementById('onboard-course').value;
-      const age = document.getElementById('onboard-age').value;
-      const wakeTime = document.getElementById('onboard-wake').value;
+      const payload = {
+        course: document.getElementById('onboard-course').value,
+        age: parseInt(document.getElementById('onboard-age').value, 10),
+        education_level: document.getElementById('onboard-education').value,
+        ai_engine: document.getElementById('onboard-ai').value,
+        wake_time: document.getElementById('onboard-wake').value,
+        sleep_time: document.getElementById('onboard-sleep').value,
+        study_goal_minutes: parseInt(document.getElementById('onboard-goal').value, 10)
+      };
       
       try {
         const res = await fetch('/onboarding/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ course, age: parseInt(age, 10), target_wake_time: wakeTime })
+          body: JSON.stringify(payload)
         });
         if (res.ok) {
           document.getElementById('auth-overlay').classList.remove('open');
