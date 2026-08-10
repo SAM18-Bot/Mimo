@@ -19,6 +19,13 @@ import com.mimo.app.network.DailyStats
 import com.mimo.app.network.ScreenBreakdown
 import com.mimo.app.ui.theme.MimoColors
 
+fun formatMinutes(minutes: Int): String {
+    if (minutes < 60) return "${minutes}m"
+    val hrs = minutes / 60
+    val mins = minutes % 60
+    return if (mins > 0) "${hrs}h ${mins}m" else "${hrs}h"
+}
+
 @Composable
 fun StatsRow(
     stats: DailyStats,
@@ -33,13 +40,13 @@ fun StatsRow(
         StatCard(
             modifier = Modifier.weight(1f),
             icon = "⏱️",
-            value = "${stats.productive_min}m",
+            value = formatMinutes(stats.productive_min),
             label = "Productive"
         )
         StatCard(
             modifier = Modifier.weight(1f),
             icon = "📱",
-            value = "${stats.distracting_min}m",
+            value = formatMinutes(stats.distracting_min),
             label = "Distracting"
         )
         StatCard(

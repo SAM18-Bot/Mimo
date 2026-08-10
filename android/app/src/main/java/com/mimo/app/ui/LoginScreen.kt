@@ -26,7 +26,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LoginScreen(onLoginSuccess: () -> Unit) {
+fun LoginScreen(onLoginSuccess: (Boolean) -> Unit) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -152,7 +152,8 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                             }
 
                             TokenManager.saveToken(context, authResponse.access_token)
-                            onLoginSuccess()
+                            TokenManager.setOnboardingCompleted(context, authResponse.user.onboarding_completed)
+                            onLoginSuccess(authResponse.user.onboarding_completed)
                         } catch (e: Exception) {
                             Log.e("LoginScreen", "Auth error", e)
                             errorMessage = e.localizedMessage ?: "Authentication failed. Check credentials."
@@ -196,10 +197,13 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                                 val idToken = credential.idToken
                                 val res = ApiClient.api.authenticateGoogle(mapOf("token" to idToken))
                                 val token = res["access_token"] as? String
+                                val userMap = res["user"] as? Map<*, *>
+                                val onboardingCompleted = userMap?.get("onboarding_completed") as? Boolean ?: false
                                 if (!token.isNullOrBlank()) {
                                     TokenManager.saveToken(context, token)
+                                    TokenManager.setOnboardingCompleted(context, onboardingCompleted)
                                 }
-                                onLoginSuccess()
+                                onLoginSuccess(onboardingCompleted)
                             } else {
                                 errorMessage = "Unexpected credential type"
                             }

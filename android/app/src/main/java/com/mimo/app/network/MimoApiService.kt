@@ -13,6 +13,9 @@ interface MimoApiService {
     @POST("/auth/register")
     suspend fun register(@Body body: RegisterRequest): AuthResponse
 
+    @POST("/onboarding/complete")
+    suspend fun completeOnboarding(@Body body: OnboardingRequest): UserOut
+
     @POST("/auth/google")
     suspend fun authenticateGoogle(@Body body: Map<String, String>): Map<String, Any>
 

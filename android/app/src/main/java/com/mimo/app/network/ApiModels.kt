@@ -143,3 +143,14 @@ data class SyncPayload(
     val assignments: List<Assignment> = emptyList(),
     val mergedStats: DailyStats? = null
 )
+
+// POST /onboarding/complete request
+data class OnboardingRequest(
+    val course_major: String,
+    val age: Int,
+    val education_level: String,
+    val ai_engine: String,
+    val wake_time: String,
+    val sleep_time: String,
+    val daily_study_goal_min: Int
+)

@@ -175,16 +175,33 @@ class DashboardViewModel @JvmOverloads constructor(
         notes: String? = null
     ) {
         viewModelScope.launch(ioDispatcher) {
-            val entity = AssignmentEntity(
-                title = title,
-                subject = subject,
-                dueDate = dueDate,
-                priority = priority,
-                status = "pending",
-                notes = notes,
-                isSynced = false
-            )
-            assignmentDao.insert(entity)
+            try {
+                // Optimistic local save
+                val tempEntity = AssignmentEntity(
+                    title = title,
+                    subject = subject,
+                    dueDate = dueDate,
+                    priority = priority,
+                    status = "pending",
+                    notes = notes,
+                    isSynced = false
+                )
+                assignmentDao.insert(tempEntity)
+
+                // Hit API
+                apiService.createAssignment(
+                    AssignmentCreate(
+                        title = title,
+                        subject = subject,
+                        due_date = dueDate,
+                        priority = priority,
+                        notes = notes
+                    )
+                )
+                refresh()
+            } catch (e: Exception) {
+                _error.value = "Failed to create assignment: ${e.localizedMessage}"
+            }
         }
     }
 

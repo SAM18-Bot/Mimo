@@ -6,6 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -43,6 +44,8 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
         }
     }
 
+    var showAddDialog by remember { mutableStateOf(false) }
+
     MimoTheme {
         Scaffold(
             topBar = {
@@ -66,6 +69,11 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
                         )
                     }
                 )
+            },
+            floatingActionButton = {
+                FloatingActionButton(onClick = { showAddDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Assignment")
+                }
             },
             snackbarHost = { SnackbarHost(snackbarHostState) }
         ) { paddingValues ->
@@ -117,6 +125,62 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
                 if (isLoading) {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
+            }
+
+            if (showAddDialog) {
+                var newTitle by remember { mutableStateOf("") }
+                var newSubject by remember { mutableStateOf("") }
+                var newDueDate by remember { mutableStateOf("") }
+                var newPriority by remember { mutableStateOf("medium") }
+
+                AlertDialog(
+                    onDismissRequest = { showAddDialog = false },
+                    title = { Text("Add Assignment") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = newTitle,
+                                onValueChange = { newTitle = it },
+                                label = { Text("Title") }
+                            )
+                            OutlinedTextField(
+                                value = newSubject,
+                                onValueChange = { newSubject = it },
+                                label = { Text("Subject (Optional)") }
+                            )
+                            OutlinedTextField(
+                                value = newDueDate,
+                                onValueChange = { newDueDate = it },
+                                label = { Text("Due Date (YYYY-MM-DD)") }
+                            )
+                            OutlinedTextField(
+                                value = newPriority,
+                                onValueChange = { newPriority = it },
+                                label = { Text("Priority (high/medium/low)") }
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                viewModel.addAssignment(
+                                    title = newTitle,
+                                    subject = newSubject.ifBlank { null },
+                                    dueDate = newDueDate.ifBlank { "2024-01-01" }, // Need a better default but fine for now
+                                    priority = newPriority.ifBlank { "medium" }
+                                )
+                                showAddDialog = false
+                            }
+                        ) {
+                            Text("Add")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showAddDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
         }
     }

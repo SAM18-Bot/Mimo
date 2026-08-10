@@ -45,16 +45,41 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            var isLoggedIn by remember { mutableStateOf(TokenManager.isLoggedIn(this@MainActivity)) }
-
-            if (isLoggedIn) {
-                DashboardScreen()
-            } else {
-                LoginScreen(
-                    onLoginSuccess = {
-                        isLoggedIn = true
-                    }
+            enum class AppScreen { Login, Onboarding, Permissions, Dashboard }
+            var currentScreen by remember { 
+                mutableStateOf(
+                    if (!TokenManager.isLoggedIn(this@MainActivity)) AppScreen.Login
+                    else if (!TokenManager.isOnboardingCompleted(this@MainActivity)) AppScreen.Onboarding
+                    else AppScreen.Permissions // We let PermissionsScreen handle the check, then it moves to Dashboard
                 )
+            }
+
+            when (currentScreen) {
+                AppScreen.Login -> {
+                    LoginScreen(
+                        onLoginSuccess = { onboardingCompleted ->
+                            currentScreen = if (onboardingCompleted) AppScreen.Permissions else AppScreen.Onboarding
+                        }
+                    )
+                }
+                AppScreen.Onboarding -> {
+                    com.mimo.app.ui.OnboardingScreen(
+                        onOnboardingFinished = {
+                            TokenManager.setOnboardingCompleted(this@MainActivity, true)
+                            currentScreen = AppScreen.Permissions
+                        }
+                    )
+                }
+                AppScreen.Permissions -> {
+                    com.mimo.app.ui.PermissionsScreen(
+                        onPermissionsGranted = {
+                            currentScreen = AppScreen.Dashboard
+                        }
+                    )
+                }
+                AppScreen.Dashboard -> {
+                    DashboardScreen()
+                }
             }
         }
     }

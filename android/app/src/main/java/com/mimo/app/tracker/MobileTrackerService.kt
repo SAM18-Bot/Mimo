@@ -70,7 +70,7 @@ class MobileTrackerService : Service() {
         }
 
         if (!hasUsageStatsPermission()) {
-            requestUsageStatsPermission()
+            Log.w("MobileTracker", "PACKAGE_USAGE_STATS permission not granted. Waiting for UI flow.")
         }
 
         startTracking()
@@ -97,17 +97,7 @@ class MobileTrackerService : Service() {
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
-    private fun requestUsageStatsPermission() {
-        Log.w("MobileTracker", "PACKAGE_USAGE_STATS permission not granted. Launching Settings...")
-        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        }
-        try {
-            startActivity(intent)
-        } catch (e: Exception) {
-            Log.e("MobileTracker", "Could not open Usage Access Settings", e)
-        }
-    }
+    // Removed requestUsageStatsPermission() since background startActivity is blocked in Android 10+
 
     private fun startTracking() {
         serviceScope.launch {
@@ -199,7 +189,6 @@ class MobileTrackerService : Service() {
                     }
                 } catch (e: SecurityException) {
                     Log.e("MobileTracker", "SecurityException during usage stats query: ${e.message}")
-                    requestUsageStatsPermission()
                 } catch (e: Exception) {
                     Log.e("MobileTracker", "Exception during usage stats query: ${e.message}")
                 }

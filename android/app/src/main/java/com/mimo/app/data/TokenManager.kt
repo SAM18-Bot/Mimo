@@ -41,4 +41,12 @@ object TokenManager {
     fun isLoggedIn(context: Context): Boolean {
         return !getToken(context).isNullOrBlank()
     }
+
+    fun setOnboardingCompleted(context: Context, completed: Boolean) {
+        getPrefs(context).edit().putBoolean("onboarding_completed", completed).apply()
+    }
+
+    fun isOnboardingCompleted(context: Context): Boolean {
+        return getPrefs(context).getBoolean("onboarding_completed", false)
+    }
 }
