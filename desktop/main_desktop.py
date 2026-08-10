@@ -147,8 +147,9 @@ def _start_server():
     def _run():
         try:
             import uvicorn
+            from main import app
             uvicorn.run(
-                "main:app",
+                app,
                 host      = SERVER_HOST,
                 port      = SERVER_PORT,
                 log_level = "warning",    # quieter in desktop mode
