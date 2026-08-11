@@ -179,7 +179,7 @@ fun LoginScreen(onLoginSuccess: (Boolean) -> Unit) {
                         val credentialManager = CredentialManager.create(context)
                         val googleIdOption = GetGoogleIdOption.Builder()
                             .setFilterByAuthorizedAccounts(false)
-                            .setServerClientId("YOUR_WEB_CLIENT_ID")
+                            .setServerClientId("321308954784-dopanj969qp2ja5hvsnke5pm9af1bf5e.apps.googleusercontent.com")
                             .setAutoSelectEnabled(true)
                             .build()
 
