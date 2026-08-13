@@ -28,13 +28,15 @@ class MimoTray:
     Call open_dashboard() to show the webview window.
     """
 
-    def __init__(self, open_window_fn=None):
+    def __init__(self, open_window_fn=None, shutdown_fn=None):
         """
         open_window_fn: optional callable to (re)open the pywebview window.
-        If None, falls back to opening in the default browser.
+        shutdown_fn: optional callable to shut down the application cleanly.
+        If None, falls back to opening in the default browser / main_desktop _shutdown.
         """
         self._icon           = None
         self._open_window_fn = open_window_fn
+        self._shutdown_fn    = shutdown_fn
 
         # Live stats shown in menu
         self._focus_score    = 0
@@ -195,8 +197,24 @@ class MimoTray:
 
     def _on_quit(self, icon=None, item=None):
         log.info("Quit requested from tray.")
+        if self._shutdown_fn:
+            try:
+                self._shutdown_fn()
+            except Exception as e:
+                log.error("Error during tray shutdown callback: %s", e)
+        else:
+            try:
+                from desktop.main_desktop import _shutdown, _release_lock
+                _shutdown()
+                _release_lock()
+            except Exception as e:
+                log.error("Error during fallback tray shutdown: %s", e)
+
         if self._icon:
-            self._icon.stop()
+            try:
+                self._icon.stop()
+            except Exception:
+                pass
         import os
         os._exit(0)
 

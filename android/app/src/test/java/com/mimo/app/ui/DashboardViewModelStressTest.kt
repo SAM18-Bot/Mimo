@@ -169,6 +169,22 @@ class DashboardViewModelStressTest {
     @Test
     fun viewModel_refresh_handlesMultipleExceptionTypesResiliently() = runTest {
         val throwingApiService = object : MimoApiService {
+            override suspend fun login(body: LoginRequest): AuthResponse {
+                throw UnsupportedOperationException()
+            }
+
+            override suspend fun register(body: RegisterRequest): AuthResponse {
+                throw UnsupportedOperationException()
+            }
+
+            override suspend fun completeOnboarding(body: OnboardingRequest): UserOut {
+                throw UnsupportedOperationException()
+            }
+
+            override suspend fun authenticateGoogle(body: Map<String, String>): Map<String, Any> {
+                throw UnsupportedOperationException()
+            }
+
             override suspend fun getStats(targetDate: String?): DailyStats {
                 throw RuntimeException("Fatal server error 500")
             }
@@ -189,8 +205,20 @@ class DashboardViewModelStressTest {
                 throw UnsupportedOperationException()
             }
 
+            override suspend fun getSchedule(): List<ScheduleBlock> {
+                throw UnsupportedOperationException()
+            }
+
+            override suspend fun getScheduleToday(): List<ScheduleBlock> {
+                throw UnsupportedOperationException()
+            }
+
             override suspend fun getScreenBreakdown(targetDate: String?): ScreenBreakdown {
                 throw RuntimeException("Database timeout")
+            }
+
+            override suspend fun syncMockScreen(body: MockWindowEvent): Map<String, Any> {
+                throw UnsupportedOperationException()
             }
 
             override suspend fun pushSync(payload: SyncPayload): Map<String, Any> {

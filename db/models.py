@@ -179,7 +179,35 @@ class User(Base):
     role          = Column(String(20), nullable=False, default="student")  # student | parent
     display_name  = Column(String(120))
     ai_engine     = Column(String(20), default="openai")  # openai | gemini
-    api_key       = Column(String(255))
+    _api_key_encrypted = Column("api_key", String(255))
+    
+    @property
+    def api_key(self):
+        from cryptography.fernet import Fernet
+        import config
+        if not self._api_key_encrypted: return None
+        if not config.SECRET_KEY: return self._api_key_encrypted
+        try:
+            f = Fernet(config.SECRET_KEY.encode())
+            return f.decrypt(self._api_key_encrypted.encode()).decode()
+        except Exception:
+            return self._api_key_encrypted
+            
+    @api_key.setter
+    def api_key(self, value):
+        from cryptography.fernet import Fernet
+        import config
+        if not value:
+            self._api_key_encrypted = None
+            return
+        if not config.SECRET_KEY:
+            self._api_key_encrypted = value
+            return
+        try:
+            f = Fernet(config.SECRET_KEY.encode())
+            self._api_key_encrypted = f.encrypt(value.encode()).decode()
+        except Exception:
+            self._api_key_encrypted = value
     
     # Onboarding fields
     course        = Column(String(120))

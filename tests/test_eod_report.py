@@ -7,7 +7,7 @@ from datetime import date
 
 def test_run_eod_report(client, db_session):
     # Seed accountability answers
-    ans1 = AccountabilityLog(date=date.today(), question="Did you study?", answer="Yes, 2 hours")
+    ans1 = AccountabilityLog(user_id=1, date=date.today(), question="Did you study?", answer="Yes, 2 hours")
     db_session.add(ans1)
     db_session.commit()
 

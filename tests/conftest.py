@@ -111,6 +111,7 @@ def seed_sessions(db_session):
             start = r.get("started", now - timedelta(hours=2 - i * 0.1))
             end   = r.get("ended",   start + timedelta(seconds=r.get("duration", 600)))
             obj   = ScreenSession(
+                user_id      = r.get("user_id", 1),
                 app_name     = r.get("app",      "unknown"),
                 window_title = r.get("title",    ""),
                 category     = r.get("category", "neutral"),
@@ -136,6 +137,7 @@ def seed_cv(db_session):
         now  = datetime.now()
         for i, ev in enumerate(events):
             obj = CVEvent(
+                user_id      = 1,
                 event_type   = ev,
                 timestamp    = now - timedelta(minutes=len(events) - i),
                 session_date = date.today(),
@@ -156,6 +158,7 @@ def seed_assignments(db_session):
         objs = []
         for r in rows:
             obj = Assignment(
+                user_id  = r.get("user_id", 1),
                 title    = r["title"],
                 subject  = r.get("subject"),
                 due_date = r.get("due_date", date.today() + timedelta(days=3)),
@@ -168,3 +171,30 @@ def seed_assignments(db_session):
         return objs
 
     return _seed
+
+
+# ── auth helper ──────────────────────────────────────────────────────────
+
+@pytest.fixture
+def auth_headers(client, db_engine):
+    """Create a test user and return auth headers with a valid JWT."""
+    from db.models import User
+    from modules.auth.security import create_access_token
+    from sqlalchemy.orm import sessionmaker as SM
+
+    Session = SM(autocommit=False, autoflush=False, bind=db_engine)
+    session = Session()
+
+    user = User(
+        id=1,
+        email="test@mimo.dev",
+        password_hash="fakehash",
+        role="student",
+        display_name="Test Student",
+    )
+    session.merge(user)
+    session.commit()
+    session.close()
+
+    token = create_access_token(user_id=1, role="student")
+    return {"Authorization": f"Bearer {token}"}

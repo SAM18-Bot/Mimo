@@ -7,6 +7,7 @@ OpenAI client wrapper.
 
 import json
 import logging
+import os
 import random
 import time
 from typing import Optional
@@ -37,7 +38,7 @@ def _chat(system: str, user: str, model: str = None, json_mode: bool = False, en
     _last_call_time = time.time()
 
     if engine == "gemini":
-        key = api_key or os.getenv("GEMINI_API_KEY")
+        key = api_key or config.GEMINI_API_KEY
         if not key:
             log.warning("GEMINI_API_KEY not set. Falling back to OpenAI.")
         else:

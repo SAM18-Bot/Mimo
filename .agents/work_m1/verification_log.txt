@@ -1,0 +1,108 @@
+============================================================
+MIMO CORE FLOWS VERIFICATION
+Target Server: http://127.0.0.1:8000
+============================================================
+
+Step 1: Register User -> POST /auth/register
+Status Code: 201
+Response: {
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMCIsInJvbGUiOiJzdHVkZW50IiwiZXhwIjoxNzg2NTQ5NDI4fQ.fy6UAi9z3VV9IkMZTPlZItofQZgTJRqPX3P7-6rT6WI",
+  "token_type": "bearer",
+  "user": {
+    "id": 10,
+    "email": "test_user_1786463028@example.com",
+    "role": "student",
+    "display_name": "Test User 1786463028",
+    "onboarding_completed": false
+  }
+}
+✓ POST /auth/register PASSED (201 Created)
+
+Step 2: Login User -> POST /auth/login
+Status Code: 200
+Response: {
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMCIsInJvbGUiOiJzdHVkZW50IiwiZXhwIjoxNzg2NTQ5NDI4fQ.fy6UAi9z3VV9IkMZTPlZItofQZgTJRqPX3P7-6rT6WI",
+  "token_type": "bearer",
+  "user": {
+    "id": 10,
+    "email": "test_user_1786463028@example.com",
+    "role": "student",
+    "display_name": "Test User 1786463028",
+    "onboarding_completed": false
+  }
+}
+✓ POST /auth/login PASSED (200 OK)
+
+Step 3: Get Current User Profile -> GET /auth/me
+Status Code: 200
+Response: {
+  "id": 10,
+  "email": "test_user_1786463028@example.com",
+  "role": "student",
+  "display_name": "Test User 1786463028",
+  "onboarding_completed": false
+}
+✓ GET /auth/me PASSED (200 OK)
+
+Step 4: Complete Onboarding -> POST /onboarding/complete
+Status Code: 200
+Response: {
+  "status": "success",
+  "message": "Onboarding completed successfully."
+}
+✓ POST /onboarding/complete PASSED (200 OK)
+
+Step 5: Create Assignment -> POST /assignments/ (due: 2026-08-14)
+Status Code: 201
+Response: {
+  "id": 7,
+  "title": "Algorithms Homework 1",
+  "subject": "Computer Science",
+  "due_date": "2026-08-14",
+  "priority": "high",
+  "status": "pending",
+  "notes": "Chapter 1 and 2 problems"
+}
+✓ POST /assignments/ PASSED (201 Created, ID: 7)
+
+Step 6: List All Assignments -> GET /assignments/
+Status Code: 200
+Response: [
+  {
+    "id": 7,
+    "title": "Algorithms Homework 1",
+    "subject": "Computer Science",
+    "due_date": "2026-08-14",
+    "priority": "high",
+    "status": "pending",
+    "notes": "Chapter 1 and 2 problems"
+  }
+]
+✓ GET /assignments/ PASSED (200 OK)
+
+Step 7: List Upcoming Assignments -> GET /assignments/upcoming
+Status Code: 200
+Response: [
+  {
+    "id": 7,
+    "title": "Algorithms Homework 1",
+    "subject": "Computer Science",
+    "due_date": "2026-08-14",
+    "priority": "high",
+    "status": "pending",
+    "notes": "Chapter 1 and 2 problems"
+  }
+]
+✓ GET /assignments/upcoming PASSED (200 OK)
+
+Step 8: Mark Assignment Done -> POST /assignments/7/done
+Status Code: 200
+Response: {
+  "ok": true,
+  "message": "'Algorithms Homework 1' marked as done."
+}
+✓ POST /assignments/7/done PASSED (200 OK)
+
+============================================================
+ALL CORE FLOW VERIFICATIONS PASSED SUCCESSFULLY!
+============================================================

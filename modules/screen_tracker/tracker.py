@@ -177,7 +177,8 @@ class ScreenTracker:
         try:
             with get_db_ctx() as db:
                 from db.models import User
-                user = db.query(User).first()
+                # Assuming desktop client runs as single-user locally (user_id=1)
+                user = db.query(User).filter(User.id == 1).first()
                 if not user:
                     return # No logged in user yet
                 
@@ -204,7 +205,7 @@ class ScreenTracker:
             
             with get_db_ctx() as db:
                 from db.models import User
-                user = db.query(User).first()
+                user = db.query(User).filter(User.id == 1).first()
                 if not user:
                     return False
                     
@@ -221,7 +222,17 @@ class ScreenTracker:
             return False
 
     def _kill_process(self, app_name: str):
-        """Force kill the distracting app."""
+        """Force kill the distracting app, unless it's a browser."""
+        from modules.screen_tracker.categorizer import is_browser
+        if is_browser(app_name):
+            log.warning(f"Browser {app_name} is distracting, but preventing force kill to save tabs. Emitting roast instead.")
+            try:
+                from api.websocket import push_event
+                push_event({"type": "roast", "trigger": app_name, "message": f"Close those tabs in {app_name} and get back to work!"})
+            except Exception as e:
+                log.error(f"Failed to push roast event: {e}")
+            return
+
         log.warning(f"Blocking distracting app: {app_name}")
         try:
             if _SYSTEM == "Windows":

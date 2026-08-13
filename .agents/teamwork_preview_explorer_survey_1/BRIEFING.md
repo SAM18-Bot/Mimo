@@ -1,38 +1,46 @@
-# BRIEFING — 2026-08-08T07:47:45Z
+# BRIEFING — 2026-08-11T08:31:00Z
 
 ## Mission
-Investigate R1: Android Instant Startup Crash and determine exact root cause and complete fix implementation plan.
+Investigate backend codebase for Requirement R1 (FastAPI backend, DB setup, endpoints for Auth/Onboarding/Assignments, local run instructions, existing tests/utilities).
 
 ## 🔒 My Identity
-- Archetype: teamwork_preview_explorer
-- Roles: Investigator, Explorer, Synthesizer
+- Archetype: Teamwork explorer
+- Roles: Backend Investigator / Explorer
 - Working directory: c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_1
-- Original parent: 4dddf826-15fd-4339-8edd-cabb04fe5c4c
-- Milestone: Android Instant Startup Crash Investigation (R1)
+- Original parent: 096c4f9c-4538-41e9-90a9-936b0103d7cb
+- Milestone: Requirement R1 Verification Survey
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT implement code changes in android source code
-- Investigate Android codebase in `c:\Users\samee\projects\Mimo\android`
-- Produce structured analysis.md and handoff.md in working directory
+- Read-only investigation — do NOT implement or modify project source code
+- Do NOT launch long-running servers or run tests yourself
+- Write reports only to own folder (.agents/teamwork_preview_explorer_survey_1)
 
 ## Current Parent
-- Conversation ID: 4dddf826-15fd-4339-8edd-cabb04fe5c4c
-- Updated: 2026-08-08T07:47:45Z
+- Conversation ID: 096c4f9c-4538-41e9-90a9-936b0103d7cb
+- Updated: 2026-08-11T08:31:00Z
 
 ## Investigation State
-- **Explored paths**: `MainActivity.kt`, `MimoApplication.kt`, `DashboardViewModel.kt`, `RoastEnforcementService.kt`, `MobileTrackerService.kt`, `ApiClient.kt`, `MimoApiService.kt`, `WebSocketManager.kt`, `AssignmentList.kt`, `FocusScoreGauge.kt`, `StatsCards.kt`, `MimoTheme.kt`, `AndroidManifest.xml`, `app/build.gradle.kts`, `build.gradle.kts`, `DashboardViewModelTest.kt`, `DashboardViewModelStressTest.kt`.
+- **Explored paths**:
+  - `ORIGINAL_REQUEST.md`
+  - `main.py`, `run_server.py`, `run_desktop.py`, `config.py`, `.env.example`, `setup.sh`
+  - `db/database.py`, `db/models.py`, `db/migrations/versions/` (001, 002, 003)
+  - `api/routes_auth.py`, `api/routes_onboarding.py`, `api/routes_assignments.py`
+  - `modules/auth/manager.py`, `modules/assignments/manager.py`
+  - `tests/conftest.py`, `tests/test_auth_device_parent.py`, `tests/test_assignments.py`, `tests/test_api.py`, `tests/test_api_desktop.py`
 - **Key findings**:
-  1. Jetpack Compose `IllegalStateException` due to nested `LazyColumn` inside `verticalScroll` Column (`DashboardScreen.kt:76-80` + `AssignmentList.kt:30-41`).
-  2. `DateTimeParseException` on blank/invalid `due_date` (`AssignmentList.kt:50`).
-  3. `testDebugUnitTest` compilation failure due to `FakeMimoApiService` missing `pushSync` and `pullSync` methods.
-  4. Uncaught exceptions during `ForegroundService` launch and `UsageStatsManager` queries on Android 14.
-- **Unexplored areas**: None.
+  - Located FastAPI backend entry points (`main.py`, `run_server.py`) on port 8000.
+  - Documented complete DB initialization (`init_db()`), Alembic migrations (001, 002, 003), and models (`User`, `Device`, `Assignment`, `ScheduleProfile`, `ScheduleBlock`, etc.).
+  - Documented exact endpoints and JSON request/response formats for Authentication (`/auth/register`, `/auth/login`, `/auth/me`), Onboarding (`/onboarding/complete`), and Assignments (`/assignments/`, `/assignments/nlp`, `/assignments/upcoming`, `/assignments/{id}/done`).
+  - Formulated execution setup (`NO_HARDWARE=1`, `NO_VOICE=1`) and authored an end-to-end Python network verification script for R1.
+  - Identified existing test suite structure and noted test coverage gap for `/onboarding/complete`.
+- **Unexplored areas**: None (R1 backend survey complete).
 
 ## Key Decisions Made
-- Completed systematic investigation of R1 and produced `analysis.md` and `handoff.md`.
+- Completed detailed backend analysis in `analysis.md`.
+- Completed handoff report in `handoff.md`.
 
 ## Artifact Index
-- DISPATCH.md — Received dispatch message
-- BRIEFING.md — Working memory state
-- analysis.md — Detailed root cause analysis report
-- handoff.md — 5-component handoff report
+- `c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_1\DISPATCH.md` — Dispatch log
+- `c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_1\BRIEFING.md` — Working memory index
+- `c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_1\analysis.md` — Detailed backend survey report
+- `c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_1\handoff.md` — 5-component handoff report

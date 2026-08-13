@@ -39,139 +39,139 @@ class TestHealth:
 
 class TestAssignmentsAPI:
 
-    def test_create_assignment(self, client):
+    def test_create_assignment(self, client, auth_headers):
         r = client.post("/assignments/", json={
             "title":    "Math Homework",
             "due_date": today_plus(5),
             "subject":  "Math",
             "priority": "high",
-        })
+        }, headers=auth_headers)
         assert r.status_code == 201
         data = r.json()
         assert data["title"]   == "Math Homework"
         assert data["status"]  == "pending"
         assert data["priority"] == "high"
 
-    def test_create_via_nlp(self, client):
+    def test_create_via_nlp(self, client, auth_headers):
         r = client.post("/assignments/nlp", json={
             "text": "Physics lab due tomorrow"
-        })
+        }, headers=auth_headers)
         assert r.status_code == 201
         data = r.json()
         assert data["due_date"] == today_plus(1)
         assert data["subject"] is not None
 
-    def test_nlp_invalid_text_422(self, client):
-        r = client.post("/assignments/nlp", json={"text": "do some stuff"})
+    def test_nlp_invalid_text_422(self, client, auth_headers):
+        r = client.post("/assignments/nlp", json={"text": "do some stuff"}, headers=auth_headers)
         assert r.status_code == 422
 
-    def test_list_assignments_empty(self, client):
-        r = client.get("/assignments/")
+    def test_list_assignments_empty(self, client, auth_headers):
+        r = client.get("/assignments/", headers=auth_headers)
         assert r.status_code == 200
         assert r.json() == []
 
-    def test_list_after_create(self, client):
+    def test_list_after_create(self, client, auth_headers):
         client.post("/assignments/", json={
             "title": "Test", "due_date": today_plus(3)
-        })
-        r = client.get("/assignments/")
+        }, headers=auth_headers)
+        r = client.get("/assignments/", headers=auth_headers)
         assert r.status_code == 200
         assert len(r.json()) == 1
 
-    def test_upcoming_endpoint(self, client):
+    def test_upcoming_endpoint(self, client, auth_headers):
         client.post("/assignments/", json={
             "title": "Near", "due_date": today_plus(2)
-        })
+        }, headers=auth_headers)
         client.post("/assignments/", json={
             "title": "Far",  "due_date": today_plus(30)
-        })
-        r = client.get("/assignments/upcoming?days=7")
+        }, headers=auth_headers)
+        r = client.get("/assignments/upcoming?days=7", headers=auth_headers)
         assert r.status_code == 200
         titles = [a["title"] for a in r.json()]
         assert "Near" in titles
         assert "Far"  not in titles
 
-    def test_overdue_endpoint(self, client):
+    def test_overdue_endpoint(self, client, auth_headers):
         client.post("/assignments/", json={
             "title": "Past", "due_date": today_plus(-2)
-        })
+        }, headers=auth_headers)
         client.post("/assignments/", json={
             "title": "Future", "due_date": today_plus(5)
-        })
-        r = client.get("/assignments/overdue")
+        }, headers=auth_headers)
+        r = client.get("/assignments/overdue", headers=auth_headers)
         assert r.status_code == 200
         titles = [a["title"] for a in r.json()]
         assert "Past"   in titles
         assert "Future" not in titles
 
-    def test_mark_done(self, client):
+    def test_mark_done(self, client, auth_headers):
         create = client.post("/assignments/", json={
             "title": "To Done", "due_date": today_plus(3)
-        })
+        }, headers=auth_headers)
         assignment_id = create.json()["id"]
-        r = client.post(f"/assignments/{assignment_id}/done")
+        r = client.post(f"/assignments/{assignment_id}/done", headers=auth_headers)
         assert r.status_code == 200
         assert r.json()["ok"] is True
 
-    def test_mark_done_nonexistent(self, client):
-        r = client.post("/assignments/99999/done")
+    def test_mark_done_nonexistent(self, client, auth_headers):
+        r = client.post("/assignments/99999/done", headers=auth_headers)
         assert r.status_code == 404
 
-    def test_update_status(self, client):
+    def test_update_status(self, client, auth_headers):
         create = client.post("/assignments/", json={
             "title": "WIP", "due_date": today_plus(3)
-        })
+        }, headers=auth_headers)
         aid = create.json()["id"]
-        r   = client.patch(f"/assignments/{aid}/status", json={"status": "in_progress"})
+        r   = client.patch(f"/assignments/{aid}/status", json={"status": "in_progress"}, headers=auth_headers)
         assert r.status_code == 200
         assert r.json()["status"] == "in_progress"
 
-    def test_delete_assignment(self, client):
+    def test_delete_assignment(self, client, auth_headers):
         create = client.post("/assignments/", json={
             "title": "Deletable", "due_date": today_plus(3)
-        })
+        }, headers=auth_headers)
         aid = create.json()["id"]
-        r   = client.delete(f"/assignments/{aid}")
+        r   = client.delete(f"/assignments/{aid}", headers=auth_headers)
         assert r.status_code == 204
-        assert client.get("/assignments/").json() == []
+        assert client.get("/assignments/", headers=auth_headers).json() == []
 
 
 # ── screen ────────────────────────────────────────────────────────────────
 
 class TestScreenAPI:
 
-    def test_breakdown_empty(self, client):
-        r = client.get("/screen/breakdown")
+    def test_breakdown_empty(self, client, auth_headers):
+        r = client.get("/screen/breakdown", headers=auth_headers)
         assert r.status_code == 200
         data = r.json()
         assert data["productive_min"]  == 0
         assert data["distracting_min"] == 0
 
-    def test_mock_productive_window(self, client):
+    def test_mock_productive_window(self, client, auth_headers):
         r = client.post("/screen/mock", json={
             "app": "code", "title": "main.py"
-        })
+        }, headers=auth_headers)
         assert r.status_code == 200
         assert r.json()["category"] == "productive"
 
-    def test_mock_distracting_window(self, client):
+    def test_mock_distracting_window(self, client, auth_headers):
         r = client.post("/screen/mock", json={
             "app": "instagram", "title": "Instagram"
-        })
+        }, headers=auth_headers)
         assert r.status_code == 200
         assert r.json()["category"] == "distracting"
 
-    def test_mock_updates_breakdown(self, client):
+    def test_mock_updates_breakdown(self, client, auth_headers):
         # Inject 2 productive sessions
-        client.post("/screen/mock", json={"app": "code", "title": "project.py"})
-        client.post("/screen/mock", json={"app": "notion", "title": "Notes"})
-        r = client.get("/screen/breakdown")
+        client.post("/screen/mock", json={"app": "code", "title": "project.py"}, headers=auth_headers)
+        client.post("/screen/mock", json={"app": "notion", "title": "Notes"}, headers=auth_headers)
+        r = client.get("/screen/breakdown", headers=auth_headers)
         # Should have some sessions
         assert r.status_code == 200
 
-    def test_sessions_list(self, client):
-        client.post("/screen/mock", json={"app": "code", "title": "test.py"})
-        r = client.get("/screen/sessions")
+    def test_sessions_list(self, client, auth_headers):
+        client.post("/screen/mock", json={"app": "code", "title": "test.py"}, headers=auth_headers)
+        r = client.get("/screen/sessions", headers=auth_headers)
         assert r.status_code == 200
         sessions = r.json()
         assert len(sessions) >= 1
@@ -182,35 +182,35 @@ class TestScreenAPI:
 
 class TestCVAPI:
 
-    def test_mock_present_event(self, client):
-        r = client.post("/cv/mock", json={"event": "present"})
+    def test_mock_present_event(self, client, auth_headers):
+        r = client.post("/cv/mock", json={"event": "present"}, headers=auth_headers)
         assert r.status_code == 200
         assert r.json()["ok"] is True
 
-    def test_mock_absent_event(self, client):
-        r = client.post("/cv/mock", json={"event": "absent"})
+    def test_mock_absent_event(self, client, auth_headers):
+        r = client.post("/cv/mock", json={"event": "absent"}, headers=auth_headers)
         assert r.status_code == 200
 
-    def test_mock_distracted_event(self, client):
-        r = client.post("/cv/mock", json={"event": "distracted"})
+    def test_mock_distracted_event(self, client, auth_headers):
+        r = client.post("/cv/mock", json={"event": "distracted"}, headers=auth_headers)
         assert r.status_code == 200
 
-    def test_mock_invalid_event(self, client):
-        r = client.post("/cv/mock", json={"event": "flying"})
+    def test_mock_invalid_event(self, client, auth_headers):
+        r = client.post("/cv/mock", json={"event": "flying"}, headers=auth_headers)
         assert r.status_code == 400
 
-    def test_events_logged(self, client):
-        client.post("/cv/mock", json={"event": "present"})
-        client.post("/cv/mock", json={"event": "absent"})
-        r = client.get("/cv/events")
+    def test_events_logged(self, client, auth_headers):
+        client.post("/cv/mock", json={"event": "present"}, headers=auth_headers)
+        client.post("/cv/mock", json={"event": "absent"}, headers=auth_headers)
+        r = client.get("/cv/events", headers=auth_headers)
         assert r.status_code == 200
         events = r.json()
         event_types = [e["event"] for e in events]
         assert "present" in event_types
         assert "absent"  in event_types
 
-    def test_focus_today(self, client):
-        r = client.get("/cv/focus/today")
+    def test_focus_today(self, client, auth_headers):
+        r = client.get("/cv/focus/today", headers=auth_headers)
         assert r.status_code == 200
         data = r.json()
         assert "focus_score" in data
@@ -220,44 +220,44 @@ class TestCVAPI:
 
 class TestReportsAPI:
 
-    def test_stats_endpoint(self, client):
-        r = client.get("/reports/stats")
+    def test_stats_endpoint(self, client, auth_headers):
+        r = client.get("/reports/stats", headers=auth_headers)
         assert r.status_code == 200
         data = r.json()
         assert "focus_score"     in data
         assert "productive_min"  in data
         assert "distracting_min" in data
 
-    def test_history_endpoint(self, client):
-        r = client.get("/reports/history?days=7")
+    def test_history_endpoint(self, client, auth_headers):
+        r = client.get("/reports/history?days=7", headers=auth_headers)
         assert r.status_code == 200
         assert isinstance(r.json(), list)
 
-    def test_log_accountability(self, client):
+    def test_log_accountability(self, client, auth_headers):
         r = client.post("/reports/accountability", json={
             "question": "What's your priority today?",
             "answer":   "Finish the AI project",
-        })
+        }, headers=auth_headers)
         assert r.status_code == 201
         assert r.json()["ok"] is True
 
-    def test_get_today_accountability(self, client):
+    def test_get_today_accountability(self, client, auth_headers):
         client.post("/reports/accountability", json={
             "question": "What subject?", "answer": "Physics"
-        })
-        r = client.get("/reports/accountability/today")
+        }, headers=auth_headers)
+        r = client.get("/reports/accountability/today", headers=auth_headers)
         assert r.status_code == 200
         logs = r.json()
         assert len(logs) >= 1
         assert logs[0]["answer"] == "Physics"
 
-    def test_roasts_endpoint_empty(self, client):
-        r = client.get("/reports/roasts")
+    def test_roasts_endpoint_empty(self, client, auth_headers):
+        r = client.get("/reports/roasts", headers=auth_headers)
         assert r.status_code == 200
         assert isinstance(r.json(), list)
 
-    def test_latest_eod_no_data(self, client):
-        r = client.get("/reports/eod/latest")
+    def test_latest_eod_no_data(self, client, auth_headers):
+        r = client.get("/reports/eod/latest", headers=auth_headers)
         assert r.status_code == 200
 
 
@@ -281,24 +281,24 @@ class TestVoiceAPI:
         assert "show_tasks"      in names
         assert "productivity"    in names
 
-    def test_command_show_tasks(self, client):
+    def test_command_show_tasks(self, client, auth_headers):
         r = client.post("/voice/command", json={
             "text": "show my tasks", "speak_response": False
-        })
+        }, headers=auth_headers)
         assert r.status_code == 200
         assert r.json()["ok"] is True
 
-    def test_command_add_assignment(self, client):
+    def test_command_add_assignment(self, client, auth_headers):
         r = client.post("/voice/command", json={
             "text": "add math assignment due Friday",
             "speak_response": False,
-        })
+        }, headers=auth_headers)
         assert r.status_code == 200
 
-    def test_command_productivity(self, client):
+    def test_command_productivity(self, client, auth_headers):
         r = client.post("/voice/command", json={
             "text": "how productive was I", "speak_response": False
-        })
+        }, headers=auth_headers)
         assert r.status_code == 200
 
     def test_speak_endpoint(self, client):
@@ -311,33 +311,33 @@ class TestVoiceAPI:
 
 class TestStudyAPI:
 
-    def test_recommendations_endpoint(self, client):
-        r = client.get("/study/recommendations")
+    def test_recommendations_endpoint(self, client, auth_headers):
+        r = client.get("/study/recommendations", headers=auth_headers)
         assert r.status_code == 200
         data = r.json()
         assert "recommendations" in data
         assert "weak_subjects"   in data
 
-    def test_next_to_study(self, client):
-        r = client.get("/study/next")
+    def test_next_to_study(self, client, auth_headers):
+        r = client.get("/study/next", headers=auth_headers)
         assert r.status_code == 200
         assert "recommendation" in r.json()
 
-    def test_subject_breakdown(self, client):
-        r = client.get("/study/subjects")
+    def test_subject_breakdown(self, client, auth_headers):
+        r = client.get("/study/subjects", headers=auth_headers)
         assert r.status_code == 200
 
-    def test_recommendations_with_assignment_data(self, client):
+    def test_recommendations_with_assignment_data(self, client, auth_headers):
         # Create some assignments first
         client.post("/assignments/", json={
             "title": "Math HW", "subject": "Math",
             "due_date": today_plus(3)
-        })
+        }, headers=auth_headers)
         client.post("/assignments/", json={
             "title": "Physics Lab", "subject": "Physics",
             "due_date": today_plus(1)
-        })
-        r = client.get("/study/recommendations")
+        }, headers=auth_headers)
+        r = client.get("/study/recommendations", headers=auth_headers)
         assert r.status_code == 200
         data = r.json()
         assert isinstance(data["recommendations"], list)
@@ -351,7 +351,7 @@ class TestFullWorkflow:
     Simulates a real study session.
     """
 
-    def test_study_session_flow(self, client):
+    def test_study_session_flow(self, client, auth_headers):
         """
         1. Log morning accountability
         2. Add assignments
@@ -362,33 +362,33 @@ class TestFullWorkflow:
         client.post("/reports/accountability", json={
             "question": "Priority today?",
             "answer":   "Finish AI assignment"
-        })
+        }, headers=auth_headers)
 
         # Add assignment
         r = client.post("/assignments/", json={
             "title": "AI Project", "subject": "AI",
             "due_date": today_plus(1), "priority": "high"
-        })
+        }, headers=auth_headers)
         aid = r.json()["id"]
 
         # Productive session
-        client.post("/screen/mock", json={"app": "code", "title": "ai_project.py"})
-        client.post("/cv/mock", json={"event": "present"})
+        client.post("/screen/mock", json={"app": "code", "title": "ai_project.py"}, headers=auth_headers)
+        client.post("/cv/mock", json={"event": "present"}, headers=auth_headers)
 
         # Distraction
-        client.post("/screen/mock", json={"app": "instagram", "title": "Instagram"})
-        client.post("/cv/mock", json={"event": "distracted"})
+        client.post("/screen/mock", json={"app": "instagram", "title": "Instagram"}, headers=auth_headers)
+        client.post("/cv/mock", json={"event": "distracted"}, headers=auth_headers)
 
         # Check stats
-        stats = client.get("/reports/stats").json()
+        stats = client.get("/reports/stats", headers=auth_headers).json()
         assert stats["productive_min"] >= 0
         assert stats["distracting_min"] >= 0
 
         # Mark done
-        r = client.post(f"/assignments/{aid}/done")
+        r = client.post(f"/assignments/{aid}/done", headers=auth_headers)
         assert r.json()["ok"] is True
 
         # Verify it's gone from upcoming
-        upcoming = client.get("/assignments/upcoming").json()
+        upcoming = client.get("/assignments/upcoming", headers=auth_headers).json()
         ids = [a["id"] for a in upcoming]
         assert aid not in ids

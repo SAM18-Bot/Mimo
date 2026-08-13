@@ -35,6 +35,12 @@ def main():
     parser.add_argument("--no-browser", action="store_true",  help="Don't open browser automatically")
     args = parser.parse_args()
 
+    if hasattr(sys.stdout, 'reconfigure'):
+        try:
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        except Exception:
+            pass
+
     print()
     print("  🔥  Mimo AI Accountability System")
     print("  ──────────────────────────────────")

@@ -123,32 +123,30 @@ async def websocket_endpoint(ws: WebSocket, token: str = None):
         await ws.close(code=1008, reason="Missing token")
         return
 
-    if token != "dev_token":
-        from modules.auth.security import decode_access_token
-        from fastapi import HTTPException
-        
-        try:
-            payload = decode_access_token(token)
-        except Exception:
-            await ws.close(code=1008, reason="Invalid token")
-            return
+    from modules.auth.security import decode_access_token
+    
+    try:
+        payload = decode_access_token(token)
+        user_id = int(payload["sub"])
+    except Exception:
+        await ws.close(code=1008, reason="Invalid token")
+        return
 
-        from db.database import get_db_ctx
-        from db.models import TokenBlocklist
-        with get_db_ctx() as db:
-            if db.query(TokenBlocklist).filter(TokenBlocklist.token == token).first():
-                await ws.close(code=1008, reason="Token revoked")
-                return
+    from db.database import get_db_ctx
+    from db.models import TokenBlocklist
+    with get_db_ctx() as db:
+        if db.query(TokenBlocklist).filter(TokenBlocklist.token == token).first():
+            await ws.close(code=1008, reason="Token revoked")
+            return
 
     await manager.connect(ws)
     try:
-        from db.database import get_db_ctx
         from modules.behavior_engine.aggregator import get_daily_stats
         from modules.assignments.manager import get_upcoming
 
         with get_db_ctx() as db:
-            stats = get_daily_stats(db)
-            tasks = get_upcoming(db, days=7)
+            stats = get_daily_stats(db, user_id=user_id)
+            tasks = get_upcoming(db, user_id=user_id, days=7)
 
         await manager.broadcast({"type": "stats_update", "stats": stats})
         await manager.broadcast({

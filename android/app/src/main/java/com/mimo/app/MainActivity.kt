@@ -16,6 +16,8 @@ import com.mimo.app.tracker.MobileTrackerService
 import com.mimo.app.ui.DashboardScreen
 import com.mimo.app.ui.LoginScreen
 
+enum class AppScreen { Login, Onboarding, Permissions, Dashboard }
+
 class MainActivity : ComponentActivity() {
 
     private val notificationPermissionLauncher = registerForActivityResult(
@@ -45,7 +47,6 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            enum class AppScreen { Login, Onboarding, Permissions, Dashboard }
             var currentScreen by remember { 
                 mutableStateOf(
                     if (!TokenManager.isLoggedIn(this@MainActivity)) AppScreen.Login

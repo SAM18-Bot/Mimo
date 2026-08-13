@@ -1,5 +1,5 @@
-def test_get_cv_events_empty(client):
-    response = client.get("/cv/events")
+def test_get_cv_events_empty(client, auth_headers):
+    response = client.get("/cv/events", headers=auth_headers)
     assert response.status_code == 200
     assert response.json() == []
 

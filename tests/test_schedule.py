@@ -13,6 +13,7 @@ def test_build_onboarding_schedule_creates_profile_and_blocks(db_session):
 
     profile = build_onboarding_schedule(
         db_session,
+        user_id=1,
         wake_time="06:30",
         sleep_time="22:30",
         school_days=[0, 1, 2, 3, 4],
@@ -27,7 +28,7 @@ def test_build_onboarding_schedule_creates_profile_and_blocks(db_session):
         ],
     )
 
-    blocks = get_weekly_schedule(db_session)
+    blocks = get_weekly_schedule(db_session, 1)
     assert profile.active is True
     assert any(b.kind == "school" for b in blocks)
     assert any(b.kind == "study" and b.subject == "Math" for b in blocks)
@@ -39,6 +40,7 @@ def test_generated_study_blocks_do_not_overlap_fixed_blocks(db_session):
 
     build_onboarding_schedule(
         db_session,
+        user_id=1,
         wake_time="06:00",
         sleep_time="22:00",
         school_days=[0],
@@ -52,7 +54,7 @@ def test_generated_study_blocks_do_not_overlap_fixed_blocks(db_session):
         subjects=[{"name": "Chemistry", "priority": "high"}],
     )
 
-    monday = [b for b in get_weekly_schedule(db_session) if b.day_of_week == 0]
+    monday = [b for b in get_weekly_schedule(db_session, 1) if b.day_of_week == 0]
     busy = [(b.kind, _minutes(b.start_time), _minutes(b.end_time)) for b in monday if b.kind != "study"]
     study = [(b.start_time, b.end_time) for b in monday if b.kind == "study"]
 
@@ -69,6 +71,7 @@ def test_rebuilding_schedule_deactivates_previous_profile(db_session):
 
     build_onboarding_schedule(
         db_session,
+        user_id=1,
         wake_time="06:30",
         sleep_time="22:00",
         study_goal_minutes=60,
@@ -76,6 +79,7 @@ def test_rebuilding_schedule_deactivates_previous_profile(db_session):
     )
     second = build_onboarding_schedule(
         db_session,
+        user_id=1,
         wake_time="07:00",
         sleep_time="22:30",
         study_goal_minutes=60,
@@ -85,7 +89,7 @@ def test_rebuilding_schedule_deactivates_previous_profile(db_session):
     profiles = db_session.query(ScheduleProfile).all()
     assert len(profiles) == 2
     assert sum(1 for p in profiles if p.active) == 1
-    assert schedule_status(db_session)["profile_id"] == second.id
+    assert schedule_status(db_session, 1)["profile_id"] == second.id
 
 
 def test_overnight_schedule_generates_blocks(db_session):
@@ -94,6 +98,7 @@ def test_overnight_schedule_generates_blocks(db_session):
 
     profile = build_onboarding_schedule(
         db_session,
+        user_id=1,
         wake_time="22:00",
         sleep_time="02:00",
         study_goal_minutes=60,
@@ -103,7 +108,7 @@ def test_overnight_schedule_generates_blocks(db_session):
         subjects=[{"name": "Math", "priority": "high"}],
     )
 
-    blocks = get_weekly_schedule(db_session)
+    blocks = get_weekly_schedule(db_session, 1)
     study_blocks = [b for b in blocks if b.kind == "study"]
     assert len(study_blocks) > 0
     assert profile.active is True
@@ -121,6 +126,7 @@ def test_same_wake_sleep_raises_value_error(db_session):
     with pytest.raises(ValueError, match="cannot be the same"):
         build_onboarding_schedule(
             db_session,
+            user_id=1,
             wake_time="08:00",
             sleep_time="08:00",
             study_goal_minutes=60,
@@ -132,19 +138,20 @@ def test_update_block_status(db_session):
 
     build_onboarding_schedule(
         db_session,
+        user_id=1,
         wake_time="06:30",
         sleep_time="22:00",
         study_goal_minutes=60,
         subjects=[{"name": "Math", "priority": "medium"}],
     )
-    block = next(b for b in get_weekly_schedule(db_session) if b.kind == "study")
+    block = next(b for b in get_weekly_schedule(db_session, 1) if b.kind == "study")
     updated = update_block_status(db_session, block.id, "done")
 
     assert updated.status == "done"
 
 
-def test_onboarding_questions_api(client):
-    r = client.get("/schedule/onboarding/questions")
+def test_onboarding_questions_api(client, auth_headers):
+    r = client.get("/schedule/onboarding/questions", headers=auth_headers)
     assert r.status_code == 200
     data = r.json()
     assert len(data["questions"]) >= 5
@@ -152,27 +159,31 @@ def test_onboarding_questions_api(client):
 
 
 def test_schedule_page_returns_html(client):
-    r = client.get("/schedule")
+    r = client.get("/static/schedule.html")
     assert r.status_code == 200
     assert "text/html" in r.headers.get("content-type", "")
     assert "Build Your Week" in r.text
     assert "buildSchedule" in r.text
 
 
-def test_onboarding_api_creates_weekly_schedule(client):
-    r = client.post("/schedule/onboarding", json={
-        "wake_time": "06:30",
-        "sleep_time": "22:30",
-        "school_days": [0, 1, 2, 3, 4],
-        "school_start": "08:00",
-        "school_end": "15:00",
-        "study_goal_minutes": 100,
-        "session_minutes": 50,
-        "subjects": [
-            {"name": "Math", "priority": "high"},
-            {"name": "English", "priority": "low"},
-        ],
-    })
+def test_onboarding_api_creates_weekly_schedule(client, auth_headers):
+    r = client.post(
+        "/schedule/onboarding",
+        json={
+            "wake_time": "06:30",
+            "sleep_time": "22:30",
+            "school_days": [0, 1, 2, 3, 4],
+            "school_start": "08:00",
+            "school_end": "15:00",
+            "study_goal_minutes": 100,
+            "session_minutes": 50,
+            "subjects": [
+                {"name": "Math", "priority": "high"},
+                {"name": "English", "priority": "low"},
+            ],
+        },
+        headers=auth_headers,
+    )
 
     assert r.status_code == 201
     body = r.json()
@@ -180,47 +191,59 @@ def test_onboarding_api_creates_weekly_schedule(client):
     assert any(b["kind"] == "study" for b in body["blocks"])
 
 
-def test_schedule_status_and_weekly_api(client):
-    client.post("/schedule/onboarding", json={
-        "wake_time": "06:30",
-        "sleep_time": "22:30",
-        "study_goal_minutes": 60,
-        "subjects": [{"name": "Physics", "priority": "medium"}],
-    })
+def test_schedule_status_and_weekly_api(client, auth_headers):
+    client.post(
+        "/schedule/onboarding",
+        json={
+            "wake_time": "06:30",
+            "sleep_time": "22:30",
+            "study_goal_minutes": 60,
+            "subjects": [{"name": "Physics", "priority": "medium"}],
+        },
+        headers=auth_headers,
+    )
 
-    status = client.get("/schedule/status").json()
-    weekly = client.get("/schedule/weekly").json()
+    status = client.get("/schedule/status", headers=auth_headers).json()
+    weekly = client.get("/schedule/weekly", headers=auth_headers).json()
 
     assert status["configured"] is True
     assert status["blocks"] == len(weekly)
     assert all("start_time" in block for block in weekly)
 
 
-def test_today_api_filters_by_target_date(client):
-    client.post("/schedule/onboarding", json={
-        "wake_time": "06:30",
-        "sleep_time": "22:30",
-        "study_goal_minutes": 60,
-        "subjects": [{"name": "Computer Science", "priority": "high"}],
-    })
+def test_today_api_filters_by_target_date(client, auth_headers):
+    client.post(
+        "/schedule/onboarding",
+        json={
+            "wake_time": "06:30",
+            "sleep_time": "22:30",
+            "study_goal_minutes": 60,
+            "subjects": [{"name": "Computer Science", "priority": "high"}],
+        },
+        headers=auth_headers,
+    )
 
-    r = client.get("/schedule/today", params={"target_date": "2026-08-05"})
+    r = client.get("/schedule/today", params={"target_date": "2026-08-05"}, headers=auth_headers)
     assert r.status_code == 200
     blocks = r.json()
     assert blocks
     assert all(block["day_of_week"] == date(2026, 8, 5).weekday() for block in blocks)
 
 
-def test_patch_block_status_api(client):
-    created = client.post("/schedule/onboarding", json={
-        "wake_time": "06:30",
-        "sleep_time": "22:30",
-        "study_goal_minutes": 60,
-        "subjects": [{"name": "Math", "priority": "medium"}],
-    }).json()
+def test_patch_block_status_api(client, auth_headers):
+    created = client.post(
+        "/schedule/onboarding",
+        json={
+            "wake_time": "06:30",
+            "sleep_time": "22:30",
+            "study_goal_minutes": 60,
+            "subjects": [{"name": "Math", "priority": "medium"}],
+        },
+        headers=auth_headers,
+    ).json()
     block_id = next(b["id"] for b in created["blocks"] if b["kind"] == "study")
 
-    r = client.patch(f"/schedule/blocks/{block_id}", json={"status": "skipped"})
+    r = client.patch(f"/schedule/blocks/{block_id}", json={"status": "skipped"}, headers=auth_headers)
 
     assert r.status_code == 200
     assert r.json()["status"] == "skipped"
@@ -241,6 +264,7 @@ def test_reschedule_missed_blocks_creates_new_blocks(db_session):
 
     build_onboarding_schedule(
         db_session,
+        user_id=1,
         wake_time="06:00",
         sleep_time="22:00",
         study_goal_minutes=120,
@@ -250,7 +274,7 @@ def test_reschedule_missed_blocks_creates_new_blocks(db_session):
         subjects=[{"name": "Math", "priority": "high"}],
     )
 
-    blocks = get_weekly_schedule(db_session)
+    blocks = get_weekly_schedule(db_session, 1)
     study_blocks = [b for b in blocks if b.kind == "study"]
     assert len(study_blocks) > 0
 
@@ -262,7 +286,7 @@ def test_reschedule_missed_blocks_creates_new_blocks(db_session):
 
     update_block_status(db_session, today_study[0].id, "skipped")
 
-    rescheduled = reschedule_missed_blocks(db_session)
+    rescheduled = reschedule_missed_blocks(db_session, 1)
     assert len(rescheduled) >= 1
     assert rescheduled[0].source == "rescheduled"
     assert rescheduled[0].subject == today_study[0].subject
@@ -274,6 +298,7 @@ def test_reschedule_returns_empty_when_no_missed(db_session):
 
     build_onboarding_schedule(
         db_session,
+        user_id=1,
         wake_time="06:00",
         sleep_time="22:00",
         study_goal_minutes=60,
@@ -281,14 +306,14 @@ def test_reschedule_returns_empty_when_no_missed(db_session):
         subjects=[{"name": "Physics", "priority": "medium"}],
     )
 
-    rescheduled = reschedule_missed_blocks(db_session)
+    rescheduled = reschedule_missed_blocks(db_session, 1)
     assert rescheduled == []
 
 
 def test_reschedule_returns_empty_when_no_profile(db_session):
     from modules.schedule.manager import reschedule_missed_blocks
 
-    assert reschedule_missed_blocks(db_session) == []
+    assert reschedule_missed_blocks(db_session, 1) == []
 
 
 # ═══════════════════════════════════════════════════════
@@ -302,6 +327,7 @@ def test_boost_creates_blocks_for_urgent_assignments(db_session):
 
     build_onboarding_schedule(
         db_session,
+        user_id=1,
         wake_time="06:00",
         sleep_time="22:00",
         study_goal_minutes=60,
@@ -313,6 +339,7 @@ def test_boost_creates_blocks_for_urgent_assignments(db_session):
     # Create an urgent assignment due tomorrow
     tomorrow = date.today() + __import__("datetime").timedelta(days=1)
     assignment = Assignment(
+        user_id=1,
         title="Math Homework",
         subject="Math",
         due_date=tomorrow,
@@ -322,7 +349,7 @@ def test_boost_creates_blocks_for_urgent_assignments(db_session):
     db_session.add(assignment)
     db_session.commit()
 
-    boosted = boost_subject_priority(db_session)
+    boosted = boost_subject_priority(db_session, 1)
     assert len(boosted) >= 1
     assert boosted[0].source == "deadline_boost"
     assert boosted[0].subject == "Math"
@@ -334,6 +361,7 @@ def test_boost_returns_empty_when_no_urgent_assignments(db_session):
 
     build_onboarding_schedule(
         db_session,
+        user_id=1,
         wake_time="06:00",
         sleep_time="22:00",
         study_goal_minutes=60,
@@ -341,7 +369,7 @@ def test_boost_returns_empty_when_no_urgent_assignments(db_session):
         subjects=[{"name": "History", "priority": "low"}],
     )
 
-    boosted = boost_subject_priority(db_session)
+    boosted = boost_subject_priority(db_session, 1)
     assert boosted == []
 
 
@@ -351,6 +379,7 @@ def test_boost_ignores_done_assignments(db_session):
 
     build_onboarding_schedule(
         db_session,
+        user_id=1,
         wake_time="06:00",
         sleep_time="22:00",
         study_goal_minutes=60,
@@ -360,6 +389,7 @@ def test_boost_ignores_done_assignments(db_session):
 
     tomorrow = date.today() + __import__("datetime").timedelta(days=1)
     assignment = Assignment(
+        user_id=1,
         title="English Essay",
         subject="English",
         due_date=tomorrow,
@@ -369,14 +399,14 @@ def test_boost_ignores_done_assignments(db_session):
     db_session.add(assignment)
     db_session.commit()
 
-    boosted = boost_subject_priority(db_session)
+    boosted = boost_subject_priority(db_session, 1)
     assert boosted == []
 
 
 def test_boost_returns_empty_when_no_profile(db_session):
     from modules.schedule.manager import boost_subject_priority
 
-    assert boost_subject_priority(db_session) == []
+    assert boost_subject_priority(db_session, 1) == []
 
 
 # ═══════════════════════════════════════════════════════
@@ -387,7 +417,7 @@ def test_boost_returns_empty_when_no_profile(db_session):
 def test_smart_suggestions_no_profile(db_session):
     from modules.schedule.manager import smart_suggestions
 
-    result = smart_suggestions(db_session)
+    result = smart_suggestions(db_session, 1)
     assert len(result) == 1
     assert result[0]["type"] == "setup"
     assert result[0]["priority"] == "high"
@@ -402,6 +432,7 @@ def test_smart_suggestions_with_missed_blocks(db_session):
 
     build_onboarding_schedule(
         db_session,
+        user_id=1,
         wake_time="06:00",
         sleep_time="22:00",
         study_goal_minutes=60,
@@ -411,14 +442,14 @@ def test_smart_suggestions_with_missed_blocks(db_session):
 
     from modules.schedule.manager import get_day_schedule
 
-    today_blocks = get_day_schedule(db_session)
+    today_blocks = get_day_schedule(db_session, 1)
     study_blocks = [b for b in today_blocks if b.kind == "study"]
     if not study_blocks:
         return
 
     update_block_status(db_session, study_blocks[0].id, "skipped")
 
-    result = smart_suggestions(db_session)
+    result = smart_suggestions(db_session, 1)
     reschedule_suggestions = [s for s in result if s["type"] == "reschedule"]
     assert len(reschedule_suggestions) >= 1
     assert reschedule_suggestions[0]["missed_count"] >= 1
@@ -429,6 +460,7 @@ def test_smart_suggestions_on_track(db_session):
 
     build_onboarding_schedule(
         db_session,
+        user_id=1,
         wake_time="06:00",
         sleep_time="22:00",
         study_goal_minutes=60,
@@ -436,7 +468,7 @@ def test_smart_suggestions_on_track(db_session):
         subjects=[{"name": "Art", "priority": "low"}],
     )
 
-    result = smart_suggestions(db_session)
+    result = smart_suggestions(db_session, 1)
     # Should at least have an on_track or encouragement suggestion
     assert len(result) >= 1
 
@@ -446,35 +478,43 @@ def test_smart_suggestions_on_track(db_session):
 # ═══════════════════════════════════════════════════════
 
 
-def test_reschedule_api_endpoint(client):
+def test_reschedule_api_endpoint(client, auth_headers):
     # Create a schedule first
-    client.post("/schedule/onboarding", json={
-        "wake_time": "06:00",
-        "sleep_time": "22:00",
-        "study_goal_minutes": 60,
-        "subjects": [{"name": "Math", "priority": "high"}],
-    })
+    client.post(
+        "/schedule/onboarding",
+        json={
+            "wake_time": "06:00",
+            "sleep_time": "22:00",
+            "study_goal_minutes": 60,
+            "subjects": [{"name": "Math", "priority": "high"}],
+        },
+        headers=auth_headers,
+    )
 
-    r = client.post("/schedule/reschedule")
+    r = client.post("/schedule/reschedule", headers=auth_headers)
     assert r.status_code == 200
     assert isinstance(r.json(), list)
 
 
-def test_boost_api_endpoint(client):
-    client.post("/schedule/onboarding", json={
-        "wake_time": "06:00",
-        "sleep_time": "22:00",
-        "study_goal_minutes": 60,
-        "subjects": [{"name": "Physics", "priority": "medium"}],
-    })
+def test_boost_api_endpoint(client, auth_headers):
+    client.post(
+        "/schedule/onboarding",
+        json={
+            "wake_time": "06:00",
+            "sleep_time": "22:00",
+            "study_goal_minutes": 60,
+            "subjects": [{"name": "Physics", "priority": "medium"}],
+        },
+        headers=auth_headers,
+    )
 
-    r = client.post("/schedule/boost")
+    r = client.post("/schedule/boost", headers=auth_headers)
     assert r.status_code == 200
     assert isinstance(r.json(), list)
 
 
-def test_smart_suggestions_api_endpoint(client):
-    r = client.get("/schedule/smart-suggestions")
+def test_smart_suggestions_api_endpoint(client, auth_headers):
+    r = client.get("/schedule/smart-suggestions", headers=auth_headers)
     assert r.status_code == 200
     data = r.json()
     assert "suggestions" in data
@@ -482,16 +522,19 @@ def test_smart_suggestions_api_endpoint(client):
     assert len(data["suggestions"]) >= 1
 
 
-def test_missed_status_accepted_in_block_update(client):
-    created = client.post("/schedule/onboarding", json={
-        "wake_time": "06:30",
-        "sleep_time": "22:30",
-        "study_goal_minutes": 60,
-        "subjects": [{"name": "Chemistry", "priority": "medium"}],
-    }).json()
+def test_missed_status_accepted_in_block_update(client, auth_headers):
+    created = client.post(
+        "/schedule/onboarding",
+        json={
+            "wake_time": "06:30",
+            "sleep_time": "22:30",
+            "study_goal_minutes": 60,
+            "subjects": [{"name": "Chemistry", "priority": "medium"}],
+        },
+        headers=auth_headers,
+    ).json()
     block_id = next(b["id"] for b in created["blocks"] if b["kind"] == "study")
 
-    r = client.patch(f"/schedule/blocks/{block_id}", json={"status": "missed"})
+    r = client.patch(f"/schedule/blocks/{block_id}", json={"status": "missed"}, headers=auth_headers)
     assert r.status_code == 200
     assert r.json()["status"] == "missed"
-

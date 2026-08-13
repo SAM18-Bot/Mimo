@@ -1,37 +1,43 @@
-# BRIEFING — 2026-08-08T07:45:44Z
+# BRIEFING — 2026-08-11T02:59:35Z
 
 ## Mission
-Investigate R2 & R3 requirements for Android local JVM tests (`testDebugUnitTest`), gradle config, Robolectric/MockK setup, and unit test plan for MainActivity, DashboardViewModel, and MimoRoastService.
+Investigate Desktop app PyInstaller build requirements for Requirement R2 (Compile Final Desktop App) and document build details, entry points, `static/` bundling, dependencies, output paths, and potential launch/zombie hazards.
 
 ## 🔒 My Identity
-- Archetype: teamwork_preview_explorer
+- Archetype: explorer
 - Roles: explorer, analyst
 - Working directory: c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_2
-- Original parent: 4dddf826-15fd-4339-8edd-cabb04fe5c4c
-- Milestone: Android Local JVM Testing Architecture (R2 & R3)
+- Original parent: 096c4f9c-4538-41e9-90a9-936b0103d7cb
+- Milestone: Requirement R2 PyInstaller Investigation
 
 ## 🔒 Key Constraints
-- Read-only investigation — do NOT modify source code files in `android/` directly.
-- Produce structured analysis.md and handoff.md in working directory.
+- Read-only investigation — do NOT implement or edit source code outside agent directory
+- Do NOT run PyInstaller or build commands
 
 ## Current Parent
-- Conversation ID: 4dddf826-15fd-4339-8edd-cabb04fe5c4c
-- Updated: 2026-08-08T07:47:30Z
+- Conversation ID: 096c4f9c-4538-41e9-90a9-936b0103d7cb
+- Updated: 2026-08-11T02:59:35Z
 
 ## Investigation State
-- **Explored paths**: `android/app/build.gradle.kts`, `android/build.gradle.kts`, `android/app/src/main/java/com/mimo/app/`, `android/app/src/test/java/com/mimo/app/`
+- **Explored paths**:
+  - Root launchers & spec files: `run_desktop.py`, `Mimo.spec`, `desktop/mimo.spec`, `desktop/build.py`, `desktop/setup_desktop.sh`
+  - Desktop source code: `desktop/main_desktop.py`, `desktop/window_manager.py`, `desktop/tray.py`, `desktop/single_instance.py`, `desktop/splash.py`, `desktop/icon_generator.py`, `desktop/autostart.py`, `desktop/notifications.py`
+  - Backend & Static files: `main.py`, `api/routes_settings.py`, `static/` directory
+  - Background task modules: `schedulers/background_tasks.py`, `modules/screen_tracker/tracker.py`, `modules/cv_pipeline/`
 - **Key findings**:
-  1. Execution of `.\gradlew testDebugUnitTest` failed at `:app:compileDebugUnitTestKotlin` because `FakeMimoApiService` in `DashboardViewModelTest.kt` and `DashboardViewModelStressTest.kt` is missing implementations of newly added `pushSync()` and `pullSync()` methods on `MimoApiService`.
-  2. `android/app/build.gradle.kts` lacks `io.mockk:mockk:1.13.9`, `androidx.test:rules:1.5.0`, and `isReturnDefaultValues = true`.
-  3. No unit tests currently exist for `MainActivity`, `RoastEnforcementService`, or `MobileTrackerService`.
-- **Unexplored areas**: None (investigation complete).
+  - Found 3 competing PyInstaller build definitions: `desktop/mimo.spec` (comprehensive), `Mimo.spec` (incomplete), and `desktop/build.py` (incomplete CLI wrapper).
+  - Confirmed `static/` bundling configuration in spec files and runtime working directory switch (`sys._MEIPASS`) in `desktop/main_desktop.py`.
+  - Uncovered `numpy` exclusion conflict in `desktop/mimo.spec` (line 126 excludes `numpy`, but CV modules import `numpy`).
+  - Identified zombie process hazards: infinite sleep loop in `desktop/main_desktop.py` (`while True: time.sleep(1)`), `os._exit(0)` in `desktop/tray.py` bypassing `atexit` cleanup handlers.
+- **Unexplored areas**: None — full scope of Requirement R2 investigation completed.
 
 ## Key Decisions Made
-- Designed comprehensive Gradle configuration updates and test file specifications using MockK and Robolectric.
-- Documented full findings, logic chain, and implementation code in `analysis.md` and `handoff.md`.
+- Authored detailed analysis in `analysis.md`.
+- Authored structured 5-component handoff report in `handoff.md`.
 
 ## Artifact Index
-- c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_2\DISPATCH.md — Task dispatch log
-- c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_2\BRIEFING.md — Persistent memory state
-- c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_2\analysis.md — Comprehensive R2 & R3 Testing Architecture Report
-- c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_2\handoff.md — Handoff report with 5-component structure
+- DISPATCH.md — Dispatch log
+- BRIEFING.md — Context briefing
+- progress.md — Heartbeat and progress track
+- analysis.md — Detailed analysis of PyInstaller build requirements for Requirement R2
+- handoff.md — 5-component handoff report

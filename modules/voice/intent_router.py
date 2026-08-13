@@ -24,9 +24,11 @@ class IntentRouter:
         self,
         speak_fn=None,
         broadcast_fn=None,
+        user_id: int = 1,
     ):
         self._speak     = speak_fn
         self._broadcast = broadcast_fn
+        self._user_id   = user_id
 
     def route(self, text: str):
         text = text.lower().strip()
@@ -85,6 +87,7 @@ class IntentRouter:
                 subject  = result.get("subject"),
                 due_date = result["due_date"],
                 priority = result.get("priority", "medium"),
+                user_id  = self._user_id,
             )
             # Capture values before session closes to avoid DetachedInstanceError
             a_id, a_title, a_subject, a_due, a_priority, a_status = (
@@ -109,7 +112,7 @@ class IntentRouter:
         from modules.assignments.manager import get_upcoming
 
         with get_db_ctx() as db:
-            tasks = get_upcoming(db, days=7)
+            tasks = get_upcoming(db, days=7, user_id=self._user_id)
 
         if not tasks:
             if self._speak:
@@ -141,17 +144,16 @@ class IntentRouter:
         keyword = text.strip()
 
         with get_db_ctx() as db:
-            matches = (
-                db.query(Assignment)
-                .filter(Assignment.title.ilike(f"%{keyword}%"))
-                .filter(Assignment.status != "done")
-                .all()
-            )
-            if not matches:
+            candidates = db.query(Assignment).filter(
+                Assignment.user_id == self._user_id,
+                Assignment.status != "done",
+                Assignment.title.ilike(f"%{keyword}%")
+            ).all()
+            if not candidates:
                 if self._speak:
                     self._speak(f"I couldn't find a pending assignment matching '{keyword}'.")
                 return
-            a = mark_done(db, matches[0].id)
+            a = mark_done(db, candidates[0].id, user_id=self._user_id)
 
         if self._speak:
             self._speak(f"Marked '{a.title}' as done. Good. Now do the next one.")
@@ -161,7 +163,7 @@ class IntentRouter:
         from modules.behavior_engine.aggregator import get_daily_stats
 
         with get_db_ctx() as db:
-            stats = get_daily_stats(db)
+            stats = get_daily_stats(db, user_id=self._user_id)
 
         score = stats["focus_score"]
         prod  = stats["productive_min"]

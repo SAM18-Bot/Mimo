@@ -124,11 +124,11 @@ def get_daily_stats(db: Session, target_date: Optional[date] = None, user_id: in
     }
 
 
-def save_daily_summary(db: Session, stats: dict):
+def save_daily_summary(db: Session, stats: dict, user_id: int):
     """Upsert a DailySummary row for the date."""
     target   = date.fromisoformat(stats["date"])
-    existing = db.query(DailySummary).filter(DailySummary.date == target).first()
-    row      = existing or DailySummary(date=target)
+    existing = db.query(DailySummary).filter(DailySummary.date == target, DailySummary.user_id == user_id).first()
+    row      = existing or DailySummary(date=target, user_id=user_id)
 
     row.productive_time_s = stats["productive_s"]
     row.distracted_time_s = stats["distracting_s"]

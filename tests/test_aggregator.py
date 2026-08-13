@@ -167,7 +167,7 @@ class TestSaveDailySummary:
             {"app": "code", "category": "productive", "duration": 3600},
         ])
         stats = get_daily_stats(db_session)
-        save_daily_summary(db_session, stats)
+        save_daily_summary(db_session, stats, user_id=1)
 
         row = db_session.query(DailySummary).filter(
             DailySummary.date == date.today()
@@ -179,8 +179,8 @@ class TestSaveDailySummary:
         """Calling save twice should update the row, not create a duplicate."""
         seed_sessions([{"app": "code", "category": "productive", "duration": 1800}])
         stats = get_daily_stats(db_session)
-        save_daily_summary(db_session, stats)
-        save_daily_summary(db_session, stats)
+        save_daily_summary(db_session, stats, user_id=1)
+        save_daily_summary(db_session, stats, user_id=1)
 
         count = db_session.query(DailySummary).filter(
             DailySummary.date == date.today()

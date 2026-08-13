@@ -111,7 +111,7 @@ def _get_accountability_answers(db, user_id: int) -> str:
 
 def _save_report(stats: dict, report: dict, user_id: int):
     with get_db_ctx() as db:
-        save_daily_summary(db, stats)
+        save_daily_summary(db, stats, user_id=user_id)
         row = db.query(DailySummary).filter(
             DailySummary.user_id == user_id,
             DailySummary.date == date.fromisoformat(stats["date"])

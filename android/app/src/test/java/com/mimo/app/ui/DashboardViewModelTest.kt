@@ -25,6 +25,26 @@ class FakeMimoApiService(
     var historyToReturn: List<DailyHistoryItem> = emptyList(),
     var breakdownToReturn: ScreenBreakdown = ScreenBreakdown()
 ) : MimoApiService {
+    override suspend fun login(body: LoginRequest): AuthResponse {
+        if (shouldThrowError) throw IOException("Network connection offline")
+        return AuthResponse(access_token = "fake_token", token_type = "bearer")
+    }
+
+    override suspend fun register(body: RegisterRequest): AuthResponse {
+        if (shouldThrowError) throw IOException("Network connection offline")
+        return AuthResponse(access_token = "fake_token", token_type = "bearer")
+    }
+
+    override suspend fun completeOnboarding(body: OnboardingRequest): UserOut {
+        if (shouldThrowError) throw IOException("Network connection offline")
+        return UserOut(id = 1, email = "test@example.com", onboarding_completed = true)
+    }
+
+    override suspend fun authenticateGoogle(body: Map<String, String>): Map<String, Any> {
+        if (shouldThrowError) throw IOException("Network connection offline")
+        return mapOf("token" to "fake_token", "user" to mapOf("id" to "1"))
+    }
+
     override suspend fun getStats(targetDate: String?): DailyStats {
         if (shouldThrowError) throw IOException("Network connection offline")
         return statsToReturn
@@ -58,9 +78,24 @@ class FakeMimoApiService(
         return mapOf("status" to "success")
     }
 
+    override suspend fun getSchedule(): List<ScheduleBlock> {
+        if (shouldThrowError) throw IOException("Network connection offline")
+        return emptyList()
+    }
+
+    override suspend fun getScheduleToday(): List<ScheduleBlock> {
+        if (shouldThrowError) throw IOException("Network connection offline")
+        return emptyList()
+    }
+
     override suspend fun getScreenBreakdown(targetDate: String?): ScreenBreakdown {
         if (shouldThrowError) throw IOException("Network connection offline")
         return breakdownToReturn
+    }
+
+    override suspend fun syncMockScreen(body: MockWindowEvent): Map<String, Any> {
+        if (shouldThrowError) throw IOException("Network connection offline")
+        return mapOf("status" to "ok")
     }
 
     override suspend fun pushSync(payload: SyncPayload): Map<String, Any> {

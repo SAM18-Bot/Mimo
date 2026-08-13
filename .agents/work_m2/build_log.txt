@@ -1,0 +1,61 @@
+================================================================================
+Mimo Desktop App Build & Verification Report (Requirement R2)
+Build Timestamp: 2026-08-11T08:36:45+05:30
+Target Spec: desktop/mimo.spec
+================================================================================
+
+1. PYINSTALLER BUILD LOG SUMMARY
+--------------------------------------------------------------------------------
+Command Executed: pyinstaller desktop/mimo.spec
+PyInstaller Version: 6.8.0
+Python Version: 3.11.9 (Windows-10-10.0.26100-SP0)
+
+Key Build Hooks & Dependencies Collected:
+- OpenCV / cv2: hook-cv2.py (dynamically loaded)
+- NumPy: hook-numpy.py (removed from excludes in desktop/mimo.spec; successfully bundled)
+- MediaPipe: hook-mediapipe.py
+- FastAPI & Starlette: hook-fastapi.py, hook-starlette.py
+- PyWebview: hook-webview.py
+- PyStray: hook-pystray.py, hook-pystray._win32.py
+- SQLAlchemy & SQLite: hook-sqlalchemy.py, hook-sqlite3.py
+- APScheduler: hook-apscheduler.py
+- Plyer: hook-plyer.py
+
+Build Output Status:
+- PYZ archive created: C:\Users\samee\projects\Mimo\build\mimo\PYZ-00.pyz (success)
+- PKG archive created: C:\Users\samee\projects\Mimo\build\mimo\Mimo.pkg (success)
+- EXE created: C:\Users\samee\projects\Mimo\build\mimo\Mimo.exe (success)
+- COLLECT bundle created: C:\Users\samee\projects\Mimo\dist\Mimo\ (success)
+
+2. BINARY & ASSET VERIFICATION
+--------------------------------------------------------------------------------
+Binary Existence:
+- Path: C:\Users\samee\projects\Mimo\dist\Mimo\Mimo.exe
+- Status: EXISTS (Verified via Test-Path and subprocess execution)
+
+Static Directory & Asset Bundling:
+- Path: C:\Users\samee\projects\Mimo\dist\Mimo\_internal\static\
+- Status: EXISTS
+- Bundled Files Verified:
+    * dashboard.html    (88,782 bytes)
+    * file_tree.html    (20,590 bytes)
+    * parent_portal.html(22,265 bytes)
+    * schedule.html     (11,840 bytes)
+    * settings.html     (10,467 bytes)
+
+3. RUNTIME LAUNCH & SHUTDOWN VERIFICATION
+--------------------------------------------------------------------------------
+Launch Command: C:\Users\samee\projects\Mimo\dist\Mimo\Mimo.exe
+Process PID: 13716
+FastAPI Health Check Endpoint: http://127.0.0.1:8000/health
+Startup Result: 200 OK after 10.58 seconds
+
+Zombie Process Hazard Test:
+- Termination Signal Sent: proc.terminate()
+- Exit Duration: Process exited cleanly within 2.10 seconds (exit code 0 / term)
+- Process Table Inspection (tasklist /FI "IMAGENAME eq Mimo.exe"):
+    No tasks running matching criteria.
+- Zombie Count: 0
+
+CONCLUSION: Requirement R2 desktop build and verification completed successfully with 100% compliance.
+================================================================================

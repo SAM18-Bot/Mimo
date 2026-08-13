@@ -1,178 +1,431 @@
-# Root Cause Analysis Report: Android Instant Startup Crash (R1)
+# Backend Codebase Survey & Analysis Report (Requirement R1)
 
 ## Executive Summary
-The Mimo Android application experiences an instant crash (1-2 seconds after launch) due to a critical Jetpack Compose layout violation combined with an unhandled date parsing exception in the UI layer. In addition, the Android unit test suite fails to compile due to missing mock implementations in `FakeMimoApiService`.
+This report provides a detailed survey of the FastAPI backend application in the Mimo codebase for Requirement R1 (Thorough Verification of Core Flows). It details the location of backend application files, database initialization/migrations/schema setup, entry points, exact request/response formats for Authentication, Onboarding, and Assignments endpoints, local server execution steps, and an inventory of existing tests and verification utilities.
 
 ---
 
-## 1. Primary Root Causes Identified
+## 1. Backend Architecture & Entry Points
 
-### Root Cause 1: Jetpack Compose Infinite Height Measurement Crash (`IllegalStateException`)
-- **File**: `android/app/src/main/java/com/mimo/app/ui/DashboardScreen.kt` (Lines 76–104)
-- **File**: `android/app/src/main/java/com/mimo/app/ui/components/AssignmentList.kt` (Lines 30–41)
-- **Code Observation**:
-  `DashboardScreen.kt`:
-  ```kotlin
-  Column(
-      modifier = Modifier
-          .fillMaxSize()
-          .verticalScroll(rememberScrollState())
-          .padding(16.dp),
-      verticalArrangement = Arrangement.spacedBy(24.dp)
-  ) {
-      ...
-      AssignmentList(
-          assignments = assignments,
-          onMarkDone = { id -> viewModel.markAssignmentDone(id) }
-      )
+### 1.1 Application Structure & Key Files
+- **Root Entry Point (`main.py`)**: Defines the main FastAPI application `app = FastAPI(title="Mimo — AI Accountability System", version="2.0.0", lifespan=lifespan)`.
+- **Server Launcher (`run_server.py`)**: CLI script that configures Uvicorn server options (`--port`, `--host`, `--dev`, `--no-browser`) and executes `uvicorn.run("main:app", ...)`. Default port: **8000**, default host: **0.0.0.0**.
+- **Desktop Launcher (`run_desktop.py`)**: Runs Uvicorn in a background thread while launching a PySide6 GUI / system tray application.
+- **Global Configuration (`config.py`)**: Loads environment variables from `.env` via `python-dotenv`. Configures `DATABASE_URL`, `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `JWT_EXPIRE_MINUTES`, `OPENAI_API_KEY`, app categorization keywords, and schedule timings.
+- **API Router Directory (`api/`)**: Contains modular route handlers registered in `main.py`:
+  - `routes_auth.py`: Authentication, JWT tokens, device registration, parent portal, database reset.
+  - `routes_onboarding.py`: Student onboarding completion & initial schedule generation.
+  - `routes_assignments.py`: Assignment CRUD operations, natural language parsing, and completion.
+  - `routes_screen.py`: Screen tracking breakdowns and mock session injection.
+  - `routes_cv.py`: Computer vision event logging and focus scores.
+  - `routes_reports.py`: Productivity stats, history, and accountability Q&A logs.
+  - `routes_schedule.py`: Schedule profiles, blocks, and auto-generated daily schedules.
+  - `routes_settings.py`: Desktop settings CRUD and environment variable updates.
+  - `routes_monitoring.py`: Background tracking pause/resume state.
+  - `routes_sync.py`: Device data sync routes.
+  - `routes_voice.py`: Voice intent handling and text-to-speech triggers.
+  - `websocket.py`: WebSocket connection manager on `/ws` endpoint.
+
+### 1.2 Startup Sequence & Lifespan Handler
+In `main.py`:
+1. Database initialization is invoked at module level via `from db.database import init_db; init_db()`.
+2. Static assets are mounted at `/static`.
+3. 12 API routers are included into `app`.
+4. Lifespan context manager (`lifespan(app)`) starts:
+   - Event bus drain loop (`asyncio.create_task(drain_event_bus())`).
+   - Background tasks (`schedulers.background_tasks.start_all(...)`).
+   - APScheduler (`schedulers.daily_trigger.start_scheduler(...)`).
+
+---
+
+## 2. Database Initialization, Schema & Migrations
+
+### 2.1 Database Configuration (`db/database.py`)
+- Uses SQLAlchemy SQLAlchemy 2.0 with engine bound to `config.DATABASE_URL`.
+- Default SQLite URL: `sqlite:///./mimo.db` (or `sqlite:///./accountability.db` in `.env.example`).
+- Connect args for SQLite: `{"check_same_thread": False}`.
+- Provides:
+  - `init_db()`: Calls `Base.metadata.create_all(bind=engine)`.
+  - `get_db()`: FastAPI dependency yielding a `Session`.
+  - `get_db_ctx()`: Context manager for non-FastAPI modules (schedulers, background tasks).
+
+### 2.2 Schema Models (`db/models.py`)
+- **`User`** (`users` table): `id`, `email` (unique), `password_hash`, `role` (`student` | `parent`), `display_name`, `ai_engine`, `api_key`, `course`, `age`, `education_level`, `onboarding_completed` (Boolean), `auth_provider` (`local` | `google`), `google_id`, `created_at`.
+- **`Device`** (`devices` table): `id`, `user_id` (FK `users.id`), `device_name`, `device_type` (`desktop` | `android` | `hardware` | `other`), `platform`, `status`, `linked_at`, `last_seen_at`, `created_at`.
+- **`Assignment`** (`assignments` table): `id`, `user_id` (FK `users.id`), `title`, `subject`, `due_date` (Date), `priority` (`low` | `medium` | `high`), `status` (`pending` | `in_progress` | `done`), `notes`, `created_at`, `reminded_at`.
+- **`ScheduleProfile`** (`schedule_profiles` table): `id`, `user_id` (FK `users.id`), `timezone`, `wake_time`, `sleep_time`, `school_start`, `school_end`, `study_goal_minutes`, `session_minutes`, `break_minutes`, `active`, `notes`, `created_at`, `updated_at`.
+- **`ScheduleBlock`** (`schedule_blocks` table): `id`, `profile_id` (FK `schedule_profiles.id`), `day_of_week`, `block_date`, `start_time`, `end_time`, `kind` (`school` | `study` | `fixed` | `break`), `title`, `subject`, `flexibility`, `source`, `priority`, `status`, `created_at`.
+- **`ParentInvite`** (`parent_invites` table): `id`, `student_id` (FK `users.id`), `code` (6-digit unique code), `expires_at`, `consumed_at`, `created_at`.
+- **`ParentStudentLink`** (`parent_student_links` table): `id`, `parent_id` (FK `users.id`), `student_id` (FK `users.id`), `created_at`.
+- **`TokenBlocklist`** (`token_blocklist` table): `id`, `token` (String 500, unique), `expires_at`, `created_at`.
+- Additional tables: `ScreenSession`, `CVEvent`, `AccountabilityLog`, `DailySummary`, `StudySession`, `Reminder`, `RoastLog`.
+
+### 2.3 Schema Migrations & Reset
+- Migrations managed via Alembic (`alembic.ini`, `db/migrations/env.py`).
+- Revision history in `db/migrations/versions/`:
+  - `001_initial_schema.py`: Initial setup of core monitoring and assignment tables.
+  - `002_schedule_module.py`: Schedules, reminders, roast logs.
+  - `003_auth_device_parent.py`: Users, devices, parent link, token blocklist, foreign key additions.
+- **Database Reset Endpoint**: `GET /reset-db` drops all tables (`Base.metadata.drop_all`) and calls `init_db()`, returning `{"message": "Database reset and schema recreated"}`.
+
+---
+
+## 3. Core Flow Endpoint Inventory & Request Formats
+
+### 3.1 Authentication Flow (`api/routes_auth.py`)
+
+#### 1. User Registration
+- **HTTP Method & Path**: `POST /auth/register` (Status 201 Created)
+- **Authentication**: None required.
+- **Request Headers**: `Content-Type: application/json`
+- **Request Body Format**:
+  ```json
+  {
+    "email": "student@example.com",
+    "password": "strongpassword123",
+    "role": "student",
+    "display_name": "Student Name"
   }
   ```
-  `AssignmentList.kt`:
-  ```kotlin
-  @Composable
-  fun AssignmentList(
-      assignments: List<Assignment>,
-      onMarkDone: (Int) -> Unit,
-      modifier: Modifier = Modifier
-  ) {
-      LazyColumn(
-          modifier = modifier.fillMaxWidth(),
-          contentPadding = PaddingValues(16.dp),
-          verticalArrangement = Arrangement.spacedBy(12.dp)
-      ) {
-          items(assignments) { assignment -> ... }
-      }
-  }
-  ```
-- **Mechanism**: Jetpack Compose forbids nesting a lazy scrollable container (`LazyColumn`) inside a parent container with vertical scrolling (`Column` with `verticalScroll`), because the parent provides infinite maximum height constraints.
-- **Exception Thrown**: `java.lang.IllegalStateException: Vertically scrollable component was measured with an infinity maximum height constraints, which is disallowed.`
-- **Timing**: Fires immediately on the first UI measure/layout pass when `setContent { DashboardScreen() }` executes during `MainActivity.onCreate()` (approx 1-2 seconds into launch).
-
----
-
-### Root Cause 2: Uncaught `DateTimeParseException` during UI Rendering
-- **File**: `android/app/src/main/java/com/mimo/app/ui/components/AssignmentList.kt` (Line 50)
-- **Code Observation**:
-  ```kotlin
-  @Composable
-  fun AssignmentCard(
-      assignment: Assignment,
-      onMarkDone: () -> Unit
-  ) {
-      val today = LocalDate.now()
-      val dueDate = LocalDate.parse(assignment.due_date) // Assuming ISO format YYYY-MM-DD
-  ```
-- **Mechanism**: `Assignment.due_date` defaults to `""` in `ApiModels.kt` (Line 43). When `LocalDate.parse("")` is called on an uninitialized or empty date string, Java 8 `java.time` throws `DateTimeParseException: Text '' could not be parsed`.
-- **Timing**: Fires during composition/recomposition when task items with blank or invalid date strings are rendered.
-
----
-
-### Root Cause 3: Unit Test Suite Compilation Failure (`compileDebugUnitTestKotlin FAILED`)
-- **File**: `android/app/src/test/java/com/mimo/app/ui/DashboardViewModelTest.kt` (Lines 21–65)
-- **File**: `android/app/src/test/java/com/mimo/app/ui/DashboardViewModelStressTest.kt` (Lines 171–195)
-- **Code Observation**:
-  ```kotlin
-  class FakeMimoApiService(...) : MimoApiService { ... }
-  ```
-- **Mechanism**: `MimoApiService.kt` defines `suspend fun pushSync(payload: SyncPayload): Map<String, Any>` and `suspend fun pullSync(): SyncPayload`. However, the mock test implementations `FakeMimoApiService` and `throwingApiService` in `DashboardViewModelTest.kt` and `DashboardViewModelStressTest.kt` do not implement these two methods.
-- **Gradle Result**: Running `.\gradlew testDebugUnitTest` fails with:
-  `error: class 'FakeMimoApiService' is not abstract and does not implement abstract member public abstract suspend fun pullSync(): SyncPayload defined in com.mimo.app.network.MimoApiService`
-
----
-
-### Root Cause 4: Potential Android 14 Foreground Service and Usage Stats Exceptions
-- **File**: `android/app/src/main/java/com/mimo/app/MainActivity.kt` (Lines 48–58)
-- **File**: `android/app/src/main/java/com/mimo/app/tracker/MobileTrackerService.kt` (Lines 74–90)
-- **Code Observation**:
-  In `MainActivity.kt`:
-  ```kotlin
-  private fun startRoastService() {
-      val roastIntent = Intent(this, RoastEnforcementService::class.java)
-      val trackerIntent = Intent(this, MobileTrackerService::class.java)
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-          startForegroundService(roastIntent)
-          startForegroundService(trackerIntent)
-      }
-  }
-  ```
-  In `MobileTrackerService.kt`:
-  ```kotlin
-  val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-  val events = usageStatsManager.queryEvents(startTime, endTime)
-  ```
-- **Mechanism**:
-  1. Starting two foreground services concurrently in `MainActivity.onCreate()` using `startForegroundService` without verifying Android 14 foreground service launch conditions or try-catch blocks can cause `ForegroundServiceStartNotAllowedException`.
-  2. In `MobileTrackerService`, accessing `UsageStatsManager` without checking if `usageStatsManager` is null or catching `SecurityException` when usage access permission is revoked can lead to uncaught service crashes.
-
----
-
-## 2. Recommended Fix Implementation Plan
-
-### Fix 1: Resolve Nested Scroll Crash in `DashboardScreen.kt` / `AssignmentList.kt`
-- Option A (Recommended): Replace `LazyColumn` in `AssignmentList.kt` with a standard `Column` using `forEach` (since tasks are displayed inside the parent `verticalScroll` Column). Or pass `Modifier` without nested scrolling.
-- Option B: Use `item` blocks within a single root `LazyColumn` in `DashboardScreen.kt`.
-
-Proposed code for `AssignmentList.kt`:
-```kotlin
-@Composable
-fun AssignmentList(
-    assignments: List<Assignment>,
-    onMarkDone: (Int) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        assignments.forEach { assignment ->
-            AssignmentCard(
-                assignment = assignment,
-                onMarkDone = { onMarkDone(assignment.id) }
-            )
-        }
+  *Validation Rules*: `email` valid EmailStr; `password` min 8 chars; `role` must be `"student"` or `"parent"`.
+- **Response Format (201 Created)**:
+  ```json
+  {
+    "access_token": "<jwt_access_token_string>",
+    "token_type": "bearer",
+    "user": {
+      "id": 1,
+      "email": "student@example.com",
+      "role": "student",
+      "display_name": "Student Name",
+      "onboarding_completed": false
     }
-}
-```
+  }
+  ```
+- **Error Responses**: `422 Unprocessable Entity` if email exists, password is too short, or input validation fails.
 
-### Fix 2: Safe Date Parsing in `AssignmentCard`
-Wrap `LocalDate.parse` in `runCatching` or provide a fallback for blank/invalid dates.
+#### 2. User Login
+- **HTTP Method & Path**: `POST /auth/login` (Status 200 OK)
+- **Authentication**: None required.
+- **Request Body Format**:
+  ```json
+  {
+    "email": "student@example.com",
+    "password": "strongpassword123"
+  }
+  ```
+- **Response Format (200 OK)**: Same `AuthOut` schema as registration.
+- **Error Responses**: `401 Unauthorized` (`{"detail": "invalid email or password"}`).
 
-Proposed code for `AssignmentCard` in `AssignmentList.kt`:
-```kotlin
-val today = LocalDate.now()
-val dueDate = runCatching { LocalDate.parse(assignment.due_date) }.getOrNull()
-val daysUntilDue = if (dueDate != null) ChronoUnit.DAYS.between(today, dueDate) else 0L
+#### 3. User Profile (`/auth/me`)
+- **HTTP Method & Path**: `GET /auth/me` (Status 200 OK)
+- **Request Headers**: `Authorization: Bearer <access_token>`
+- **Response Format (200 OK)**:
+  ```json
+  {
+    "id": 1,
+    "email": "student@example.com",
+    "role": "student",
+    "display_name": "Student Name",
+    "onboarding_completed": false
+  }
+  ```
+- **Error Responses**: `401 Unauthorized` if token is missing, invalid, or present in `TokenBlocklist`.
 
-val (statusColor, statusText) = when {
-    dueDate == null -> MimoColors.TextMuted to "No Due Date"
-    daysUntilDue < 0 -> MimoColors.Error to "Overdue"
-    daysUntilDue == 0L -> MimoColors.Warning to "Due Today"
-    else -> MimoColors.Success to "In ${daysUntilDue} days"
-}
-```
-
-### Fix 3: Update `FakeMimoApiService` for Unit Tests
-Implement `pushSync` and `pullSync` in `FakeMimoApiService` and `throwingApiService` in `DashboardViewModelTest.kt` and `DashboardViewModelStressTest.kt`.
-
-```kotlin
-override suspend fun pushSync(payload: SyncPayload): Map<String, Any> {
-    if (shouldThrowError) throw IOException("Network connection offline")
-    return mapOf("status" to "success")
-}
-
-override suspend fun pullSync(): SyncPayload {
-    if (shouldThrowError) throw IOException("Network connection offline")
-    return SyncPayload(date = "2026-08-07", mobileProductiveMin = 0, mobileDistractingMin = 0, mobileNeutralMin = 0)
-}
-```
-
-### Fix 4: Safeguard Service Initialization & `UsageStatsManager`
-In `MainActivity.kt`: Wrap service calls in try-catch blocks for `ForegroundServiceStartNotAllowedException` / `SecurityException`.
-In `MobileTrackerService.kt`: Wrap `queryEvents` in try-catch to prevent service crash when `PACKAGE_USAGE_STATS` is not granted.
+#### 4. Logout (`/auth/logout`)
+- **HTTP Method & Path**: `POST /auth/logout` (Status 200 OK)
+- **Request Headers**: `Authorization: Bearer <access_token>`
+- **Response Format (200 OK)**: `{"status": "logged_out"}` (Adds token to `TokenBlocklist`).
 
 ---
 
-## 3. Scope & Verification Strategy
-- Compiles via `.\gradlew assembleDebug`.
-- Unit tests compile and pass 100% via `.\gradlew testDebugUnitTest`.
-- Robolectric / ViewModel tests verify initialization without exceptions.
+### 3.2 Onboarding Flow (`api/routes_onboarding.py`)
+
+#### Complete Onboarding
+- **HTTP Method & Path**: `POST /onboarding/complete` (Status 200 OK)
+- **Request Headers**: `Authorization: Bearer <access_token>` (Required)
+- **Request Body Format**:
+  ```json
+  {
+    "course": "Computer Science",
+    "age": 20,
+    "education_level": "Undergraduate",
+    "ai_engine": "openai",
+    "api_key": "sk-optional-key",
+    "wake_time": "07:00",
+    "sleep_time": "23:00",
+    "study_goal_minutes": 120
+  }
+  ```
+  *Validation Rules*: `course`, `age`, `education_level`, `ai_engine` are required. `api_key` optional. `wake_time` (default `"07:00"`), `sleep_time` (default `"23:00"`), `study_goal_minutes` (default `120`).
+- **Backend Execution Logic**:
+  1. Checks `user.onboarding_completed`. If `True`, returns `{"status": "success", "message": "Onboarding already completed."}`.
+  2. Updates `user` object in database with `course`, `age`, `education_level`, `ai_engine`, `api_key`, and sets `onboarding_completed = True`.
+  3. Creates an active `ScheduleProfile` row linked to `user.id`.
+  4. Creates an initial default `ScheduleBlock` row for study sessions.
+- **Response Format (200 OK)**:
+  ```json
+  {
+    "status": "success",
+    "message": "Onboarding completed successfully."
+  }
+  ```
+- **Error Responses**: `401 Unauthorized` if token is missing or invalid.
+
+---
+
+### 3.3 Assignments Flow (`api/routes_assignments.py`)
+
+#### 1. Create Assignment
+- **HTTP Method & Path**: `POST /assignments/` (Status 201 Created)
+- **Request Headers**: `Authorization: Bearer <access_token>` (Required)
+- **Request Body Format**:
+  ```json
+  {
+    "title": "Algorithms Problem Set 1",
+    "subject": "Computer Science",
+    "due_date": "2026-08-20",
+    "priority": "high",
+    "notes": "Exercises from Chapter 3"
+  }
+  ```
+  *Fields*: `title` (required), `subject` (optional), `due_date` (ISO Date YYYY-MM-DD, required), `priority` (`"low"` | `"medium"` | `"high"`, default `"medium"`), `notes` (optional).
+- **Backend Execution Logic**:
+  1. Inserts `Assignment` record bound to `user.id`.
+  2. Automatically schedules `Reminder` records for future trigger dates (3 days prior, 1 day prior, day of).
+  3. Emits WebSocket broadcast `assignment_added`.
+- **Response Format (201 Created)**:
+  ```json
+  {
+    "id": 1,
+    "title": "Algorithms Problem Set 1",
+    "subject": "Computer Science",
+    "due_date": "2026-08-20",
+    "priority": "high",
+    "status": "pending",
+    "notes": "Exercises from Chapter 3"
+  }
+  ```
+
+#### 2. Create Assignment via Natural Language (NLP)
+- **HTTP Method & Path**: `POST /assignments/nlp` (Status 201 Created)
+- **Request Headers**: `Authorization: Bearer <access_token>` (Required)
+- **Request Body Format**:
+  ```json
+  {
+    "text": "Math assignment due Friday"
+  }
+  ```
+- **Response Format (201 Created)**: Returns created `AssignmentOut`.
+- **Error Responses**: `422 Unprocessable Entity` if parsing fails.
+
+#### 3. List All Assignments
+- **HTTP Method & Path**: `GET /assignments/` (Status 200 OK)
+- **Request Headers**: `Authorization: Bearer <access_token>` (Required)
+- **Query Parameters**: `status` (optional: `?status=pending`, `?status=in_progress`, `?status=done`)
+- **Response Format (200 OK)**: JSON Array of `AssignmentOut` objects.
+
+#### 4. List Upcoming Assignments
+- **HTTP Method & Path**: `GET /assignments/upcoming` (Status 200 OK)
+- **Request Headers**: `Authorization: Bearer <access_token>` (Required)
+- **Query Parameters**: `days` (optional, default 7, e.g. `?days=7`)
+- **Response Format (200 OK)**: JSON Array of pending/in_progress `AssignmentOut` objects due within N days.
+
+#### 5. List Overdue Assignments
+- **HTTP Method & Path**: `GET /assignments/overdue` (Status 200 OK)
+- **Request Headers**: `Authorization: Bearer <access_token>` (Required)
+- **Response Format (200 OK)**: JSON Array of pending/in_progress `AssignmentOut` objects with due dates before today.
+
+#### 6. Mark Assignment Status
+- **HTTP Method & Path**: `PATCH /assignments/{assignment_id}/status` (Status 200 OK)
+- **Request Headers**: `Authorization: Bearer <access_token>` (Required)
+- **Request Body Format**: `{"status": "in_progress"}` (`"pending"` | `"in_progress"` | `"done"`)
+- **Response Format (200 OK)**: `{"ok": true, "id": 1, "status": "in_progress"}`
+- **Error Responses**: `404 Not Found`.
+
+#### 7. Mark Assignment Done
+- **HTTP Method & Path**: `POST /assignments/{assignment_id}/done` (Status 200 OK)
+- **Request Headers**: `Authorization: Bearer <access_token>` (Required)
+- **Response Format (200 OK)**: `{"ok": true, "message": "'Algorithms Problem Set 1' marked as done."}`
+- **Error Responses**: `404 Not Found`.
+
+#### 8. Delete Assignment
+- **HTTP Method & Path**: `DELETE /assignments/{assignment_id}` (Status 204 No Content)
+- **Request Headers**: `Authorization: Bearer <access_token>` (Required)
+- **Response Format**: Empty body (204 No Content).
+
+---
+
+## 4. Local Execution & Verification Procedures
+
+### 4.1 Environment Setup
+Create or ensure `.env` file exists with test-safe variables:
+```ini
+OPENAI_API_KEY=sk-test-key
+DATABASE_URL=sqlite:///./mimo.db
+JWT_SECRET_KEY=dev-only-change-me
+NO_HARDWARE=1
+NO_VOICE=1
+```
+
+### 4.2 Local Server Execution Commands
+To start the FastAPI backend server on port 8000:
+```bash
+# Option A: Using run_server.py script
+python run_server.py --port 8000 --dev --no-browser
+
+# Option B: Direct Uvicorn execution
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### 4.3 Database Synchronization & Reset Commands
+- Initial database creation on startup: automatically handled by `main.py` calling `init_db()`.
+- Manual DB init via python snippet:
+  ```bash
+  python -c "from db.database import init_db; init_db()"
+  ```
+- Reset database via HTTP request:
+  ```bash
+  curl http://localhost:8000/reset-db
+  ```
+
+### 4.4 End-to-End Core Flow Verification (Network Requests)
+Verification of Requirement R1 can be executed using three methods:
+
+#### Method 1: Python Automated Network Verification Script (Against Live Server `http://127.0.0.1:8000`)
+```python
+import httpx
+
+BASE_URL = "http://127.0.0.1:8000"
+
+def verify_core_flows():
+    client = httpx.Client(base_url=BASE_URL)
+    
+    # 1. Health check
+    r = client.get("/health")
+    assert r.status_code == 200, f"Health check failed: {r.text}"
+    print("✓ Health check passed")
+
+    # 2. Auth: Register
+    reg_payload = {
+        "email": "test_verification_user@example.com",
+        "password": "Password123!",
+        "role": "student",
+        "display_name": "Verification User"
+    }
+    r = client.post("/auth/register", json=reg_payload)
+    if r.status_code == 422: # If already registered, login
+        r = client.post("/auth/login", json={"email": reg_payload["email"], "password": reg_payload["password"]})
+    assert r.status_code in (200, 201), f"Auth failed: {r.text}"
+    token = r.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    print("✓ Auth (Register/Login) passed")
+
+    # 3. Auth: Verify /auth/me
+    r = client.get("/auth/me", headers=headers)
+    assert r.status_code == 200, f"/auth/me failed: {r.text}"
+    print("✓ /auth/me passed")
+
+    # 4. Onboarding: Complete
+    onboard_payload = {
+        "course": "Software Engineering",
+        "age": 22,
+        "education_level": "Undergraduate",
+        "ai_engine": "openai",
+        "wake_time": "07:00",
+        "sleep_time": "23:00",
+        "study_goal_minutes": 180
+    }
+    r = client.post("/onboarding/complete", json=onboard_payload, headers=headers)
+    assert r.status_code == 200, f"Onboarding failed: {r.text}"
+    print("✓ Onboarding complete passed")
+
+    # 5. Assignments: Create
+    assign_payload = {
+        "title": "System Verification Assignment",
+        "subject": "Testing",
+        "due_date": "2026-08-25",
+        "priority": "high",
+        "notes": "Automated verification test"
+    }
+    r = client.post("/assignments/", json=assign_payload, headers=headers)
+    assert r.status_code == 201, f"Assignment creation failed: {r.text}"
+    assignment_id = r.json()["id"]
+    print(f"✓ Assignment created (ID: {assignment_id})")
+
+    # 6. Assignments: List & Upcoming
+    r = client.get("/assignments/", headers=headers)
+    assert r.status_code == 200 and len(r.json()) > 0, f"List assignments failed: {r.text}"
+    
+    r = client.get("/assignments/upcoming?days=30", headers=headers)
+    assert r.status_code == 200, f"Upcoming assignments failed: {r.text}"
+    print("✓ Assignments list and upcoming query passed")
+
+    # 7. Assignments: Mark Done
+    r = client.post(f"/assignments/{assignment_id}/done", headers=headers)
+    assert r.status_code == 200, f"Mark assignment done failed: {r.text}"
+    print("✓ Assignment marked done passed")
+
+    print("\n🎉 ALL R1 CORE FLOW VERIFICATIONS PASSED WITH 200/201 OK!")
+
+if __name__ == "__main__":
+    verify_core_flows()
+```
+
+#### Method 2: cURL Commands
+```bash
+# 1. Register User
+curl -X POST http://localhost:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"curluser@example.com","password":"password123","role":"student"}'
+
+# (Save access_token from response as $TOKEN)
+
+# 2. Complete Onboarding
+curl -X POST http://localhost:8000/onboarding/complete \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"course":"Computer Science","age":21,"education_level":"College","ai_engine":"openai"}'
+
+# 3. Create Assignment
+curl -X POST http://localhost:8000/assignments/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Curl Assignment","due_date":"2026-08-25","priority":"high"}'
+```
+
+---
+
+## 5. Existing Tests & Verification Utilities
+
+### 5.1 Test Suite Breakdown (`tests/`)
+- `tests/conftest.py`: Provides pytest fixtures. Creates a temporary SQLite database per test and monkeypatches FastAPI `TestClient` so that route dependency injection (`get_db`) and background context manager (`get_db_ctx`) point to the temporary engine. Sets `NO_HARDWARE=1` and `NO_VOICE=1`.
+- `tests/test_auth_device_parent.py`: Coverage for authentication flows:
+  - `test_register_login_and_me`
+  - `test_duplicate_registration_rejected`
+  - `test_device_registration_and_heartbeat`
+  - `test_device_access_is_owner_only`
+  - `test_student_creates_parent_invite_and_parent_links`
+  - `test_parent_summary_requires_link`
+  - `test_parent_summary_allowed_after_link`
+- `tests/test_assignments.py`: Coverage for assignment business logic and auto-reminder generation (`TestAssignmentCRUD`, `TestUpcomingAndOverdue`, `TestReminders`).
+- `tests/test_api.py`: Coverage for HTTP API endpoints (`TestHealth`, `TestAssignmentsAPI`, `TestScreenAPI`, `TestCVAPI`, `TestReportsAPI`, `TestVoiceAPI`, `TestStudyAPI`, `TestFullWorkflow`).
+- `tests/test_api_desktop.py`: Coverage for settings page and monitoring status pause/resume (`TestSettingsPage`, `TestSettingsData`, `TestSettingsSave`, `TestSettingsSaveAll`, `TestMonitoringStatus`, `TestMonitoringPauseResume`).
+
+### 5.2 Test Execution Command
+To run all existing Python backend tests:
+```bash
+pytest tests/ -v
+```
+
+### 5.3 Key Gaps Identified in Existing Test Suite
+1. **Onboarding Endpoint**: `POST /onboarding/complete` exists in `api/routes_onboarding.py`, but has **no unit test in `tests/`**.
+2. **Auth Header Requirements**: Endpoints in `routes_assignments.py` depend on `current_user` (`Authorization: Bearer <token>`). Any manual test script or new test MUST pass valid Bearer tokens obtained via `/auth/register` or `/auth/login`.
+
+---
+
+## 6. Summary of Findings for R1 Verification Implementation
+- The FastAPI application is fully equipped with database tables, Alembic migrations, and modular routers for Authentication (`routes_auth.py`), Onboarding (`routes_onboarding.py`), and Assignments (`routes_assignments.py`).
+- All three target flows (Auth, Onboarding, Assignments) return well-defined JSON responses and manage database persistence automatically upon startup.
+- Local server execution is straightforward using `python run_server.py --port 8000 --dev --no-browser`.
+- An end-to-end Python network verification script (provided in Section 4.4) can be executed to verify all endpoints return 200/201 OK without 500 internal server errors.

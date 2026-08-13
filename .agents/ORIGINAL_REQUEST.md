@@ -35,3 +35,46 @@ Write and execute comprehensive unit tests for both the Desktop app (using `pyte
 - [ ] Running `.\gradlew testDebugUnitTest` passes with 100% success.
 - [ ] The Android test suite explicitly verifies `MainActivity`, `DashboardViewModel`, and background services can initialize without crashing.
 </USER_REQUEST>
+
+## Follow-up — 2026-08-11T08:27:08+05:30
+
+<USER_REQUEST>
+# Teamwork Project Prompt — Draft
+
+> Status: Launched.
+> Goal: Craft prompt → get user approval → delegate to teamwork_preview
+
+Verify the Mimo cross-platform application (Desktop and Android), ensure all recently implemented features function correctly through thorough runtime testing, and compile the final release artifacts.
+
+Working directory: c:\Users\samee\projects\Mimo
+Integrity mode: benchmark
+
+## Requirements
+
+### R1. Thorough Verification of Core Flows
+Run the FastAPI backend locally and execute network requests (e.g., via `curl` or a Python test script) against the critical endpoints: Authentication, Onboarding, and Assignments. Ensure no 500 errors occur and that the database schema is fully synchronized.
+
+### R2. Compile Final Desktop App
+Using PyInstaller, compile the final `Mimo.exe` Desktop app. Verify that the build correctly bundles the `static/` directory and successfully launches without background zombie process hanging.
+
+### R3. Compile Final Android App
+Run the Gradle build (`gradlew assembleDebug`) in the `android/` directory. Verify that the `app-debug.apk` is generated successfully without compilation errors.
+
+## Acceptance Criteria
+
+### Verification & Build Success
+- [ ] A test script or manual request verification log is produced showing successful 200 OK responses for Login, Onboarding, and Assignment creation.
+- [ ] The Desktop executable (`dist/Mimo/Mimo.exe`) is generated and its binary exists.
+- [ ] The Android APK (`android/app/build/outputs/apk/debug/app-debug.apk`) is generated and its binary exists.
+
+---
+*Next: when approved → delegate via invoke_subagent (see Delegation Protocol)*
+</USER_REQUEST>
+
+## Follow-up — 2026-08-11T15:42:50Z
+
+The server restarted and all tasks were halted. Sweeping security fixes were made to the backend architecture (including changing `api_key` to an encrypted property, modifying WebSocket token auth in `main.py`, and fixing `user_id` scoping in `get_daily_stats`). Re-verify the codebase against these changes and fix any broken tests before re-triggering the final audit and compiling the Desktop/Android apps.
+
+## Follow-up — 2026-08-12T15:37:14Z
+
+The server restarted again, pausing all tasks. Resume verification and compilation work where left off. Review previous state and ensure new security fixes (api_key encryption, WS token scoping, etc.) are fully tested and desktop/Android apps are compiled.

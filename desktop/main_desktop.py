@@ -36,11 +36,16 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 # ── suppress console window on Windows when packaged ─────────────────────
-if sys.platform == "win32" and getattr(sys, "frozen", False):
-    import ctypes
-    ctypes.windll.user32.ShowWindow(
-        ctypes.windll.kernel32.GetConsoleWindow(), 0
-    )
+if getattr(sys, "frozen", False):
+    # PyInstaller one-dir bundles put data files in _MEIPASS (dist/Mimo/_internal)
+    if hasattr(sys, "_MEIPASS"):
+        os.chdir(sys._MEIPASS)
+        
+    if sys.platform == "win32":
+        import ctypes
+        ctypes.windll.user32.ShowWindow(
+            ctypes.windll.kernel32.GetConsoleWindow(), 0
+        )
 
 # ── logging ───────────────────────────────────────────────────────────────
 def _get_log_dir() -> str:
@@ -199,14 +204,20 @@ def _wait_for_server(timeout: int = STARTUP_TIMEOUT, splash=None) -> bool:
 # Step 3 — Tray
 # ══════════════════════════════════════════════════════════════════════════
 
-def _start_tray(window_manager) -> "MimoTray":
+_shutdown_event = threading.Event()
+
+
+def _start_tray(window_manager):
     """Start the system tray in a daemon thread."""
     from desktop.tray import MimoTray
 
-    tray   = MimoTray(open_window_fn=window_manager.open)
+    tray   = MimoTray(
+        open_window_fn=window_manager.open,
+        shutdown_fn=lambda: _shutdown(window_manager),
+    )
     thread = threading.Thread(target=tray.run, daemon=True, name="system-tray")
     thread.start()
-    return tray
+    return tray, thread
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -215,6 +226,9 @@ def _start_tray(window_manager) -> "MimoTray":
 
 def _shutdown(window_manager=None):
     """Clean shutdown of all services."""
+    if _shutdown_event.is_set():
+        return
+    _shutdown_event.set()
     log.info("Shutting down Mimo…")
 
     try:
@@ -235,6 +249,7 @@ def _shutdown(window_manager=None):
         except Exception:
             pass
 
+    _release_lock()
     log.info("Mimo shut down cleanly.")
 
 
@@ -280,7 +295,7 @@ def main():
     atexit.register(_shutdown, wm)
 
     # ── system tray ───────────────────────────────────────────────────────
-    tray = _start_tray(wm)
+    tray, tray_thread = _start_tray(wm)
 
     # ── startup notification ──────────────────────────────────────────────
     try:
@@ -316,13 +331,16 @@ def main():
         _open_browser_fallback()
 
     # ── keep main thread alive while tray is running ──────────────────────
-    # (tray thread is daemon, so we must keep main alive)
     log.info("App running in system tray. Press Ctrl+C to quit.")
     try:
-        while True:
+        while not _shutdown_event.is_set():
             time.sleep(1)
+            if tray_thread and not tray_thread.is_alive():
+                log.info("System tray thread stopped — terminating main loop.")
+                break
     except KeyboardInterrupt:
         log.info("Keyboard interrupt — shutting down.")
+    finally:
         _shutdown(wm)
         sys.exit(0)
 

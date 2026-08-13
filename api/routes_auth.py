@@ -22,11 +22,6 @@ from modules.auth.security import decode_access_token
 
 router = APIRouter(tags=["auth"])
 
-@router.get("/reset-db")
-def reset_db():
-    Base.metadata.drop_all(bind=engine)
-    init_db()
-    return {"message": "Database reset and schema recreated"}
 
 
 class UserOut(BaseModel):
@@ -131,15 +126,9 @@ def logout(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(status_code=401, detail="Missing bearer token")
     token = authorization.split(" ", 1)[1].strip()
-    try:
-        payload = decode_access_token(token)
-        from datetime import datetime
-        expires_at = datetime.utcfromtimestamp(payload["exp"])
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    payload = decode_access_token(token)
+    expires_at = datetime.utcfromtimestamp(payload["exp"])
         
     from db.models import TokenBlocklist
     block = TokenBlocklist(token=token, expires_at=expires_at)
@@ -149,10 +138,28 @@ def logout(
 
 
 
+from fastapi import Request
+import time
+
+_login_attempts = {}
+
 @router.post("/auth/login", response_model=AuthOut)
-def login(payload: LoginIn, db: Session = Depends(get_db)):
+def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
+    client_ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    
+    # Rate limit: max 5 attempts per minute per IP
+    attempts = _login_attempts.get(client_ip, [])
+    attempts = [t for t in attempts if now - t < 60]
+    if len(attempts) >= 5:
+        raise HTTPException(status_code=429, detail="Too many login attempts. Please try again later.")
+    
+    _login_attempts[client_ip] = attempts + [now]
+
     try:
         user, token = login_user(db, email=payload.email, password=payload.password)
+        # Clear attempts on success
+        _login_attempts.pop(client_ip, None)
     except ValueError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     return {"access_token": token, "user": user}

@@ -1,69 +1,52 @@
-# Handoff Report — Desktop App Testing Investigation (R2 & R3)
+# Handoff Report: Android Gradle Build Requirements Survey (R3)
 
 ## 1. Observation
-
-- **Directory Structure & Files**:
-  - Main app entry point: `desktop/main_desktop.py` (350 lines). Defines application initialization sequence, `SERVER_HOST = "127.0.0.1"`, `SERVER_PORT = 8000`, `SERVER_URL = "http://127.0.0.1:8000"`, `STARTUP_TIMEOUT = 40`, and functions `_check_single_instance()`, `_start_server()`, `_wait_for_server(timeout, splash)`, `_start_tray()`, `_shutdown()`.
-  - Settings manager: `desktop/settings_manager.py` (189 lines). Manages `.env` reads/writes, masking sensitive keys (`OPENAI_API_KEY`), and section UI mappings.
-  - System tray icon: `desktop/tray.py` (232 lines). Hardcodes `_BASE_URL = "http://127.0.0.1:8000"`, implements `_stats_loop()` calling `GET /reports/stats` and `GET /assignments/upcoming?days=14`, menu toggles calling `POST /monitoring/pause` and `POST /monitoring/resume`.
-  - PyWebview window manager: `desktop/window_manager.py` (148 lines). Handles browser window creation, hides window on close to system tray, falls back to `webbrowser.open()`.
-  - OS notifications: `desktop/notifications.py` (90 lines). Uses `plyer`. Line 32 contains `or "PYTEST_CURRENT_TEST" in os.environ` to automatically suppress desktop toasts during automated tests.
-  - Single instance guard: `desktop/single_instance.py` (157 lines). Uses Windows mutex `CreateMutexW` or Unix POSIX lock file `~/.mimo/mimo.pid`.
-  - Standalone build script: `desktop/build.py` (104 lines). Defines `CLOUD_URL = os.getenv("MIMO_CLOUD_URL", "http://localhost:8000")` and posts screen activity to `POST /screen/mock`.
-  - Production backend URL: Discovered in Android client (`android/app/src/main/java/com/mimo/app/network/ApiClient.kt:11`) as `https://mimo-e8u2.onrender.com/`.
-
-- **Existing Test Execution**:
-  - Ran command `python -m pytest --version`: stdout returned `pytest 8.3.4`.
-  - Existing repository tests reside in root `tests/` (`test_desktop_utils.py`, `test_desktop_runtime.py`, `test_api_desktop.py`).
-  - No `desktop/tests/` directory currently exists.
-
-- **Dependencies**:
-  - App dependencies in `requirements_desktop.txt`: `pystray==0.19.5`, `Pillow==10.3.0`, `pywebview==5.1`, `plyer==2.1.0`, `pyinstaller==6.8.0`, `httpx==0.27.0`, `python-dotenv==1.0.1`.
-  - Core backend requirements in `requirements.txt`: `fastapi==0.111.0`, `uvicorn==0.29.0`, `psutil==5.9.8`, `pydantic==2.7.1`.
-
----
+- **Android Directory**: Located at `c:\Users\samee\projects\Mimo\android`.
+- **Gradle Wrapper**:
+  - Wrapper scripts `gradlew` (8,733 bytes) and `gradlew.bat` (2,937 bytes) are located in `android/`.
+  - Wrapper properties `android/gradle/wrapper/gradle-wrapper.properties`:
+    - `distributionUrl=https\://services.gradle.org/distributions/gradle-8.5-bin.zip`
+- **Gradle Build Scripts**:
+  - Root `build.gradle.kts` (7 lines): AGP `8.2.2`, Kotlin `1.9.22`, Kapt `1.9.22`.
+  - App `app/build.gradle.kts` (116 lines):
+    - Line 8: `namespace = "com.mimo.app"`
+    - Line 9: `compileSdk = 34`
+    - Line 13: `minSdk = 26`
+    - Line 14: `targetSdk = 34`
+    - Line 41: `buildFeatures { compose = true }`
+    - Line 44: `composeOptions { kotlinCompilerExtensionVersion = "1.5.8" }`
+    - Line 98: `kapt("androidx.room:room-compiler:2.6.1")`
+  - Settings `settings.gradle.kts` (25 lines): `rootProject.name = "Mimo"`, `include(":app")`.
+  - Properties `gradle.properties` (7 lines): `org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8`, `android.useAndroidX=true`.
+- **Android SDK & Environment**:
+  - System SDK directory: `C:\Users\samee\AppData\Local\Android\Sdk` (verified present).
+  - Platform installed: `C:\Users\samee\AppData\Local\Android\Sdk\platforms\android-34` (verified present).
+  - Build tools installed: `C:\Users\samee\AppData\Local\Android\Sdk\build-tools\34.0.0` (verified present).
+  - `local.properties`: File `android/local.properties` does **not** exist in the repository.
+- **APK Target File**:
+  - `c:\Users\samee\projects\Mimo\android\app\build\outputs\apk\debug\app-debug.apk` exists (28,046,278 bytes).
+  - `c:\Users\samee\projects\Mimo\android\app\build\outputs\apk\debug\output-metadata.json` exists (362 bytes).
 
 ## 2. Logic Chain
-
-1. **Observation**: `desktop/main_desktop.py`, `desktop/tray.py`, and `desktop/build.py` rely on REST endpoints (`/health`, `/reports/stats`, `/assignments/upcoming`, `/monitoring/pause`, `/monitoring/resume`, `/screen/mock`, `/settings/data`, `/settings/save`) targeting `http://127.0.0.1:8000` or production backend `https://mimo-e8u2.onrender.com`.
-2. **Logic Step**: To test the desktop application without requiring a running backend server or network connectivity during `pytest desktop/tests/`, all HTTP endpoints (both local and `mimo-e8u2.onrender.com`) must be intercepted and mocked using `pytest-mock`, `respx` / `httpx` mocking, or `requests-mock`.
-3. **Observation**: `desktop/notifications.py` explicitly disables toast popups when `PYTEST_CURRENT_TEST` is present in `os.environ`, and `desktop/window_manager.py` / `desktop/tray.py` gracefully fall back when PyWebview or Pystray GUI displays are unavailable in headless CI environments.
-4. **Logic Step**: Unit tests can safely run in headless CLI / CI environments without triggering OS notification popups or GUI window errors by setting `PYTEST_CURRENT_TEST=true` and using monkeypatching for GUI fallbacks.
-5. **Observation**: Currently, `desktop/tests/` does not exist, though test specifications and virtual environment requirements can be defined cleanly via `test_requirements.txt` and a modular test layout (`conftest.py`, `test_backend_api_mock.py`, `test_desktop_app_init.py`, `test_desktop_ui_services.py`).
-6. **Conclusion**: Creating an isolated `.venv`, installing `test_requirements.txt`, and adding the proposed test suite in `desktop/tests/` will allow `pytest desktop/tests/` to execute with 100% pass rate and zero network/GUI side effects.
-
----
+1. **Gradle Build Readiness**:
+   - The root project and `:app` module are fully configured with AGP 8.2.2, Kotlin 1.9.22, Compose 1.5.8, and Room 2.6.1.
+   - The build target `compileSdk = 34` matches the installed Android SDK platform (`android-34` at `C:\Users\samee\AppData\Local\Android\Sdk\platforms\android-34`).
+2. **Missing `local.properties` Pitfall**:
+   - `android/local.properties` is missing from the directory tree.
+   - If Gradle is invoked without `ANDROID_HOME` or `ANDROID_SDK_ROOT` environment variables set in the shell session, Gradle build will fail with `SDK location not found`.
+   - Creating `local.properties` containing `sdk.dir=C\:\\Users\\samee\\AppData\\Local\\Android\\Sdk` or exporting `ANDROID_HOME` ensures build success.
+3. **Build Target & Output Path**:
+   - The command `.\gradlew assembleDebug` run inside `android/` builds the debug APK to `android/app/build/outputs/apk/debug/app-debug.apk`.
+   - The file path matches requirement R3's specification.
 
 ## 3. Caveats
-
-- **GUI Hardware Interaction**: Real PyWebview rendering and Pystray tray icon clicks cannot be rendered in headless environments; tests verify the fallback logic, event loop handlers, and menu state updaters rather than real screen pixels.
-- **Windows Registry / POSIX Locks**: Real OS autostart registration and single-instance locks are tested with monkeypatched filesystem paths / mock processes to avoid modifying system registry or host PID state.
-
----
+- No actual build (`gradlew assembleDebug`) was run during this survey due to read-only exploration constraints.
+- Java JDK version was not directly queried via shell, but AGP 8.2.2 requires JDK 17+.
 
 ## 4. Conclusion
-
-- The desktop app codebase in `desktop/` is well-structured and fully inspectable.
-- Virtual environment setup requirements (R2) and mocking strategy for `https://mimo-e8u2.onrender.com` (R3) have been fully designed and documented in `analysis.md`.
-- Creating `desktop/tests/` with the provided test specifications will ensure 100% pass rate when running `pytest desktop/tests/`.
-
----
+The Android project configuration for Requirement R3 is structurally sound and complete. All build scripts, Gradle wrappers, dependencies, SDK platforms (`android-34`), build-tools (`34.0.0`), and target APK destination directories are fully identified and verified. The primary build pitfall to manage during compilation is ensuring the SDK location is accessible via `ANDROID_HOME` or `android/local.properties`.
 
 ## 5. Verification Method
-
-1. **Inspect Report Files**:
-   - `c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_3\analysis.md`
-   - `c:\Users\samee\projects\Mimo\.agents\teamwork_preview_explorer_survey_3\handoff.md`
-2. **Environment Setup Verification**:
-   ```powershell
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1
-   pip install -r test_requirements.txt
-   ```
-3. **Test Execution Command**:
-   ```powershell
-   pytest desktop/tests/ -v
-   ```
-4. **Invalidation Conditions**:
-   - Any test failure in `desktop/tests/`.
-   - Real network request attempting to reach `https://mimo-e8u2.onrender.com` during pytest execution.
+1. Inspect file existence: `c:\Users\samee\projects\Mimo\android\app\build\outputs\apk\debug\app-debug.apk`.
+2. Inspect SDK directory: `C:\Users\samee\AppData\Local\Android\Sdk\platforms\android-34`.
+3. Verify build script parameters in `c:\Users\samee\projects\Mimo\android\app\build.gradle.kts`.

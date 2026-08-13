@@ -23,6 +23,7 @@ class TestAssignmentCRUD:
     def test_create_basic(self, db_session):
         a = create_assignment(
             db       = db_session,
+            user_id  = 1,
             title    = "Math Homework",
             due_date = date.today() + timedelta(days=5),
         )
@@ -33,13 +34,13 @@ class TestAssignmentCRUD:
 
     def test_create_with_subject(self, db_session):
         a = create_assignment(
-            db=db_session, title="Lab Report",
+            db=db_session, user_id=1, title="Lab Report",
             subject="Physics", due_date=date.today() + timedelta(days=3),
         )
         assert a.subject == "Physics"
 
     def test_get_all_empty(self, db_session):
-        assert get_all_assignments(db_session) == []
+        assert get_all_assignments(db_session, user_id=1) == []
 
     def test_get_all_returns_all(self, db_session, seed_assignments):
         seed_assignments([
@@ -47,7 +48,7 @@ class TestAssignmentCRUD:
             {"title": "B", "due_date": date.today() + timedelta(days=2)},
             {"title": "C", "due_date": date.today() + timedelta(days=3)},
         ])
-        result = get_all_assignments(db_session)
+        result = get_all_assignments(db_session, user_id=1)
         assert len(result) == 3
 
     def test_get_all_filter_by_status(self, db_session, seed_assignments):
@@ -56,32 +57,32 @@ class TestAssignmentCRUD:
             {"title": "Done",    "status": "done",        "due_date": date.today() + timedelta(days=3)},
             {"title": "WIP",     "status": "in_progress", "due_date": date.today() + timedelta(days=4)},
         ])
-        pending = get_all_assignments(db_session, status="pending")
+        pending = get_all_assignments(db_session, user_id=1, status="pending")
         assert len(pending) == 1
         assert pending[0].title == "Pending"
 
     def test_mark_done(self, db_session):
-        a = create_assignment(db_session, "Exam prep", date.today() + timedelta(days=2))
-        done = mark_done(db_session, a.id)
+        a = create_assignment(db_session, user_id=1, title="Exam prep", due_date=date.today() + timedelta(days=2))
+        done = mark_done(db_session, a.id, user_id=1)
         assert done.status == "done"
 
     def test_mark_done_nonexistent(self, db_session):
-        result = mark_done(db_session, 99999)
+        result = mark_done(db_session, 99999, user_id=1)
         assert result is None
 
     def test_update_status(self, db_session):
-        a = create_assignment(db_session, "Project", date.today() + timedelta(days=7))
-        updated = update_status(db_session, a.id, "in_progress")
+        a = create_assignment(db_session, user_id=1, title="Project", due_date=date.today() + timedelta(days=7))
+        updated = update_status(db_session, a.id, "in_progress", user_id=1)
         assert updated.status == "in_progress"
 
     def test_delete_assignment(self, db_session):
-        a = create_assignment(db_session, "To Delete", date.today() + timedelta(days=2))
-        ok = delete_assignment(db_session, a.id)
+        a = create_assignment(db_session, user_id=1, title="To Delete", due_date=date.today() + timedelta(days=2))
+        ok = delete_assignment(db_session, a.id, user_id=1)
         assert ok is True
-        assert get_all_assignments(db_session) == []
+        assert get_all_assignments(db_session, user_id=1) == []
 
     def test_delete_nonexistent(self, db_session):
-        assert delete_assignment(db_session, 99999) is False
+        assert delete_assignment(db_session, 99999, user_id=1) is False
 
 
 class TestUpcomingAndOverdue:
@@ -91,7 +92,7 @@ class TestUpcomingAndOverdue:
             {"title": "Soon",  "due_date": date.today() + timedelta(days=2)},
             {"title": "Later", "due_date": date.today() + timedelta(days=14)},
         ])
-        upcoming = get_upcoming(db_session, days=7)
+        upcoming = get_upcoming(db_session, user_id=1, days=7)
         titles = [a.title for a in upcoming]
         assert "Soon"  in titles
         assert "Later" not in titles
@@ -101,7 +102,7 @@ class TestUpcomingAndOverdue:
             {"title": "Done",    "status": "done",    "due_date": date.today() + timedelta(days=1)},
             {"title": "Pending", "status": "pending", "due_date": date.today() + timedelta(days=1)},
         ])
-        upcoming = get_upcoming(db_session, days=7)
+        upcoming = get_upcoming(db_session, user_id=1, days=7)
         titles = [a.title for a in upcoming]
         assert "Done"    not in titles
         assert "Pending" in titles
@@ -112,7 +113,7 @@ class TestUpcomingAndOverdue:
             {"title": "Future",   "due_date": date.today() + timedelta(days=3), "status": "pending"},
             {"title": "OverDone", "due_date": date.today() - timedelta(days=1), "status": "done"},
         ])
-        overdue = get_overdue(db_session)
+        overdue = get_overdue(db_session, user_id=1)
         titles = [a.title for a in overdue]
         assert "Overdue"  in titles
         assert "Future"   not in titles
@@ -124,7 +125,7 @@ class TestReminders:
     def test_auto_reminders_created(self, db_session):
         """create_assignment should auto-schedule 3 reminder rows."""
         a = create_assignment(
-            db_session, "Big Project",
+            db_session, user_id=1, title="Big Project",
             due_date=date.today() + timedelta(days=10),
         )
         reminders = db_session.query(Reminder).filter(
@@ -136,7 +137,7 @@ class TestReminders:
     def test_reminders_not_created_for_past_date(self, db_session):
         """Reminders for dates already past should be skipped."""
         a = create_assignment(
-            db_session, "Old Assignment",
+            db_session, user_id=1, title="Old Assignment",
             due_date=date.today() + timedelta(days=1),
             # Only 1-day and day-of are in the future
         )
@@ -149,7 +150,7 @@ class TestReminders:
     def test_no_reminders_for_past_due_date(self, db_session):
         """If due date is in the past, no reminders should be created."""
         a = create_assignment(
-            db_session, "Very Late",
+            db_session, user_id=1, title="Very Late",
             due_date=date.today() - timedelta(days=5),
         )
         reminders = db_session.query(Reminder).filter(
@@ -190,3 +191,4 @@ class TestReminders:
         pending = get_pending_reminders(db_session)
         assert len(pending) == 1
         assert pending[0].message == "Test reminder"
+

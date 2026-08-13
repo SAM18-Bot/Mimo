@@ -123,7 +123,6 @@ a = Analysis(
         "jupyter",
         "matplotlib",
         "pandas",
-        "numpy",    # only exclude if you don't use it; keep if mediapipe needs it
     ],
     win_no_prefer_redirects  = False,
     win_private_assemblies   = False,

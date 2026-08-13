@@ -188,10 +188,13 @@ def parent_can_access_student(db: Session, *, parent: User, student_id: int) -> 
 
 
 def weekly_student_summary(db: Session, *, student_id: int, days: int = 7) -> dict:
-    # Current data tables are not user-scoped yet, so this returns global local summary
-    # behind strict parent/student access control. User-scoping can be added once
-    # screen sessions and assignments carry user_id.
-    rows = db.query(DailySummary).order_by(DailySummary.date.desc()).limit(days).all()
+    rows = (
+        db.query(DailySummary)
+        .filter(DailySummary.user_id == student_id)
+        .order_by(DailySummary.date.desc())
+        .limit(days)
+        .all()
+    )
     scores = [r.focus_score or 0 for r in rows]
     avg_score = round(sum(scores) / len(scores), 1) if scores else 0
     return {
