@@ -105,12 +105,12 @@ class TestSettingsData:
         names = [s["name"] for s in r.json()["sections"]]
         assert "Voice" in names
 
-    def test_api_key_is_masked_in_response(self, client, mock_env):
+    def test_api_key_is_masked_in_response(self, client, mock_env, auth_headers):
         """The API key should come back masked with ••••."""
         # First write a real-looking key
         client.post("/settings/save", json={
             "key": "OPENAI_API_KEY", "value": "sk-test-key-12345678"
-        })
+        }, headers=auth_headers)
         r    = client.get("/settings/data", headers=auth_headers)
         data = r.json()
         # Find the OPENAI_API_KEY item
@@ -127,55 +127,55 @@ class TestSettingsData:
 
 class TestSettingsSave:
 
-    def test_save_valid_numeric_key(self, client, mock_env):
+    def test_save_valid_numeric_key(self, client, mock_env, auth_headers):
         r = client.post("/settings/save", json={
             "key": "EOD_REPORT_HOUR", "value": "21"
-        })
+        }, headers=auth_headers)
         assert r.status_code == 200
         assert r.json()["ok"] is True
 
-    def test_save_valid_toggle_key(self, client, mock_env):
+    def test_save_valid_toggle_key(self, client, mock_env, auth_headers):
         r = client.post("/settings/save", json={
             "key": "NO_HARDWARE", "value": "1"
-        })
+        }, headers=auth_headers)
         assert r.status_code == 200
         assert r.json()["ok"] is True
 
-    def test_save_url_setting(self, client, mock_env):
+    def test_save_url_setting(self, client, mock_env, auth_headers):
         r = client.post("/settings/save", json={
             "key": "ESP32_STREAM_URL",
             "value": "http://192.168.1.200:81/stream"
-        })
+        }, headers=auth_headers)
         assert r.status_code == 200
         assert r.json()["ok"] is True
 
-    def test_save_invalid_key_returns_400(self, client, mock_env):
+    def test_save_invalid_key_returns_400(self, client, mock_env, auth_headers):
         r = client.post("/settings/save", json={
             "key": "TOTALLY_FAKE_KEY_THAT_DOES_NOT_EXIST",
             "value": "123"
-        })
+        }, headers=auth_headers)
         assert r.status_code == 400
 
-    def test_save_response_includes_key(self, client, mock_env):
+    def test_save_response_includes_key(self, client, mock_env, auth_headers):
         r = client.post("/settings/save", json={
             "key": "EOD_REPORT_HOUR", "value": "22"
-        })
+        }, headers=auth_headers)
         data = r.json()
         assert data["key"] == "EOD_REPORT_HOUR"
 
-    def test_save_masked_value_is_accepted_not_written(self, client, mock_env):
+    def test_save_masked_value_is_accepted_not_written(self, client, mock_env, auth_headers):
         """A value containing •••• should be accepted (200) but not written."""
         r = client.post("/settings/save", json={
             "key": "OPENAI_API_KEY", "value": "sk-test••••••••"
-        })
+        }, headers=auth_headers)
         assert r.status_code == 200
         assert r.json()["ok"] is True
 
-    def test_save_api_key_clean_value(self, client, mock_env):
+    def test_save_api_key_clean_value(self, client, mock_env, auth_headers):
         r = client.post("/settings/save", json={
             "key": "OPENAI_API_KEY",
             "value": "sk-proj-testkey123"
-        })
+        }, headers=auth_headers)
         assert r.status_code == 200
         assert r.json()["ok"] is True
 
@@ -184,7 +184,7 @@ class TestSettingsSave:
 
 class TestSettingsSaveAll:
 
-    def test_save_all_valid_settings(self, client, mock_env):
+    def test_save_all_valid_settings(self, client, mock_env, auth_headers):
         r = client.post("/settings/save-all", json={
             "settings": {
                 "EOD_REPORT_HOUR":                  "22",
@@ -192,26 +192,26 @@ class TestSettingsSaveAll:
                 "NO_VOICE":                         "1",
                 "DISTRACTION_ROAST_AFTER_MINUTES":  "5",
             }
-        })
+        }, headers=auth_headers)
         assert r.status_code == 200
         data = r.json()
         assert data["ok"] is True
         assert len(data["failed"]) == 0
 
-    def test_save_all_with_one_invalid_key(self, client, mock_env):
+    def test_save_all_with_one_invalid_key(self, client, mock_env, auth_headers):
         r = client.post("/settings/save-all", json={
             "settings": {
                 "EOD_REPORT_HOUR": "22",
                 "INVALID_KEY_XYZ": "bad",
             }
-        })
+        }, headers=auth_headers)
         assert r.status_code == 200
         data = r.json()
         assert data["ok"] is False                      # not all succeeded
         assert "INVALID_KEY_XYZ" in data["failed"]
         assert "EOD_REPORT_HOUR" in data["saved"]
 
-    def test_save_all_empty_dict(self, client, mock_env):
+    def test_save_all_empty_dict(self, client, mock_env, auth_headers):
         r = client.post("/settings/save-all", json={"settings": {}}, headers=auth_headers)
         assert r.status_code == 200
         data = r.json()
