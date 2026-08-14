@@ -38,24 +38,24 @@ def mock_env(tmp_path, monkeypatch):
 
 class TestSettingsPage:
 
-    def test_settings_page_returns_html(self, client):
-        r = client.get("/settings")
+    def test_settings_page_returns_html(self, client, auth_headers):
+        r = client.get("/settings", headers=auth_headers)
         assert r.status_code == 200
         ct = r.headers.get("content-type", "")
         assert "text/html" in ct
 
-    def test_settings_page_contains_mimo(self, client):
-        r = client.get("/settings")
+    def test_settings_page_contains_mimo(self, client, auth_headers):
+        r = client.get("/settings", headers=auth_headers)
         assert "Mimo" in r.text
 
-    def test_settings_page_has_form_elements(self, client):
-        r = client.get("/settings")
+    def test_settings_page_has_form_elements(self, client, auth_headers):
+        r = client.get("/settings", headers=auth_headers)
         # The settings page uses JS to render form, check at least the scaffold
         assert "sections-container" in r.text
         assert "save-btn" in r.text
 
-    def test_settings_page_links_to_dashboard(self, client):
-        r = client.get("/settings")
+    def test_settings_page_links_to_dashboard(self, client, auth_headers):
+        r = client.get("/settings", headers=auth_headers)
         assert 'href="/"' in r.text
 
 
@@ -63,23 +63,23 @@ class TestSettingsPage:
 
 class TestSettingsData:
 
-    def test_data_endpoint_returns_200(self, client):
-        r = client.get("/settings/data")
+    def test_data_endpoint_returns_200(self, client, auth_headers):
+        r = client.get("/settings/data", headers=auth_headers)
         assert r.status_code == 200
 
-    def test_data_has_sections_key(self, client):
-        r = client.get("/settings/data")
+    def test_data_has_sections_key(self, client, auth_headers):
+        r = client.get("/settings/data", headers=auth_headers)
         data = r.json()
         assert "sections" in data
 
-    def test_data_sections_are_list(self, client):
-        r = client.get("/settings/data")
+    def test_data_sections_are_list(self, client, auth_headers):
+        r = client.get("/settings/data", headers=auth_headers)
         data = r.json()
         assert isinstance(data["sections"], list)
         assert len(data["sections"]) > 0
 
-    def test_data_sections_have_required_fields(self, client):
-        r = client.get("/settings/data")
+    def test_data_sections_have_required_fields(self, client, auth_headers):
+        r = client.get("/settings/data", headers=auth_headers)
         for sec in r.json()["sections"]:
             assert "name" in sec
             assert "items" in sec
@@ -90,18 +90,18 @@ class TestSettingsData:
                 assert "sensitive" in item
                 assert "type"      in item
 
-    def test_data_contains_ai_section(self, client):
-        r = client.get("/settings/data")
+    def test_data_contains_ai_section(self, client, auth_headers):
+        r = client.get("/settings/data", headers=auth_headers)
         names = [s["name"] for s in r.json()["sections"]]
         assert "AI" in names
 
-    def test_data_contains_hardware_section(self, client):
-        r = client.get("/settings/data")
+    def test_data_contains_hardware_section(self, client, auth_headers):
+        r = client.get("/settings/data", headers=auth_headers)
         names = [s["name"] for s in r.json()["sections"]]
         assert "Hardware" in names
 
-    def test_data_contains_voice_section(self, client):
-        r = client.get("/settings/data")
+    def test_data_contains_voice_section(self, client, auth_headers):
+        r = client.get("/settings/data", headers=auth_headers)
         names = [s["name"] for s in r.json()["sections"]]
         assert "Voice" in names
 
@@ -111,7 +111,7 @@ class TestSettingsData:
         client.post("/settings/save", json={
             "key": "OPENAI_API_KEY", "value": "sk-test-key-12345678"
         })
-        r    = client.get("/settings/data")
+        r    = client.get("/settings/data", headers=auth_headers)
         data = r.json()
         # Find the OPENAI_API_KEY item
         api_item = None
@@ -212,7 +212,7 @@ class TestSettingsSaveAll:
         assert "EOD_REPORT_HOUR" in data["saved"]
 
     def test_save_all_empty_dict(self, client, mock_env):
-        r = client.post("/settings/save-all", json={"settings": {}})
+        r = client.post("/settings/save-all", json={"settings": {}}, headers=auth_headers)
         assert r.status_code == 200
         data = r.json()
         assert data["ok"] is True   # nothing to save = all succeeded
@@ -222,37 +222,37 @@ class TestSettingsSaveAll:
 
 class TestMonitoringStatus:
 
-    def test_status_returns_200(self, client):
-        r = client.get("/monitoring/status")
+    def test_status_returns_200(self, client, auth_headers):
+        r = client.get("/monitoring/status", headers=auth_headers)
         assert r.status_code == 200
 
-    def test_status_has_paused_field(self, client):
-        r = client.get("/monitoring/status")
+    def test_status_has_paused_field(self, client, auth_headers):
+        r = client.get("/monitoring/status", headers=auth_headers)
         assert "paused" in r.json()
 
-    def test_status_has_screen_tracking_field(self, client):
-        r = client.get("/monitoring/status")
+    def test_status_has_screen_tracking_field(self, client, auth_headers):
+        r = client.get("/monitoring/status", headers=auth_headers)
         assert "screen_tracking" in r.json()
 
-    def test_status_has_cv_monitoring_field(self, client):
-        r = client.get("/monitoring/status")
+    def test_status_has_cv_monitoring_field(self, client, auth_headers):
+        r = client.get("/monitoring/status", headers=auth_headers)
         assert "cv_monitoring" in r.json()
 
-    def test_status_has_no_hardware_field(self, client):
-        r = client.get("/monitoring/status")
+    def test_status_has_no_hardware_field(self, client, auth_headers):
+        r = client.get("/monitoring/status", headers=auth_headers)
         assert "no_hardware" in r.json()
 
-    def test_status_has_no_voice_field(self, client):
-        r = client.get("/monitoring/status")
+    def test_status_has_no_voice_field(self, client, auth_headers):
+        r = client.get("/monitoring/status", headers=auth_headers)
         assert "no_voice" in r.json()
 
-    def test_status_no_hardware_is_true_in_test_env(self, client):
+    def test_status_no_hardware_is_true_in_test_env(self, client, auth_headers):
         """In test environment NO_HARDWARE=1 is set."""
-        r = client.get("/monitoring/status")
+        r = client.get("/monitoring/status", headers=auth_headers)
         assert r.json()["no_hardware"] is True
 
-    def test_status_fields_are_booleans(self, client):
-        r = client.get("/monitoring/status")
+    def test_status_fields_are_booleans(self, client, auth_headers):
+        r = client.get("/monitoring/status", headers=auth_headers)
         data = r.json()
         for field in ("paused", "screen_tracking", "cv_monitoring",
                       "no_hardware", "no_voice"):
@@ -261,42 +261,42 @@ class TestMonitoringStatus:
 
 class TestMonitoringPauseResume:
 
-    def test_pause_returns_200(self, client):
-        r = client.post("/monitoring/pause")
+    def test_pause_returns_200(self, client, auth_headers):
+        r = client.post("/monitoring/pause", headers=auth_headers)
         assert r.status_code == 200
 
-    def test_pause_response_has_ok_true(self, client):
-        r = client.post("/monitoring/pause")
+    def test_pause_response_has_ok_true(self, client, auth_headers):
+        r = client.post("/monitoring/pause", headers=auth_headers)
         assert r.json()["ok"] is True
 
-    def test_pause_response_has_status_paused(self, client):
-        r = client.post("/monitoring/pause")
+    def test_pause_response_has_status_paused(self, client, auth_headers):
+        r = client.post("/monitoring/pause", headers=auth_headers)
         assert r.json()["status"] == "paused"
 
-    def test_resume_returns_200(self, client):
-        r = client.post("/monitoring/resume")
+    def test_resume_returns_200(self, client, auth_headers):
+        r = client.post("/monitoring/resume", headers=auth_headers)
         assert r.status_code == 200
 
-    def test_resume_response_has_ok_true(self, client):
-        r = client.post("/monitoring/resume")
+    def test_resume_response_has_ok_true(self, client, auth_headers):
+        r = client.post("/monitoring/resume", headers=auth_headers)
         assert r.json()["ok"] is True
 
-    def test_resume_response_has_status_active(self, client):
-        r = client.post("/monitoring/resume")
+    def test_resume_response_has_status_active(self, client, auth_headers):
+        r = client.post("/monitoring/resume", headers=auth_headers)
         assert r.json()["status"] == "active"
 
-    def test_pause_then_resume_sequence(self, client):
-        r1 = client.post("/monitoring/pause")
-        r2 = client.post("/monitoring/resume")
+    def test_pause_then_resume_sequence(self, client, auth_headers):
+        r1 = client.post("/monitoring/pause", headers=auth_headers)
+        r2 = client.post("/monitoring/resume", headers=auth_headers)
         assert r1.json()["ok"] is True
         assert r2.json()["ok"] is True
 
-    def test_multiple_pauses_dont_crash(self, client):
+    def test_multiple_pauses_dont_crash(self, client, auth_headers):
         for _ in range(3):
-            r = client.post("/monitoring/pause")
+            r = client.post("/monitoring/pause", headers=auth_headers)
             assert r.status_code == 200
 
-    def test_multiple_resumes_dont_crash(self, client):
+    def test_multiple_resumes_dont_crash(self, client, auth_headers):
         for _ in range(3):
-            r = client.post("/monitoring/resume")
+            r = client.post("/monitoring/resume", headers=auth_headers)
             assert r.status_code == 200

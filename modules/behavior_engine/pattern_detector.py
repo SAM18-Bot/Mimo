@@ -65,7 +65,6 @@ def get_weekly_patterns(db: Session, user_id: int = 1) -> dict:
             hourly[s.started_at.hour] += (s.duration_s or 0)
 
     peak_hour   = max(hourly, key=hourly.get) if hourly else None
-    worst_hour  = min(hourly, key=hourly.get) if hourly else None
 
     # Weakest days (lowest focus score)
     by_day = sorted(summaries, key=lambda s: s.focus_score or 0)

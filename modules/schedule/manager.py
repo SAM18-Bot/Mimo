@@ -164,12 +164,18 @@ def get_day_schedule(db: Session, user_id: int, target_date: Optional[date] = No
     )
 
 
-def update_block_status(db: Session, block_id: int, status: str) -> Optional[ScheduleBlock]:
+def update_block_status(
+    db: Session, block_id: int, status: str, user_id: Optional[int] = None
+) -> Optional[ScheduleBlock]:
     if status not in VALID_STATUSES:
         raise ValueError(f"status must be one of: {', '.join(sorted(VALID_STATUSES))}")
     block = db.get(ScheduleBlock, block_id)
     if not block:
         return None
+    if user_id is not None:
+        profile = db.get(ScheduleProfile, block.profile_id)
+        if not profile or profile.user_id != user_id:
+            return None
     block.status = status
     db.commit()
     db.refresh(block)
@@ -291,6 +297,7 @@ def boost_subject_priority(
     deadline = target + timedelta(days=lookahead_days)
     urgent_assignments = (
         db.query(Assignment)
+        .filter(Assignment.user_id == user_id)
         .filter(Assignment.due_date >= target)
         .filter(Assignment.due_date <= deadline)
         .filter(Assignment.status != "done")
@@ -425,6 +432,7 @@ def smart_suggestions(
     deadline = target + timedelta(days=3)
     urgent = (
         db.query(Assignment)
+        .filter(Assignment.user_id == user_id)
         .filter(Assignment.due_date >= target)
         .filter(Assignment.due_date <= deadline)
         .filter(Assignment.status != "done")

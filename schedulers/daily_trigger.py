@@ -99,7 +99,12 @@ def _run_eod(speak_fn=None, broadcast_fn=None):
     log.info("Running scheduled EOD report...")
     try:
         from modules.ai_layer.daily_report import run_eod_report
-        run_eod_report(speak_fn=speak_fn, broadcast_fn=broadcast_fn)
+        from db.database import get_db_ctx
+        from db.models import User
+        with get_db_ctx() as db:
+            users = db.query(User).all()
+            for user in users:
+                run_eod_report(user_id=user.id, speak_fn=speak_fn, broadcast_fn=broadcast_fn)
     except Exception as e:
         log.error("EOD report job error: %s", e)
 
@@ -107,13 +112,19 @@ def _run_eod(speak_fn=None, broadcast_fn=None):
 def _morning_accountability(speak_fn=None, broadcast_fn=None):
     log.info("Running morning accountability questions...")
     try:
-        if speak_fn:
-            speak_fn("Good morning. Let's plan your day. I'll ask you a few questions.")
-        if broadcast_fn:
-            broadcast_fn({
-                "type":      "morning_qa",
-                "questions": config.ACCOUNTABILITY_QUESTIONS,
-            })
+        from db.database import get_db_ctx
+        from db.models import User
+        with get_db_ctx() as db:
+            users = db.query(User).all()
+            for user in users:
+                if speak_fn:
+                    speak_fn("Good morning. Let's plan your day. I'll ask you a few questions.")
+                if broadcast_fn:
+                    broadcast_fn({
+                        "type":      "morning_qa",
+                        "questions": config.ACCOUNTABILITY_QUESTIONS,
+                        "user_id":   user.id,
+                    })
     except Exception as e:
         log.error("Morning Q&A job error: %s", e)
 
@@ -123,9 +134,12 @@ def _push_live_stats(broadcast_fn=None):
         return
     try:
         from db.database import get_db_ctx
+        from db.models import User
         from modules.behavior_engine.aggregator import get_daily_stats
         with get_db_ctx() as db:
-            stats = get_daily_stats(db)
-        broadcast_fn({"type": "stats_update", "stats": stats})
+            users = db.query(User).all()
+            for user in users:
+                stats = get_daily_stats(db, user_id=user.id)
+                broadcast_fn({"type": "stats_update", "stats": stats, "user_id": user.id})
     except Exception as e:
         log.error("Stats push error: %s", e)

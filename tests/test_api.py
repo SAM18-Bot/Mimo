@@ -265,15 +265,15 @@ class TestReportsAPI:
 
 class TestVoiceAPI:
 
-    def test_voice_status(self, client):
-        r = client.get("/voice/status")
+    def test_voice_status(self, client, auth_headers):
+        r = client.get("/voice/status", headers=auth_headers)
         assert r.status_code == 200
         data = r.json()
         assert "no_voice_mode" in data
         assert "hotword"       in data
 
-    def test_list_intents(self, client):
-        r = client.get("/voice/intents")
+    def test_list_intents(self, client, auth_headers):
+        r = client.get("/voice/intents", headers=auth_headers)
         assert r.status_code == 200
         intents = r.json()["intents"]
         names = [i["name"] for i in intents]
@@ -301,8 +301,8 @@ class TestVoiceAPI:
         }, headers=auth_headers)
         assert r.status_code == 200
 
-    def test_speak_endpoint(self, client):
-        r = client.post("/voice/speak", json={"text": "Hello test"})
+    def test_speak_endpoint(self, client, auth_headers):
+        r = client.post("/voice/speak", json={"text": "Hello test"}, headers=auth_headers)
         assert r.status_code == 200
         assert r.json()["ok"] is True
 

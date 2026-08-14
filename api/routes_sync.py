@@ -4,7 +4,8 @@ from typing import List, Optional
 from db.database import get_db
 from sqlalchemy.orm import Session
 from datetime import date
-from db.models import Assignment, DailySummary
+from db.models import Assignment, DailySummary, User
+from api.routes_auth import current_user
 from modules.behavior_engine.aggregator import get_daily_stats
 from modules.assignments.manager import get_upcoming
 
@@ -35,38 +36,58 @@ class SyncPayload(BaseModel):
     mergedStats: Optional[DailyStatsModel] = None
 
 @router.post("/push")
-def push_sync(payload: SyncPayload, db: Session = Depends(get_db)):
+def push_sync(
+    payload: SyncPayload,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db)
+):
     """
     Receives mobile screen time usage and adds it to the PC screen time usage.
     """
+    # Parse payload.date string to date object
+    if isinstance(payload.date, str):
+        try:
+            summary_date = date.fromisoformat(payload.date)
+        except ValueError:
+            summary_date = date.today()
+    else:
+        summary_date = payload.date
+
     # 1. Update Daily Stats with mobile usage
-    stats_record = db.query(DailySummary).filter(DailySummary.date == payload.date).first()
+    stats_record = db.query(DailySummary).filter(
+        DailySummary.user_id == user.id,
+        DailySummary.date == summary_date
+    ).first()
     if not stats_record:
         stats_record = DailySummary(
-            date=payload.date,
-            productive_s=payload.mobileProductiveMin * 60,
-            distracting_s=payload.mobileDistractingMin * 60,
-            neutral_s=payload.mobileNeutralMin * 60,
+            user_id=user.id,
+            date=summary_date,
+            productive_time_s=payload.mobileProductiveMin * 60,
+            distracted_time_s=payload.mobileDistractingMin * 60,
+            neutral_time_s=payload.mobileNeutralMin * 60,
             desk_time_s=(payload.mobileProductiveMin + payload.mobileDistractingMin + payload.mobileNeutralMin) * 60,
         )
         db.add(stats_record)
     else:
-        stats_record.productive_s += payload.mobileProductiveMin * 60
-        stats_record.distracting_s += payload.mobileDistractingMin * 60
-        stats_record.neutral_s += payload.mobileNeutralMin * 60
+        stats_record.productive_time_s += payload.mobileProductiveMin * 60
+        stats_record.distracted_time_s += payload.mobileDistractingMin * 60
+        stats_record.neutral_time_s += payload.mobileNeutralMin * 60
         stats_record.desk_time_s += (payload.mobileProductiveMin + payload.mobileDistractingMin + payload.mobileNeutralMin) * 60
     
     db.commit()
     return {"status": "ok"}
 
 @router.get("/pull", response_model=SyncPayload)
-def pull_sync(db: Session = Depends(get_db)):
+def pull_sync(
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db)
+):
     """
     Returns the merged assignments and stats to the Android app.
     """
     today_str = date.today().isoformat()
     
-    stats_dict = get_daily_stats(db)
+    stats_dict = get_daily_stats(db, user_id=user.id)
     merged_stats = DailyStatsModel(
         date=stats_dict["date"],
         productive_min=stats_dict["productive_min"],
@@ -75,7 +96,7 @@ def pull_sync(db: Session = Depends(get_db)):
         focus_score=stats_dict["focus_score"]
     )
     
-    tasks = get_upcoming(db, days=7)
+    tasks = get_upcoming(db, user_id=user.id, days=7)
     assignments_list = []
     for t in tasks:
         assignments_list.append(AssignmentModel(

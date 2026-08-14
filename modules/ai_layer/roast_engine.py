@@ -41,53 +41,56 @@ class RoastEngine:
         self._notify    = notify_fn
         self._lock      = threading.Lock()
 
-        # tracking state
-        self._last_roast_time: float = 0.0
-        self._distraction_start: Optional[float] = None
-        self._absence_start: Optional[float] = None
-        self._current_distracting_app: str = ""
+        # tracking state per user
+        self._last_roast_time: dict[int, float] = {}
+        self._distraction_start: dict[int, float] = {}
+        self._absence_start: dict[int, float] = {}
+        self._current_distracting_app: dict[int, str] = {}
 
     # ── called by screen tracker ──────────────────────────────────────────
-    def on_window_change(self, app: str, title: str, category: str):
+    def on_window_change(self, app: str, title: str, category: str, user_id: int = 1):
         if category == "distracting":
-            if self._distraction_start is None:
-                self._distraction_start = time.time()
-                self._current_distracting_app = app
+            if self._distraction_start.get(user_id) is None:
+                self._distraction_start[user_id] = time.time()
+                self._current_distracting_app[user_id] = app
             else:
                 # Still on distracting content — check threshold
-                elapsed_min = (time.time() - self._distraction_start) / 60
+                elapsed_min = (time.time() - self._distraction_start[user_id]) / 60
                 if elapsed_min >= config.DISTRACTION_ROAST_AFTER_MINUTES:
-                    self._fire_roast("distraction", app, int(elapsed_min))
+                    self._fire_roast("distraction", app, int(elapsed_min), user_id=user_id)
         else:
-            self._distraction_start = None
-            self._current_distracting_app = ""
+            self._distraction_start[user_id] = None
+            self._current_distracting_app[user_id] = ""
 
     # ── called by CV pipeline ─────────────────────────────────────────────
-    def on_cv_event(self, event_type: str):
+    def on_cv_event(self, event_type: str, user_id: int = 1):
         if event_type == "absent":
-            if self._absence_start is None:
-                self._absence_start = time.time()
+            if self._absence_start.get(user_id) is None:
+                self._absence_start[user_id] = time.time()
         elif event_type in ("present", "returned"):
-            self._absence_start = None
+            self._absence_start[user_id] = None
         
-        if self._absence_start:
-            elapsed_min = (time.time() - self._absence_start) / 60
+        if self._absence_start.get(user_id):
+            elapsed_min = (time.time() - self._absence_start[user_id]) / 60
             if elapsed_min >= config.ABSENCE_ROAST_AFTER_MINUTES:
-                self._fire_roast("absent", "desk", int(elapsed_min))
+                self._fire_roast("absent", "desk", int(elapsed_min), user_id=user_id)
 
     # ── core fire logic ───────────────────────────────────────────────────
-    def _fire_roast(self, trigger: str, app: str, minutes: int):
+    def trigger_roast(self, trigger: str, app: str = "desk", minutes: int = 0, user_id: int = 1):
+        self._fire_roast(trigger, app, minutes, user_id=user_id)
+
+    def _fire_roast(self, trigger: str, app: str, minutes: int, user_id: int = 1):
         with self._lock:
             now = time.time()
-            if now - self._last_roast_time < config.MIN_ROAST_INTERVAL_SECONDS:
+            if now - self._last_roast_time.get(user_id, 0.0) < config.MIN_ROAST_INTERVAL_SECONDS:
                 return   # cooldown active
-            self._last_roast_time = now
+            self._last_roast_time[user_id] = now
             # Reset the start so the same trigger doesn't keep firing immediately
-            self._distraction_start = None
-            self._absence_start = None
+            self._distraction_start[user_id] = None
+            self._absence_start[user_id] = None
 
         # Gather context from DB (don't hold the lock during DB/AI calls)
-        context = self._get_context()
+        context = self._get_context(user_id=user_id)
         
         roast_text = generate_roast(
             trigger             = trigger,
@@ -100,7 +103,7 @@ class RoastEngine:
         log.info(f"ROAST [{trigger}]: {roast_text}")
 
         # Persist
-        self._save_roast(trigger, roast_text)
+        self._save_roast(trigger, roast_text, user_id=user_id)
 
         # Speak
         if self._speak:
@@ -122,14 +125,16 @@ class RoastEngine:
                 "trigger": trigger,
                 "app":     app,
                 "ts":      datetime.now().isoformat(),
+                "user_id": user_id,
             })
 
-    def _get_context(self) -> dict:
+    def _get_context(self, user_id: int = 1) -> dict:
         try:
             with get_db_ctx() as db:
                 from datetime import timedelta
                 upcoming = (
                     db.query(Assignment)
+                    .filter(Assignment.user_id == user_id)
                     .filter(Assignment.status != "done")
                     .filter(Assignment.due_date >= date.today())
                     .order_by(Assignment.due_date)
@@ -147,10 +152,11 @@ class RoastEngine:
             log.error(f"Context fetch error: {e}")
             return {"pending_assignments": "unknown", "days_until_deadline": 99}
 
-    def _save_roast(self, trigger: str, message: str):
+    def _save_roast(self, trigger: str, message: str, user_id: int = 1):
         try:
             with get_db_ctx() as db:
                 db.add(RoastLog(
+                    user_id      = user_id,
                     trigger      = trigger,
                     message      = message,
                     session_date = date.today(),

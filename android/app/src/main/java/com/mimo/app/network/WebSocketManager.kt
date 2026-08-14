@@ -26,10 +26,11 @@ class WebSocketManager {
     private var shouldReconnect = true
     private var reconnectAttempts = 0
     private val maxReconnectAttempts = 10
-    private var wsUrl: String = "wss://mimo-e8u2.onrender.com/ws?token=dev_token"
+    private var baseUrl: String = "wss://mimo-e8u2.onrender.com/ws"
+    private var wsUrl: String = baseUrl
 
-    fun connect(url: String = wsUrl) {
-        wsUrl = url
+    fun connect(token: String? = null) {
+        wsUrl = if (token != null) "$baseUrl?token=$token" else baseUrl
         shouldReconnect = true
         reconnectAttempts = 0
         doConnect()

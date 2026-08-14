@@ -153,7 +153,7 @@ def today(target_date: Optional[date] = None, user: User = Depends(current_user)
 @router.patch("/blocks/{block_id}", response_model=ScheduleBlockOut)
 def set_block_status(block_id: int, payload: BlockStatusIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
     try:
-        block = update_block_status(db, block_id, payload.status)
+        block = update_block_status(db, block_id, payload.status, user_id=user.id)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if not block:

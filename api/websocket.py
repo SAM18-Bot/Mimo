@@ -17,7 +17,8 @@ import asyncio
 import json
 import logging
 import queue
-from typing import Set
+from collections import defaultdict
+from typing import Dict, Optional, Set, Union
 
 from fastapi import WebSocket, WebSocketDisconnect
 
@@ -30,28 +31,65 @@ event_bus: queue.Queue = queue.Queue()
 class ConnectionManager:
     def __init__(self):
         self._active: Set[WebSocket] = set()
+        self._user_sockets: Dict[int, Set[WebSocket]] = defaultdict(set)
+        self._socket_users: Dict[WebSocket, int] = {}
 
-    async def connect(self, ws: WebSocket):
+    async def connect(self, ws: WebSocket, user_id: int = 1):
         await ws.accept()
         self._active.add(ws)
-        log.info(f"Dashboard connected. Total clients: {len(self._active)}")
+        self._user_sockets[user_id].add(ws)
+        self._socket_users[ws] = user_id
+        log.info(f"Dashboard connected for user {user_id}. Total clients: {len(self._active)}")
 
-    def disconnect(self, ws: WebSocket):
+    def disconnect(self, ws: WebSocket, user_id: Optional[int] = None):
+        if user_id is None:
+            user_id = self._socket_users.get(ws)
+
         self._active.discard(ws)
+        if ws in self._socket_users:
+            del self._socket_users[ws]
+
+        if user_id is not None and user_id in self._user_sockets:
+            self._user_sockets[user_id].discard(ws)
+            if not self._user_sockets[user_id]:
+                del self._user_sockets[user_id]
+
         log.info(f"Dashboard disconnected. Remaining: {len(self._active)}")
 
-    async def broadcast(self, data: dict):
+    async def unicast(self, user_id: int, message: Union[dict, str]):
+        sockets = self._user_sockets.get(user_id)
+        if not sockets:
+            return
+        payload = json.dumps(message) if isinstance(message, dict) else message
+        dead = set()
+        for ws in list(sockets):
+            try:
+                await ws.send_text(payload)
+            except Exception:
+                dead.add(ws)
+        for ws in dead:
+            self.disconnect(ws, user_id)
+
+    async def broadcast(self, message: Union[dict, str], user_id: Optional[int] = None):
+        target_user = user_id
+        if target_user is None and isinstance(message, dict):
+            target_user = message.get("user_id")
+
+        if target_user is not None:
+            await self.unicast(target_user, message)
+            return
+
         if not self._active:
             return
-        payload = json.dumps(data)
-        dead    = set()
+        payload = json.dumps(message) if isinstance(message, dict) else message
+        dead = set()
         for ws in list(self._active):
             try:
                 await ws.send_text(payload)
             except Exception:
                 dead.add(ws)
         for ws in dead:
-            self._active.discard(ws)
+            self.disconnect(ws)
 
     @property
     def client_count(self) -> int:
@@ -71,7 +109,8 @@ async def drain_event_bus():
         try:
             # Non-blocking check so we don't block the event loop
             data = event_bus.get_nowait()
-            await manager.broadcast(data)
+            user_id = data.get("user_id") if isinstance(data, dict) else None
+            await manager.broadcast(data, user_id=user_id)
         except queue.Empty:
             await asyncio.sleep(0.05)   # 50 ms polling — snappy enough
         except Exception as e:

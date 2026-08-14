@@ -89,7 +89,8 @@ class ReminderLoop:
             pending = self._get_pending(db)
             for r in pending:
                 msg = self._escalate_message(r, db)
-                self._deliver(msg, r.assignment_id)
+                user_id = r.assignment.user_id if r.assignment else None
+                self._deliver(msg, r.assignment_id, user_id=user_id)
                 r.delivered = True
                 db.add(r)
 
@@ -97,7 +98,7 @@ class ReminderLoop:
             overdue = self._get_silently_overdue(db)
             for a in overdue:
                 msg = _overdue_msg(a)
-                self._deliver(msg, a.id)
+                self._deliver(msg, a.id, user_id=a.user_id)
                 # Update reminded_at so we don't spam
                 a.reminded_at = datetime.now()
                 db.add(a)
@@ -165,19 +166,22 @@ class ReminderLoop:
                 f"Plan your time accordingly."
             )
 
-    def _deliver(self, message: str, assignment_id: Optional[int] = None):
+    def _deliver(self, message: str, assignment_id: Optional[int] = None, user_id: Optional[int] = None):
         log.info("Reminder: %s", message)
 
         if self._speak:
             self._speak(message)
 
         if self._broadcast:
-            self._broadcast({
+            payload = {
                 "type":          "reminder",
                 "message":       message,
                 "assignment_id": assignment_id,
                 "ts":            datetime.now().isoformat(),
-            })
+            }
+            if user_id is not None:
+                payload["user_id"] = user_id
+            self._broadcast(payload)
 
 
 # ── standalone helpers ────────────────────────────────────────────────────

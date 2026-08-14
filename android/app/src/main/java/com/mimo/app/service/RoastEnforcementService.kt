@@ -12,6 +12,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.mimo.app.MimoApplication
 import com.mimo.app.network.WebSocketManager
+import com.mimo.app.data.TokenManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -45,7 +46,7 @@ class RoastEnforcementService : Service() {
             startForeground(1001, notification)
         }
 
-        webSocketManager.connect()
+        webSocketManager.connect(TokenManager.getToken(this))
 
         serviceScope.launch {
             webSocketManager.events.collectLatest { event ->

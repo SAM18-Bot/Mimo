@@ -113,25 +113,26 @@ class IntentRouter:
 
         with get_db_ctx() as db:
             tasks = get_upcoming(db, days=7, user_id=self._user_id)
+            task_list = [
+                {"id": a.id, "title": a.title, "due_date": str(a.due_date), "status": a.status}
+                for a in tasks
+            ]
 
-        if not tasks:
+        if not task_list:
             if self._speak:
                 self._speak("No upcoming assignments in the next 7 days. Either you're ahead, or you've given up.")
             return
 
-        summary = f"You have {len(tasks)} upcoming assignments. "
-        lines = [f"{a.title}, due {a.due_date}" for a in tasks[:3]]
+        summary = f"You have {len(task_list)} upcoming assignments. "
+        lines = [f"{t['title']}, due {t['due_date']}" for t in task_list[:3]]
         summary += ". ".join(lines)
-        if len(tasks) > 3:
-            summary += f". And {len(tasks)-3} more."
+        if len(task_list) > 3:
+            summary += f". And {len(task_list)-3} more."
 
         if self._speak:
             self._speak(summary)
         if self._broadcast:
-            self._broadcast({"type": "tasks_list", "tasks": [
-                {"id": a.id, "title": a.title, "due_date": str(a.due_date), "status": a.status}
-                for a in tasks
-            ]})
+            self._broadcast({"type": "tasks_list", "tasks": task_list})
 
     def _handle_mark_done(self, text: str):
         from db.database import get_db_ctx
@@ -154,9 +155,10 @@ class IntentRouter:
                     self._speak(f"I couldn't find a pending assignment matching '{keyword}'.")
                 return
             a = mark_done(db, candidates[0].id, user_id=self._user_id)
+            a_title = a.title
 
         if self._speak:
-            self._speak(f"Marked '{a.title}' as done. Good. Now do the next one.")
+            self._speak(f"Marked '{a_title}' as done. Good. Now do the next one.")
 
     def _handle_productivity(self):
         from db.database import get_db_ctx
@@ -189,17 +191,17 @@ class IntentRouter:
             from modules.ai_layer.study_advisor import StudyAdvisor
             with get_db_ctx() as db:
                 advisor = StudyAdvisor(db)
-                msg     = advisor.get_next_to_study()
+                msg     = advisor.get_next_to_study(user_id=self._user_id)
         except Exception:
             # Fallback to simple assignment-based advice
             from modules.assignments.manager import get_upcoming
             with get_db_ctx() as db:
-                upcoming = get_upcoming(db, days=5)
-            if not upcoming:
-                msg = "No assignments due soon. Review your weakest subject or get ahead on readings."
-            else:
-                most_urgent = upcoming[0]
-                msg = f"Your most urgent assignment is '{most_urgent.title}', due {most_urgent.due_date}. Start with that."
+                upcoming = get_upcoming(db, user_id=self._user_id, days=5)
+                if not upcoming:
+                    msg = "No assignments due soon. Review your weakest subject or get ahead on readings."
+                else:
+                    most_urgent = upcoming[0]
+                    msg = f"Your most urgent assignment is '{most_urgent.title}', due {most_urgent.due_date}. Start with that."
 
         if self._speak:
             self._speak(msg)

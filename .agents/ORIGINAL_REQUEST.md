@@ -1,80 +1,46 @@
 # Original User Request
 
-## Initial Request — 2026-08-08T13:14:58+05:30
+## 2026-08-13T09:03:32Z
 
-<USER_REQUEST>
-The goal is to thoroughly debug the instant crash on the Mimo Android app, create isolated testing environments for both the Python Desktop App and the Android App, and write and run a comprehensive unit test suite to ensure neither app crashes on startup.
+Fix remaining crashes, cross-tenant data leaks, unauthenticated endpoints, and single-user assumptions in the Mimo application, and fix the Android app's WebSocket authentication.
 
 Working directory: c:\Users\samee\projects\Mimo
 Integrity mode: development
 
 ## Requirements
 
-### R1. Resolve the Android Instant Crash
-Investigate and completely fix the bug causing the Mimo Android app to instantly crash (close within 1-2 seconds) upon opening. The fix must be applied to the Kotlin source code without disabling core functionality (such as background tracking or networking).
+### R1. Fix Confirmed Crashes
+- `modules/ai_layer/roast_engine.py::_save_roast()`: Pass `user_id` when inserting `RoastLog`.
+- `modules/voice/intent_router.py::_handle_what_to_study()`: Pass `user_id` to `StudyAdvisor.get_next_to_study()` and the fallback `get_upcoming()`.
+- `api/routes_sync.py::push_sync()`: Fix column names in `DailySummary` creation (`productive_time_s`, `distracted_time_s`, `neutral_time_s`).
+- `api/routes_sync.py::pull_sync()`: Pass `user_id` to `get_upcoming()`.
 
-### R2. Establish Isolated Test Environments
-Set up a clean Python `venv` specifically for running desktop tests, and ensure the Android Gradle project is configured to run isolated local JVM tests (`testDebugUnitTest`). 
+### R2. Fix Cross-Tenant Data Leaks
+- `modules/schedule/manager.py`: Filter by `user_id` in `boost_subject_priority()`, `smart_suggestions()`, and `update_block_status()`. Ensure users can only modify their own schedule blocks.
+- `modules/ai_layer/roast_engine.py::_get_context()`: Filter nearest-due Assignment by `user_id`.
+- `api/websocket.py`: Update `ConnectionManager.broadcast()` or create a `unicast()` method to ensure payloads (stats, assignments, roasts) are only sent to the specific user's connected websockets. Apply this to `main.py`, `schedulers/daily_trigger.py`, `modules/assignments/reminder.py`, and CV/roast broadcasts.
 
-### R3. Comprehensive Mocked Unit Testing
-Write and execute comprehensive unit tests for both the Desktop app (using `pytest` or `unittest`) and the Android app (using `JUnit` and `Robolectric`/`MockK`). These tests must mock the backend API and verify that every major component (e.g., UI initialization, network clients, background services) can initialize successfully without exceptions.
+### R3. Enforce Authentication on All Routes
+- Apply `@Depends(current_user)` or equivalent authentication to `api/routes_settings.py`, `api/routes_monitoring.py`, and `api/routes_voice.py`.
 
-## Acceptance Criteria
+### R4. Fix Single-User Assumptions
+- `schedulers/daily_trigger.py::_run_eod()`: Ensure nightly reports iterate over all active users and pass `user_id` to `run_eod_report()`.
+- `modules/cv_pipeline/presence.py::_log_event()`: Resolve user by `user_id` rather than grabbing the first user in the DB.
+- `RoastEngine`: Refactor cooldown state to be per-user rather than a process-wide singleton.
 
-### Crash Resolution
-- [ ] The Android app compiles via `.\gradlew assembleDebug` successfully.
-- [ ] No `Exception` or `Crash` logs are thrown in `logcat` when simulating the app startup via Robolectric tests.
+### R5. Fix Android WebSocket Authentication
+- Update `android/app/src/main/java/com/mimo/app/network/WebSocketManager.kt` to read the stored JWT from `TokenManager` (or similar) and pass it to the WebSocket connection instead of using the hardcoded `dev_token`.
+- Update call sites (`DashboardViewModel.kt`, `RoastEnforcementService.kt`) to ensure they initiate the connection with the real JWT.
 
-### Desktop Testing
-- [ ] A dedicated `test_requirements.txt` or equivalent is created to install `pytest` and mocking libraries in an isolated `.venv`.
-- [ ] A test suite exists in `desktop/tests/` that mocks the `mimo-e8u2.onrender.com` backend.
-- [ ] Running `pytest desktop/tests/` passes with 100% success and covers app initialization.
-
-### Android Testing
-- [ ] A test suite exists in `android/app/src/test/` using Robolectric or equivalent mocking frameworks.
-- [ ] Running `.\gradlew testDebugUnitTest` passes with 100% success.
-- [ ] The Android test suite explicitly verifies `MainActivity`, `DashboardViewModel`, and background services can initialize without crashing.
-</USER_REQUEST>
-
-## Follow-up — 2026-08-11T08:27:08+05:30
-
-<USER_REQUEST>
-# Teamwork Project Prompt — Draft
-
-> Status: Launched.
-> Goal: Craft prompt → get user approval → delegate to teamwork_preview
-
-Verify the Mimo cross-platform application (Desktop and Android), ensure all recently implemented features function correctly through thorough runtime testing, and compile the final release artifacts.
-
-Working directory: c:\Users\samee\projects\Mimo
-Integrity mode: benchmark
-
-## Requirements
-
-### R1. Thorough Verification of Core Flows
-Run the FastAPI backend locally and execute network requests (e.g., via `curl` or a Python test script) against the critical endpoints: Authentication, Onboarding, and Assignments. Ensure no 500 errors occur and that the database schema is fully synchronized.
-
-### R2. Compile Final Desktop App
-Using PyInstaller, compile the final `Mimo.exe` Desktop app. Verify that the build correctly bundles the `static/` directory and successfully launches without background zombie process hanging.
-
-### R3. Compile Final Android App
-Run the Gradle build (`gradlew assembleDebug`) in the `android/` directory. Verify that the `app-debug.apk` is generated successfully without compilation errors.
+### R6. Minor Cleanup
+- Add `.venv-test/` to `.gitignore` and remove it from git tracking.
+- Remove unused variables/computations in `modules/behavior_engine/pattern_detector.py` and `modules/cv_pipeline/focus_scorer.py`, and clean up dead imports.
+- Change `os.system` to `subprocess.run` in `desktop/autostart.py`.
 
 ## Acceptance Criteria
 
-### Verification & Build Success
-- [ ] A test script or manual request verification log is produced showing successful 200 OK responses for Login, Onboarding, and Assignment creation.
-- [ ] The Desktop executable (`dist/Mimo/Mimo.exe`) is generated and its binary exists.
-- [ ] The Android APK (`android/app/build/outputs/apk/debug/app-debug.apk`) is generated and its binary exists.
-
----
-*Next: when approved → delegate via invoke_subagent (see Delegation Protocol)*
-</USER_REQUEST>
-
-## Follow-up — 2026-08-11T15:42:50Z
-
-The server restarted and all tasks were halted. Sweeping security fixes were made to the backend architecture (including changing `api_key` to an encrypted property, modifying WebSocket token auth in `main.py`, and fixing `user_id` scoping in `get_daily_stats`). Re-verify the codebase against these changes and fix any broken tests before re-triggering the final audit and compiling the Desktop/Android apps.
-
-## Follow-up — 2026-08-12T15:37:14Z
-
-The server restarted again, pausing all tasks. Resume verification and compilation work where left off. Review previous state and ensure new security fixes (api_key encryption, WS token scoping, etc.) are fully tested and desktop/Android apps are compiled.
+### Verification
+- [ ] All Python tests in `pytest tests/` pass successfully in under 30 seconds.
+- [ ] Add a mock for OpenAI/Gemini API calls in `conftest.py` or `test_api.py` to prevent real network calls during testing and fix the slow test suite issue.
+- [ ] Tests must be added or updated to cover the newly authenticated routes (`settings`, `monitoring`, `voice`).
+- [ ] Android project compiles successfully (`./gradlew assembleDebug` or similar).

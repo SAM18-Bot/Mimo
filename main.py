@@ -139,7 +139,7 @@ async def websocket_endpoint(ws: WebSocket, token: str = None):
             await ws.close(code=1008, reason="Token revoked")
             return
 
-    await manager.connect(ws)
+    await manager.connect(ws, user_id=user_id)
     try:
         from modules.behavior_engine.aggregator import get_daily_stats
         from modules.assignments.manager import get_upcoming
@@ -148,8 +148,8 @@ async def websocket_endpoint(ws: WebSocket, token: str = None):
             stats = get_daily_stats(db, user_id=user_id)
             tasks = get_upcoming(db, user_id=user_id, days=7)
 
-        await manager.broadcast({"type": "stats_update", "stats": stats})
-        await manager.broadcast({
+        await manager.unicast(user_id, {"type": "stats_update", "stats": stats})
+        await manager.unicast(user_id, {
             "type":  "tasks_list",
             "tasks": [
                 {"id": a.id, "title": a.title, "due_date": str(a.due_date),
@@ -162,10 +162,10 @@ async def websocket_endpoint(ws: WebSocket, token: str = None):
             await ws.receive_text()
 
     except WebSocketDisconnect:
-        manager.disconnect(ws)
+        manager.disconnect(ws, user_id=user_id)
     except Exception as e:
         log.error("WebSocket error: %s", e)
-        manager.disconnect(ws)
+        manager.disconnect(ws, user_id=user_id)
 
 
 # ── pages ─────────────────────────────────────────────────────────────────

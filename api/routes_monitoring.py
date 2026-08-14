@@ -7,7 +7,9 @@ POST /monitoring/resume  — restarts them
 GET  /monitoring/status  — returns current state
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from api.routes_auth import current_user
+from db.models import User
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 
@@ -15,7 +17,7 @@ _paused: bool = False
 
 
 @router.post("/pause")
-def pause_monitoring():
+def pause_monitoring(user: User = Depends(current_user)):
     """Pause screen tracking and CV pipeline."""
     global _paused
     _paused = True
@@ -35,7 +37,7 @@ def pause_monitoring():
 
 
 @router.post("/resume")
-def resume_monitoring():
+def resume_monitoring(user: User = Depends(current_user)):
     """Resume screen tracking and CV pipeline."""
     global _paused
     _paused = False
@@ -67,7 +69,7 @@ def resume_monitoring():
 
 
 @router.get("/status")
-def monitoring_status():
+def monitoring_status(user: User = Depends(current_user)):
     """Returns current monitoring state."""
     from schedulers.background_tasks import screen_tracker, presence_monitor, stream_client
     import os

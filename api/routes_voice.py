@@ -13,9 +13,11 @@ Endpoints:
   GET  /voice/intents   → list of all supported intent patterns
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
+from api.routes_auth import current_user
+from db.models import User
 
 router = APIRouter(prefix="/voice", tags=["voice"])
 
@@ -33,7 +35,7 @@ class SpeakRequest(BaseModel):
 # ── endpoints ─────────────────────────────────────────────────────────────
 
 @router.post("/command")
-def send_command(payload: CommandRequest):
+def send_command(payload: CommandRequest, user: User = Depends(current_user)):
     """
     Route a text command through the intent router — same path as real voice.
     Perfect for testing every intent from /docs without a microphone.
@@ -51,13 +53,14 @@ def send_command(payload: CommandRequest):
     def _speak(msg: str):
         # Print to server console AND broadcast to dashboard
         print(f"\n🔊 [VOICE RESPONSE] {msg}\n")
-        push_event({"type": "voice_response", "message": msg})
+        push_event({"type": "voice_response", "message": msg, "user_id": user.id})
 
     try:
         from modules.voice.intent_router import IntentRouter
         router_inst = IntentRouter(
             speak_fn     = _speak if payload.speak_response else None,
             broadcast_fn = push_event,
+            user_id      = user.id,
         )
         router_inst.route(payload.text)
         return {"ok": True, "routed_text": payload.text}
@@ -66,7 +69,7 @@ def send_command(payload: CommandRequest):
 
 
 @router.post("/speak")
-def speak_text(payload: SpeakRequest):
+def speak_text(payload: SpeakRequest, user: User = Depends(current_user)):
     """Directly fire a TTS message. Tests the speaker module independently."""
     try:
         from modules.voice.speaker import speak
@@ -75,12 +78,12 @@ def speak_text(payload: SpeakRequest):
     except Exception as e:
         # TTS not installed — broadcast to dashboard instead
         from api.websocket import push_event
-        push_event({"type": "voice_response", "message": payload.text})
+        push_event({"type": "voice_response", "message": payload.text, "user_id": user.id})
         return {"ok": True, "spoken": payload.text, "tts_warning": str(e)}
 
 
 @router.get("/status")
-def voice_status():
+def voice_status(user: User = Depends(current_user)):
     """Returns the current state of the voice subsystem."""
     from schedulers.background_tasks import voice_listener
     import os
@@ -106,7 +109,7 @@ def voice_status():
 
 
 @router.get("/intents")
-def list_intents():
+def list_intents(user: User = Depends(current_user)):
     """Lists all supported voice command patterns with examples."""
     return {
         "intents": [

@@ -12,6 +12,7 @@ import com.mimo.app.data.MimoDatabase
 import com.mimo.app.data.toDomain
 import com.mimo.app.data.toEntity
 import com.mimo.app.network.*
+import com.mimo.app.data.TokenManager
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -87,7 +88,7 @@ class DashboardViewModel @JvmOverloads constructor(
 
     init {
         refresh()
-        webSocketManager?.connect()
+        webSocketManager?.connect(TokenManager.getToken(application))
         webSocketManager?.let { ws ->
             viewModelScope.launch(ioDispatcher) {
                 ws.connectionState.collect { state ->

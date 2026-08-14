@@ -181,14 +181,16 @@ def _enable_macos() -> bool:
     os.makedirs(os.path.dirname(_PLIST_PATH), exist_ok=True)
     with open(_PLIST_PATH, "w") as f:
         f.write(_plist_content())
-    os.system(f"launchctl load -w '{_PLIST_PATH}' 2>/dev/null")
+    import subprocess
+    subprocess.run(["launchctl", "load", "-w", _PLIST_PATH], stderr=subprocess.DEVNULL)
     log.info("Autostart enabled (macOS LaunchAgent: %s)", _PLIST_PATH)
     return True
 
 
 def _disable_macos() -> bool:
     if os.path.exists(_PLIST_PATH):
-        os.system(f"launchctl unload '{_PLIST_PATH}' 2>/dev/null")
+        import subprocess
+        subprocess.run(["launchctl", "unload", _PLIST_PATH], stderr=subprocess.DEVNULL)
         os.remove(_PLIST_PATH)
     log.info("Autostart disabled (macOS LaunchAgent removed)")
     return True

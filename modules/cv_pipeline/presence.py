@@ -36,9 +36,11 @@ class PresenceMonitor:
         self,
         on_event: Optional[Callable] = None,   # callback(event_type: str)
         broadcast_fn: Optional[Callable] = None,
+        user_id: int = 1,
     ):
         self._on_event    = on_event
         self._broadcast   = broadcast_fn
+        self._user_id     = user_id
         self._running     = False
         self._thread      = None
 
@@ -158,21 +160,17 @@ class PresenceMonitor:
         # WebSocket broadcast
         if self._broadcast:
             self._broadcast({
-                "type":  "cv_event",
-                "event": new_state,
-                "ts":    ts.isoformat(),
+                "type":    "cv_event",
+                "event":   new_state,
+                "ts":      ts.isoformat(),
+                "user_id": self._user_id,
             })
 
     def _log_event(self, event_type: str, ts: datetime):
         try:
             with get_db_ctx() as db:
-                from db.models import User
-                user = db.query(User).first()
-                if not user:
-                    return
-
                 db.add(CVEvent(
-                    user_id      = user.id,
+                    user_id      = self._user_id,
                     event_type   = event_type,
                     timestamp    = ts,
                     session_date = ts.date(),

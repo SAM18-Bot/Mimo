@@ -198,3 +198,37 @@ def auth_headers(client, db_engine):
 
     token = create_access_token(user_id=1, role="student")
     return {"Authorization": f"Bearer {token}"}
+
+
+# ── mock AI ──────────────────────────────────────────────────────────────
+
+@pytest.fixture(autouse=True)
+def mock_openai(monkeypatch):
+    """Mock OpenAI API calls to speed up tests and prevent network calls."""
+    class MockMessage:
+        content = "Mocked AI Response"
+
+    class MockChoice:
+        message = MockMessage()
+
+    class MockCompletion:
+        choices = [MockChoice()]
+
+    class MockCompletions:
+        def create(self, *args, **kwargs):
+            return MockCompletion()
+
+    class MockChat:
+        completions = MockCompletions()
+
+    class MockClient:
+        chat = MockChat()
+
+    def mock_init(*args, **kwargs):
+        return MockClient()
+
+    try:
+        import openai
+        monkeypatch.setattr(openai, "OpenAI", mock_init)
+    except ImportError:
+        pass

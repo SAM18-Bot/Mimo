@@ -538,3 +538,94 @@ def test_missed_status_accepted_in_block_update(client, auth_headers):
     r = client.patch(f"/schedule/blocks/{block_id}", json={"status": "missed"}, headers=auth_headers)
     assert r.status_code == 200
     assert r.json()["status"] == "missed"
+
+
+def test_boost_subject_priority_user_isolation(db_session):
+    from datetime import date, timedelta
+    from db.models import Assignment, User
+    from modules.schedule.manager import build_onboarding_schedule, boost_subject_priority
+
+    u1 = User(email="u1_boost@test.com", password_hash="pw")
+    u2 = User(email="u2_boost@test.com", password_hash="pw")
+    db_session.add_all([u1, u2])
+    db_session.commit()
+
+    build_onboarding_schedule(
+        db_session, user_id=u1.id, wake_time="06:00", sleep_time="22:00", study_goal_minutes=60
+    )
+    build_onboarding_schedule(
+        db_session, user_id=u2.id, wake_time="06:00", sleep_time="22:00", study_goal_minutes=60
+    )
+
+    # Urgent assignment for u2 only
+    a_u2 = Assignment(
+        user_id=u2.id,
+        title="U2 Math Exam",
+        subject="Math",
+        due_date=date.today() + timedelta(days=1),
+        status="todo",
+    )
+    db_session.add(a_u2)
+    db_session.commit()
+
+    # u1 boosting priority should NOT pick up u2's assignment
+    boosted_u1 = boost_subject_priority(db_session, user_id=u1.id)
+    assert not any("Math" in b.title for b in boosted_u1)
+
+    # u2 boosting priority SHOULD pick up u2's assignment
+    boosted_u2 = boost_subject_priority(db_session, user_id=u2.id)
+    assert any("Math" in b.title for b in boosted_u2)
+
+
+def test_smart_suggestions_user_isolation(db_session):
+    from datetime import date, timedelta
+    from db.models import Assignment, User
+    from modules.schedule.manager import build_onboarding_schedule, smart_suggestions
+
+    u1 = User(email="u1_sugg@test.com", password_hash="pw")
+    u2 = User(email="u2_sugg@test.com", password_hash="pw")
+    db_session.add_all([u1, u2])
+    db_session.commit()
+
+    build_onboarding_schedule(
+        db_session, user_id=u1.id, wake_time="06:00", sleep_time="22:00", study_goal_minutes=60
+    )
+
+    a_u2 = Assignment(
+        user_id=u2.id,
+        title="U2 Bio Lab",
+        subject="Biology",
+        due_date=date.today() + timedelta(days=1),
+        status="todo",
+    )
+    db_session.add(a_u2)
+    db_session.commit()
+
+    suggs_u1 = smart_suggestions(db_session, user_id=u1.id)
+    assert not any(s.get("assignment_id") == a_u2.id for s in suggs_u1)
+
+
+def test_update_block_status_ownership(db_session):
+    from db.models import User
+    from modules.schedule.manager import build_onboarding_schedule, get_weekly_schedule, update_block_status
+
+    u1 = User(email="u1_block@test.com", password_hash="pw")
+    u2 = User(email="u2_block@test.com", password_hash="pw")
+    db_session.add_all([u1, u2])
+    db_session.commit()
+
+    p1 = build_onboarding_schedule(
+        db_session, user_id=u1.id, wake_time="06:00", sleep_time="22:00", study_goal_minutes=60
+    )
+    blocks_u1 = get_weekly_schedule(db_session, user_id=u1.id)
+    b1_id = blocks_u1[0].id
+
+    # User 2 attempting to update User 1's block should fail (return None)
+    res = update_block_status(db_session, block_id=b1_id, status="done", user_id=u2.id)
+    assert res is None
+
+    # User 1 updating User 1's block should succeed
+    res_ok = update_block_status(db_session, block_id=b1_id, status="done", user_id=u1.id)
+    assert res_ok is not None
+    assert res_ok.status == "done"
+

@@ -7,10 +7,12 @@ POST /settings          → save one or more settings
 POST /settings/restart  → restart background services after settings change
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel
 from typing import Optional
+from api.routes_auth import current_user
+from db.models import User
 import os
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -42,14 +44,14 @@ def settings_page():
 # ── API ───────────────────────────────────────────────────────────────────
 
 @router.get("/data")
-def get_settings():
+def get_settings(user: User = Depends(current_user)):
     """Return current settings grouped by section (sensitive values masked)."""
     from desktop.settings_manager import get_settings_for_ui
     return get_settings_for_ui()
 
 
 @router.post("/save")
-def save_setting(payload: SettingUpdate):
+def save_setting(payload: SettingUpdate, user: User = Depends(current_user)):
     """Save a single setting to .env."""
     from desktop.settings_manager import save_setting as _save
     ok = _save(payload.key, payload.value)
@@ -59,7 +61,7 @@ def save_setting(payload: SettingUpdate):
 
 
 @router.post("/save-all")
-def save_all_settings(payload: BulkSettingsUpdate):
+def save_all_settings(payload: BulkSettingsUpdate, user: User = Depends(current_user)):
     """Save multiple settings at once."""
     from desktop.settings_manager import save_many
     results = save_many(payload.settings)
@@ -72,7 +74,7 @@ def save_all_settings(payload: BulkSettingsUpdate):
 
 
 @router.post("/restart")
-def restart_services():
+def restart_services(user: User = Depends(current_user)):
     """
     Restart monitoring services after settings change.
     Safe to call without full app restart for most changes.
@@ -96,7 +98,7 @@ def restart_services():
 
 
 @router.get("/openai-test")
-def test_openai():
+def test_openai(user: User = Depends(current_user)):
     """Quick test to verify the OpenAI API key works."""
     try:
         import openai, config

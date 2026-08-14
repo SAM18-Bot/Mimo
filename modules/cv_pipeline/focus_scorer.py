@@ -34,7 +34,6 @@ def compute_live_focus_score(db: Session, target_date: Optional[date] = None) ->
     events = db.query(CVEvent).filter(CVEvent.session_date == target_date).all()
     present_count    = sum(1 for e in events if e.event_type in ("present", "returned"))
     distracted_count = sum(1 for e in events if e.event_type == "distracted")
-    absent_count     = sum(1 for e in events if e.event_type == "absent")
     total_cv         = len(events)
 
     presence_ratio = present_count / total_cv if total_cv > 0 else 0.5  # default neutral
