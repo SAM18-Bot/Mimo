@@ -233,7 +233,7 @@ def test_smart_suggestions_api_no_cross_tenant_leak(client, db_engine):
         assert "ExclusiveSubjectB" not in msg
 
 
-def test_roast_engine_get_context_user_isolation(db_session):
+def test_roast_engine_get_context_user_isolation(db_session, client):
     """Verify RoastEngine._get_context filters assignments strictly by user_id."""
     u1 = User(email="roast_ctx_u1@test.com", password_hash="hash")
     u2 = User(email="roast_ctx_u2@test.com", password_hash="hash")
@@ -366,8 +366,10 @@ def test_websocket_connect_user_isolation(client, db_engine):
     a2 = Assignment(user_id=u2.id, title="U2 Task Unique", due_date=date.today() + timedelta(days=2), status="todo")
     session.add_all([a1, a2])
     session.commit()
+    u1_id = u1.id
+    session.close()
 
-    token1 = create_access_token(user_id=u1.id, role="student")
+    token1 = create_access_token(user_id=u1_id, role="student")
 
     with client.websocket_connect(f"/ws?token={token1}") as ws1:
         # First received message: stats_update for user 1

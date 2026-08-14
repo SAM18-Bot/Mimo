@@ -147,15 +147,17 @@ async def websocket_endpoint(ws: WebSocket, token: str = None):
         with get_db_ctx() as db:
             stats = get_daily_stats(db, user_id=user_id)
             tasks = get_upcoming(db, user_id=user_id, days=7)
+            
+            task_dicts = [
+                {"id": a.id, "title": a.title, "due_date": str(a.due_date),
+                 "priority": a.priority, "status": a.status, "subject": a.subject}
+                for a in tasks
+            ]
 
         await manager.unicast(user_id, {"type": "stats_update", "stats": stats})
         await manager.unicast(user_id, {
             "type":  "tasks_list",
-            "tasks": [
-                {"id": a.id, "title": a.title, "due_date": str(a.due_date),
-                 "priority": a.priority, "status": a.status, "subject": a.subject}
-                for a in tasks
-            ],
+            "tasks": task_dicts,
         })
 
         while True:
@@ -166,6 +168,10 @@ async def websocket_endpoint(ws: WebSocket, token: str = None):
     except Exception as e:
         log.error("WebSocket error: %s", e)
         manager.disconnect(ws, user_id=user_id)
+        try:
+            await ws.close(code=1011)
+        except Exception:
+            pass
 
 
 # ── pages ─────────────────────────────────────────────────────────────────
