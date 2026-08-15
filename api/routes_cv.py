@@ -31,10 +31,14 @@ def current_presence():
     Returns the last known CV state. Polled by dashboard as REST fallback.
     Real-time updates come via WebSocket cv_event messages.
     """
-    from modules.cv_pipeline.presence import PresenceMonitor
-    # The singleton state is maintained in the running PresenceMonitor instance.
-    # This endpoint is a simple fallback — the dashboard uses WebSocket primarily.
-    return {"status": "check websocket for live state"}
+    from schedulers.background_tasks import presence_monitor
+    
+    if presence_monitor:
+        status = getattr(presence_monitor, "_state", "unknown")
+    else:
+        status = "offline"
+        
+    return {"status": status}
 
 
 @router.get("/focus/today")

@@ -49,7 +49,8 @@ class StatusUpdate(BaseModel):
 
 
 # ── endpoints ─────────────────────────────────────────────────────────────
-@router.post("/", response_model=AssignmentOut, status_code=201)
+@router.post("", response_model=AssignmentOut, status_code=201)
+@router.post("/", response_model=AssignmentOut, status_code=201, include_in_schema=False)
 def add_assignment(payload: AssignmentCreate, user: User = Depends(current_user), db: Session = Depends(get_db)):
     a = create_assignment(
         db       = db,
@@ -81,7 +82,8 @@ def add_assignment_nlp(payload: NLPCreate, user: User = Depends(current_user), d
     return a
 
 
-@router.get("/", response_model=List[AssignmentOut])
+@router.get("", response_model=List[AssignmentOut])
+@router.get("/", response_model=List[AssignmentOut], include_in_schema=False)
 def list_assignments(status: Optional[str] = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     return get_all_assignments(db, user_id=user.id, status=status)
 

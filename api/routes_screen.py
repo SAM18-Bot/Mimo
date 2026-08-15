@@ -95,7 +95,7 @@ def daily_breakdown(
 
 
 @router.get("/live")
-def live_status():
+def live_status(user: User = Depends(current_user)):
     """Returns the most recently tracked app (REST fallback for dashboard)."""
     from modules.screen_tracker.tracker import get_active_window
     from modules.screen_tracker.categorizer import categorize_app
