@@ -149,7 +149,7 @@ class Reminder(Base):
     __tablename__ = "reminders"
 
     id            = Column(Integer, primary_key=True, index=True)
-    assignment_id = Column(Integer, ForeignKey("assignments.id"))
+    assignment_id = Column(Integer, ForeignKey("assignments.id", ondelete="CASCADE"))
     remind_at     = Column(DateTime, nullable=False)
     delivered     = Column(Boolean, default=False)
     message       = Column(Text)

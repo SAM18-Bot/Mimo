@@ -169,6 +169,10 @@ class ReminderLoop:
     def _deliver(self, message: str, assignment_id: Optional[int] = None, user_id: Optional[int] = None):
         log.info("Reminder: %s", message)
 
+        if user_id is None:
+            log.warning("Skipping broadcast for reminder (assignment_id=%s): no user_id resolved", assignment_id)
+            return
+
         if self._speak:
             self._speak(message)
 
@@ -177,10 +181,9 @@ class ReminderLoop:
                 "type":          "reminder",
                 "message":       message,
                 "assignment_id": assignment_id,
+                "user_id":       user_id,
                 "ts":            datetime.now().isoformat(),
             }
-            if user_id is not None:
-                payload["user_id"] = user_id
             self._broadcast(payload)
 
 

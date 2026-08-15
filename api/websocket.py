@@ -94,6 +94,9 @@ class ConnectionManager:
     @property
     def client_count(self) -> int:
         return len(self._active)
+    @property
+    def connected_user_ids(self) -> Set[int]:
+        return set(self._user_sockets.keys())
 
 
 manager = ConnectionManager()

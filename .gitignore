@@ -60,4 +60,5 @@ db/migrations/__pycache__/
 # ── Android Build Artifacts ───────────────────────────────
 android/.gradle/
 android/app/build/
-android/local.properties.venv-test/
+android/local.properties
+.venv-test/

@@ -334,21 +334,38 @@ def test_presence_monitor_broadcast_includes_user_id():
     assert payload.get("type") == "cv_event"
 
 
-def test_daily_trigger_stats_push_includes_user_id(db_session):
-    """Verify _push_live_stats attaches user_id to every broadcasted stats_update."""
-    broadcast_mock = MagicMock()
+def test_daily_trigger_stats_push_includes_user_id(db_session, db_engine):
+    """Verify _push_live_stats only pushes to connected users and attaches user_id."""
+    import db.database as db_mod
+    from sqlalchemy.orm import sessionmaker as SM
+    from unittest.mock import patch, MagicMock
 
-    u1 = User(email="stats_u1@test.com", password_hash="hash")
-    u2 = User(email="stats_u2@test.com", password_hash="hash")
-    db_session.add_all([u1, u2])
-    db_session.commit()
+    # Patch global engine so get_db_ctx() reads from test DB
+    original_engine = db_mod.engine
+    original_session = db_mod.SessionLocal
+    db_mod.engine = db_engine
+    db_mod.SessionLocal = SM(autocommit=False, autoflush=False, bind=db_engine)
 
-    _push_live_stats(broadcast_fn=broadcast_mock)
+    try:
+        broadcast_mock = MagicMock()
 
-    assert broadcast_mock.call_count >= 2
-    emitted_user_ids = {call[0][0].get("user_id") for call in broadcast_mock.call_args_list}
-    assert u1.id in emitted_user_ids
-    assert u2.id in emitted_user_ids
+        u1 = User(email="stats_u1@test.com", password_hash="hash")
+        u2 = User(email="stats_u2@test.com", password_hash="hash")
+        db_session.add_all([u1, u2])
+        db_session.commit()
+
+        # Mock the connection manager to report both users as connected
+        with patch("api.websocket.manager") as mgr_mock:
+            mgr_mock.connected_user_ids = {u1.id, u2.id}
+            _push_live_stats(broadcast_fn=broadcast_mock)
+
+        assert broadcast_mock.call_count >= 2
+        emitted_user_ids = {call[0][0].get("user_id") for call in broadcast_mock.call_args_list}
+        assert u1.id in emitted_user_ids
+        assert u2.id in emitted_user_ids
+    finally:
+        db_mod.engine = original_engine
+        db_mod.SessionLocal = original_session
 
 
 def test_websocket_connect_user_isolation(client, db_engine):

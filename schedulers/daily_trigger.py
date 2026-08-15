@@ -133,13 +133,17 @@ def _push_live_stats(broadcast_fn=None):
     if not broadcast_fn:
         return
     try:
+        from api.websocket import manager
         from db.database import get_db_ctx
-        from db.models import User
         from modules.behavior_engine.aggregator import get_daily_stats
+
+        active_ids = manager.connected_user_ids
+        if not active_ids:
+            return
+
         with get_db_ctx() as db:
-            users = db.query(User).all()
-            for user in users:
-                stats = get_daily_stats(db, user_id=user.id)
-                broadcast_fn({"type": "stats_update", "stats": stats, "user_id": user.id})
+            for user_id in active_ids:
+                stats = get_daily_stats(db, user_id=user_id)
+                broadcast_fn({"type": "stats_update", "stats": stats, "user_id": user_id})
     except Exception as e:
         log.error("Stats push error: %s", e)
