@@ -86,6 +86,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startServices() {
+        if (!TokenManager.isLoggedIn(this)) {
+            return
+        }
         val roastIntent = Intent(this, RoastEnforcementService::class.java)
         val trackerIntent = Intent(this, MobileTrackerService::class.java)
         runCatching {

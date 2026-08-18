@@ -17,50 +17,62 @@ def t(minutes_ago: float) -> datetime:
     return datetime.now() - timedelta(minutes=minutes_ago)
 
 
+def t_s(seconds_ago: float) -> datetime:
+    """Return a datetime N seconds ago."""
+    return datetime.now() - timedelta(seconds=seconds_ago)
+
+
 class TestSessionStitcher:
 
     def test_first_event_no_return(self, stitcher):
         result = stitcher.on_window_change("code", "main.py", "productive", t(10))
-        assert result is None   # no completed session yet
+        assert result == []   # no completed session yet
 
-    def test_window_change_closes_session(self, stitcher):
+    def test_window_change_buffers_session(self, stitcher):
         stitcher.on_window_change("code",      "main.py",   "productive", t(5))
         closed = stitcher.on_window_change("instagram", "Home",     "distracting", t(1))
-        assert closed is not None
-        assert closed.app == "code"
-        assert closed.category == "productive"
+        # It won't return anything yet because of the buffer!
+        assert closed == []
+        
+        # Flush to close it
+        closed2 = stitcher.flush()
+        assert len(closed2) == 2
+        assert closed2[0].app == "code"
+        assert closed2[1].app == "instagram"
 
     def test_session_duration_correct(self, stitcher):
         start = t(2)
         end   = t(0)
         stitcher.on_window_change("code", "", "productive", start)
-        # Change to another app 2 minutes later
-        closed = stitcher.on_window_change("chrome", "", "neutral", end)
-        assert closed is not None
+        stitcher.on_window_change("chrome", "", "neutral", end)
+        closed = stitcher.flush(end + timedelta(seconds=20))
+        assert len(closed) == 2
         # Duration should be ~120 seconds (2 minutes)
-        assert 100 <= closed.duration_s <= 140
+        assert 100 <= closed[0].duration_s <= 140
 
     def test_same_app_updates_title(self, stitcher):
         stitcher.on_window_change("code", "file_a.py", "productive", t(5))
         result = stitcher.on_window_change("code", "file_b.py", "productive", t(3))
         # Same app — no session closed
-        assert result is None
+        assert result == []
         # Title should be updated
         assert stitcher.get_pending().title == "file_b.py"
 
     def test_flush_closes_pending(self, stitcher):
         stitcher.on_window_change("code", "main.py", "productive", t(5))
         closed = stitcher.flush()
-        assert closed is not None
-        assert closed.app == "code"
+        assert len(closed) == 1
+        assert closed[0].app == "code"
 
     def test_flush_empty_returns_none(self, stitcher):
-        assert stitcher.flush() is None
+        assert stitcher.flush() == []
 
     def test_multiple_sessions_tracked(self, stitcher):
-        stitcher.on_window_change("code",      "", "productive",  t(10))
-        stitcher.on_window_change("instagram", "", "distracting", t(7))
-        stitcher.on_window_change("notion",    "", "productive",  t(4))
+        stitcher.on_window_change("code",      "", "productive",  t(20))
+        # Exceeds the 10s gap so it will close 'code'
+        stitcher.on_window_change("instagram", "", "distracting", t(10))
+        # Exceeds the 10s gap so it will close 'instagram'
+        stitcher.on_window_change("notion",    "", "productive",  t(0))
         stitcher.flush()
 
         completed = stitcher.get_completed()
@@ -72,15 +84,31 @@ class TestSessionStitcher:
         assert stitcher.get_pending()    is None
         assert stitcher.get_completed() == []
 
-    def test_gap_threshold_between_different_apps(self, stitcher):
-        # Within gap: code → chrome (4s) → code should NOT absorb gap
-        # (gap absorption only works for returning to same app)
-        stitcher.on_window_change("code",   "", "productive", t(5))
-        stitcher.on_window_change("chrome", "", "neutral",    t(4))
+    def test_gap_threshold_absorption(self, stitcher):
+        # Within gap: code → chrome (4s) → code SHOULD absorb gap!
+        stitcher.on_window_change("code",   "", "productive", t_s(15))
+        stitcher.on_window_change("chrome", "", "neutral",    t_s(11)) # switch to chrome
+        result = stitcher.on_window_change("code", "", "productive", t_s(8)) # back to code 3s later
+        
+        assert result == []
         completed = stitcher.get_completed()
-        # code session should be closed
-        assert len(completed) == 1
-        assert completed[0].app == "code"
+        assert len(completed) == 0
+        assert stitcher.get_pending().gap_events == 1
+        assert stitcher.get_pending().app == "code"
+
+    def test_gap_exceeded(self, stitcher):
+        # Exceed gap: code → chrome (15s) → code
+        stitcher.on_window_change("code",   "", "productive", t_s(25))
+        stitcher.on_window_change("chrome", "", "neutral",    t_s(20)) # switch to chrome
+        result = stitcher.on_window_change("code", "", "productive", t_s(2)) # back to code 18s later
+        
+        # Gap exceeded! It should close BOTH code and chrome, and return them.
+        assert len(result) == 2
+        assert result[0].app == "code"
+        assert result[1].app == "chrome"
+        
+        # Pending is now the new code session
+        assert stitcher.get_pending().app == "code"
 
 
 class TestSessionQualityScore:

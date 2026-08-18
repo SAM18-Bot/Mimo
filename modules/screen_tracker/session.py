@@ -83,8 +83,13 @@ class SessionStitcher:
     def __init__(self, gap_threshold_s: Optional[int] = None):
         self._gap        = gap_threshold_s or config.SESSION_GAP_THRESHOLD
         self._pending:    Optional[Session] = None
-        self._prev_close: Optional[datetime] = None
         self._completed:  List[Session] = []
+
+        # Interruption tracking
+        self._int_app:      Optional[str] = None
+        self._int_title:    Optional[str] = None
+        self._int_category: Optional[str] = None
+        self._int_start:    Optional[datetime] = None
 
     # ── public API ────────────────────────────────────────────────────────
 
@@ -94,59 +99,127 @@ class SessionStitcher:
         title: str,
         category: str,
         ts: datetime,
-    ) -> Optional[Session]:
+    ) -> List[Session]:
         """
         Call every time the active window changes.
-        Returns the completed Session if one was just closed, else None.
+        Returns a list of completed Sessions.
         """
         if self._pending is None:
             self._pending = Session(app=app, title=title, category=category, started_at=ts)
-            return None
+            return []
 
-        if app == self._pending.app:
-            # Same app — update title in case it changed (e.g. VS Code opened new file)
-            self._pending.title = title
-            return None
+        if self._int_app is None:
+            # Normal state, no interruption buffered
+            if app == self._pending.app:
+                # Same app — update title
+                self._pending.title = title
+                return []
+            else:
+                # Started an interruption
+                self._int_app      = app
+                self._int_title    = title
+                self._int_category = category
+                self._int_start    = ts
+                return []
+        else:
+            # We are currently buffering an interruption
+            gap_s = (ts - self._int_start).total_seconds()
 
-        # ── different app: decide whether to stitch ───────────────────────
-        gap_s = (ts - (self._prev_close or ts)).total_seconds() if self._prev_close else 0
+            if app == self._pending.app:
+                # Returned to the original app
+                if gap_s < self._gap:
+                    # Absorb the gap!
+                    self._pending.gap_events += 1
+                    self._pending.title = title
+                    self._int_app = None
+                    log.debug(f"Gap absorbed: {app!r} returned after {gap_s:.0f}s (threshold {self._gap}s)")
+                    return []
+                else:
+                    # Gap too large. Close the pending session at the time interruption started
+                    self._pending.close(self._int_start)
+                    c1 = self._pending
+                    self._completed.append(c1)
+                    
+                    # Close the interruption itself at 'ts'
+                    c2 = Session(app=self._int_app, title=self._int_title, category=self._int_category, started_at=self._int_start)
+                    c2.close(ts)
+                    self._completed.append(c2)
+                    
+                    # Start fresh pending for the app we just returned to
+                    self._pending = Session(app=app, title=title, category=category, started_at=ts)
+                    self._int_app = None
+                    return [c1, c2]
+            else:
+                # Did not return to the original app
+                if app == self._int_app:
+                    # Still in the same interrupting app, maybe title changed
+                    self._int_title = title
+                    # Did we exceed the gap threshold while in the interrupting app?
+                    if gap_s >= self._gap:
+                        # Exceeded gap. The original pending session is officially dead.
+                        self._pending.close(self._int_start)
+                        c1 = self._pending
+                        self._completed.append(c1)
+                        
+                        # The interruption becomes the new pending session!
+                        self._pending = Session(app=self._int_app, title=self._int_title, category=self._int_category, started_at=self._int_start)
+                        self._int_app = None
+                        return [c1]
+                    return []
+                else:
+                    # Switched to a THIRD app!
+                    if gap_s < self._gap:
+                        # We just update the interruption to the new app. The gap continues ticking!
+                        self._int_app = app
+                        self._int_title = title
+                        self._int_category = category
+                        # DO NOT update _int_start, because the total gap since we left the FIRST app is what matters.
+                        return []
+                    else:
+                        # Exceeded gap. Original is dead, interruption is dead.
+                        self._pending.close(self._int_start)
+                        c1 = self._pending
+                        self._completed.append(c1)
+                        
+                        c2 = Session(app=self._int_app, title=self._int_title, category=self._int_category, started_at=self._int_start)
+                        c2.close(ts)
+                        self._completed.append(c2)
+                        
+                        # The third app becomes pending
+                        self._pending = Session(app=app, title=title, category=category, started_at=ts)
+                        self._int_app = None
+                        return [c1, c2]
 
-        if (
-            self._prev_close is not None
-            and gap_s < self._gap
-            and app == self._pending.app   # returning to same app
-        ):
-            # Absorb the gap — user briefly left and came back
-            self._pending.gap_events += 1
-            log.debug(
-                f"Gap absorbed: {app!r} returned after {gap_s:.0f}s "
-                f"(threshold {self._gap}s)"
-            )
-            return None
-
-        # Close current session, start new one
-        self._pending.close(ts)
-        completed        = self._pending
-        self._prev_close = ts
-        self._completed.append(completed)
-
-        log.debug(
-            f"Session closed: [{completed.category}] {completed.app!r} "
-            f"{completed.duration_s}s"
-        )
-
-        self._pending = Session(app=app, title=title, category=category, started_at=ts)
-        return completed
-
-    def flush(self, ts: Optional[datetime] = None) -> Optional[Session]:
+    def flush(self, ts: Optional[datetime] = None) -> List[Session]:
         """Close the pending session. Call on stop() or at end of day."""
+        ts = ts or datetime.now()
+        closed = []
         if self._pending and not self._pending.is_complete:
-            self._pending.close(ts or datetime.now())
-            completed = self._pending
-            self._completed.append(completed)
-            self._pending = None
-            return completed
-        return None
+            if self._int_app is None:
+                self._pending.close(ts)
+                closed.append(self._pending)
+                self._completed.append(self._pending)
+            else:
+                # We have an open interruption
+                gap_s = (ts - self._int_start).total_seconds()
+                if gap_s < self._gap:
+                    # Discard the brief interruption, close original pending at int_start
+                    self._pending.close(self._int_start)
+                    closed.append(self._pending)
+                    self._completed.append(self._pending)
+                else:
+                    # Flush both
+                    self._pending.close(self._int_start)
+                    closed.append(self._pending)
+                    self._completed.append(self._pending)
+                    
+                    c2 = Session(app=self._int_app, title=self._int_title, category=self._int_category, started_at=self._int_start)
+                    c2.close(ts)
+                    closed.append(c2)
+                    self._completed.append(c2)
+        self._pending = None
+        self._int_app = None
+        return closed
 
     def get_completed(self) -> List[Session]:
         return list(self._completed)
@@ -155,9 +228,10 @@ class SessionStitcher:
         return self._pending
 
     def reset(self) -> None:
-        self._pending    = None
-        self._prev_close = None
-        self._completed  = []
+        self._pending = None
+        self._completed = []
+        self._int_app = None
+        self._int_start = None
 
 
 # ── analytics ─────────────────────────────────────────────────────────────

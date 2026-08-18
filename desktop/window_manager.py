@@ -24,6 +24,24 @@ log = logging.getLogger(__name__)
 _URL = "http://127.0.0.1:8000"
 
 
+class _JSBridge:
+    """
+    Exposed to the webview's JS as `window.pywebview.api`.
+
+    dashboard.html calls `window.pywebview.api.report_token(token)` right
+    after a successful login, and again on load if a session was already
+    cached — that's how the Python side (system tray, background threads)
+    finds out who's logged in and gets a token it can attach to its own
+    API calls.
+    """
+
+    def report_token(self, token: str) -> bool:
+        from desktop.session import set_token
+        set_token(token)
+        log.info("Session token received from dashboard.")
+        return True
+
+
 class WindowManager:
     def __init__(self, url: str = _URL):
         self._url     = url
@@ -52,6 +70,7 @@ class WindowManager:
                 background_color   = "#07070f",
                 text_select        = False,
                 zoomable           = False,
+                js_api             = _JSBridge(),
             )
 
             # Hide instead of close when user clicks the X

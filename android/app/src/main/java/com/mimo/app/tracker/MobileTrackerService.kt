@@ -29,9 +29,6 @@ class MobileTrackerService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val CHANNEL_ID_FG = "mimo_tracker_fg_service"
     private var lastForegroundApp: String? = null
-    private var distractingMinutes = 0
-    private var lastRoastTime = 0L
-    private val ROAST_COOLDOWN_MS = 5 * 60 * 1000L // 5 minutes
 
     // Categorization
     private val distractingApps = setOf(
@@ -149,16 +146,9 @@ class MobileTrackerService : Service() {
                                 Log.e("MobileTracker", "Failed to sync to /screen/mock: ${e.message}")
                             }
 
-                            if (category == "distracting") {
-                                distractingMinutes++
-                                if (distractingMinutes >= 2 && (System.currentTimeMillis() - lastRoastTime) > ROAST_COOLDOWN_MS) {
-                                    fireLocalRoast(currentForegroundApp)
-                                    lastRoastTime = System.currentTimeMillis()
-                                    distractingMinutes = 0 // reset after roasting
-                                }
-                            } else {
-                                distractingMinutes = 0 // reset if they switch to something else
-                            }
+                            // We don't fire local roasts anymore.
+                            // The backend RoastEngine monitors the mock screen events
+                            // and triggers roasts via WebSocket to the RoastEnforcementService.
 
                             // Update local stats every minute
                             val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
@@ -173,7 +163,9 @@ class MobileTrackerService : Service() {
                                 val dist = (currentStats?.distractingMin ?: 0) + distDelta
                                 val neut = (currentStats?.neutralMin ?: 0) + neutDelta
                                 val total = prod + dist + neut
-                                val score = if (total > 0) (prod.toDouble() / (prod + dist).coerceAtLeast(1)) * 100.0 else 0.0
+                                val score = if (total > 0) {
+                                    if (prod + dist > 0) (prod.toDouble() / (prod + dist)) * 100.0 else 50.0
+                                } else 0.0
 
                                 val updatedEntity = DailyStatsEntity(
                                     date = today,
@@ -204,21 +196,6 @@ class MobileTrackerService : Service() {
             productiveApps.contains(packageName) -> "productive"
             else -> "neutral"
         }
-    }
-
-    private fun fireLocalRoast(packageName: String) {
-        val appName = packageName.substringAfterLast(".")
-        val message = "Really? You're spending your time on $appName on your phone? Put it down and get back to work!"
-        
-        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val notification = NotificationCompat.Builder(this, MimoApplication.CHANNEL_ID_ROASTS)
-            .setContentTitle("Mimo Local Roast \uD83D\uDD25")
-            .setContentText(message)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .build()
-
-        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
     }
 
     private fun createNotificationChannel() {

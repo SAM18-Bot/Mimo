@@ -97,8 +97,28 @@ log = logging.getLogger("mimo.desktop")
 # ── constants ─────────────────────────────────────────────────────────────
 SERVER_HOST = "127.0.0.1"
 SERVER_PORT = 8000
-SERVER_URL  = f"http://{SERVER_HOST}:{SERVER_PORT}"
-STARTUP_TIMEOUT = 40   # seconds to wait for FastAPI to be ready
+
+# The deployed Mimo backend this app talks to out of the box — matches the
+# Android app's ApiClient/WebSocketManager, so both clients hit the same
+# account/data by default. Override with the MIMO_CLOUD_URL env var:
+#   MIMO_CLOUD_URL=local                 → run the bundled server instead
+#   MIMO_CLOUD_URL=https://other-host    → point at a different deployment
+DEFAULT_CLOUD_URL = "https://mimo-e8u2.onrender.com"
+
+STARTUP_TIMEOUT = 40   # seconds to wait for the server to be ready
+
+
+def _resolve_server_url():
+    """Returns (url, run_local_server: bool)."""
+    override = os.environ.get("MIMO_CLOUD_URL", "").strip()
+    if override.lower() == "local":
+        return f"http://{SERVER_HOST}:{SERVER_PORT}", True
+    if override:
+        return override.rstrip("/"), False
+    return DEFAULT_CLOUD_URL.rstrip("/"), False
+
+
+SERVER_URL, RUN_LOCAL_SERVER = _resolve_server_url()
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -214,6 +234,7 @@ def _start_tray(window_manager):
     tray   = MimoTray(
         open_window_fn=window_manager.open,
         shutdown_fn=lambda: _shutdown(window_manager),
+        base_url=SERVER_URL,
     )
     thread = threading.Thread(target=tray.run, daemon=True, name="system-tray")
     thread.start()
@@ -272,17 +293,29 @@ def main():
     splash.show()
     splash.update("Starting Mimo…")
 
-    # ── start FastAPI server ──────────────────────────────────────────────
-    _start_server()
+    # ── start FastAPI server (local mode only) ─────────────────────────────
+    if RUN_LOCAL_SERVER:
+        log.info("MIMO_CLOUD_URL=local — running the bundled server.")
+        _start_server()
+    else:
+        log.info("Connecting to cloud server: %s", SERVER_URL)
+        splash.update("Connecting to Mimo…")
 
     # ── wait for server ───────────────────────────────────────────────────
     if not _wait_for_server(splash=splash):
         splash.close()
-        _show_error_dialog(
-            "Mimo failed to start",
-            f"The Mimo server did not start within {STARTUP_TIMEOUT} seconds.\n\n"
-            "Check that port 8000 is free and try again.",
-        )
+        if RUN_LOCAL_SERVER:
+            _show_error_dialog(
+                "Mimo failed to start",
+                f"The bundled Mimo server did not start within {STARTUP_TIMEOUT} seconds.\n\n"
+                "Check that port 8000 is free and try again.",
+            )
+        else:
+            _show_error_dialog(
+                "Can't reach Mimo",
+                f"Couldn't connect to {SERVER_URL} within {STARTUP_TIMEOUT} seconds.\n\n"
+                "Check your internet connection and try again.",
+            )
         sys.exit(1)
 
     splash.update("Server ready — opening dashboard…")

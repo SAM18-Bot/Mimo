@@ -16,7 +16,7 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
-_BASE_URL = "http://127.0.0.1:8000"
+_DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 
 
 class MimoTray:
@@ -28,15 +28,17 @@ class MimoTray:
     Call open_dashboard() to show the webview window.
     """
 
-    def __init__(self, open_window_fn=None, shutdown_fn=None):
+    def __init__(self, open_window_fn=None, shutdown_fn=None, base_url: str = _DEFAULT_BASE_URL):
         """
         open_window_fn: optional callable to (re)open the pywebview window.
         shutdown_fn: optional callable to shut down the application cleanly.
         If None, falls back to opening in the default browser / main_desktop _shutdown.
+        base_url: the Mimo server this tray talks to (local or cloud).
         """
         self._icon           = None
         self._open_window_fn = open_window_fn
         self._shutdown_fn    = shutdown_fn
+        self._base_url       = base_url.rstrip("/")
 
         # Live stats shown in menu
         self._focus_score    = 0
@@ -171,18 +173,19 @@ class MimoTray:
             except Exception:
                 pass
         # Fallback: open in browser
-        webbrowser.open(_BASE_URL)
+        webbrowser.open(self._base_url)
 
     def _on_settings(self, icon=None, item=None):
-        webbrowser.open(f"{_BASE_URL}/settings")
+        webbrowser.open(f"{self._base_url}/settings")
 
     def _on_toggle_pause(self, icon=None, item=None):
         try:
             import httpx
+            from desktop.session import auth_headers
             if self._paused:
-                httpx.post(f"{_BASE_URL}/monitoring/resume", timeout=3)
+                httpx.post(f"{self._base_url}/monitoring/resume", timeout=3, headers=auth_headers())
             else:
-                httpx.post(f"{_BASE_URL}/monitoring/pause", timeout=3)
+                httpx.post(f"{self._base_url}/monitoring/pause", timeout=3, headers=auth_headers())
             self.set_paused(not self._paused)
         except Exception as e:
             log.error("Pause toggle failed: %s", e)
@@ -233,17 +236,22 @@ class MimoTray:
         while True:
             try:
                 import httpx
-                r = httpx.get(f"{_BASE_URL}/reports/stats", timeout=3)
-                if r.status_code == 200:
-                    data  = r.json()
-                    score = data.get("focus_score", 0)
-                    grade = data.get("letter_grade", "—")
+                from desktop.session import auth_headers
+                headers = auth_headers()
+                # Not logged in yet (no token reported from the dashboard
+                # webview) — nothing to show, try again next cycle.
+                if headers:
+                    r = httpx.get(f"{self._base_url}/reports/stats", timeout=3, headers=headers)
+                    if r.status_code == 200:
+                        data  = r.json()
+                        score = data.get("focus_score", 0)
+                        grade = data.get("letter_grade", "—")
 
-                    # Count upcoming assignments
-                    r2    = httpx.get(f"{_BASE_URL}/assignments/upcoming?days=14", timeout=3)
-                    count = len(r2.json()) if r2.status_code == 200 else 0
+                        # Count upcoming assignments
+                        r2    = httpx.get(f"{self._base_url}/assignments/upcoming?days=14", timeout=3, headers=headers)
+                        count = len(r2.json()) if r2.status_code == 200 else 0
 
-                    self.update_stats(score, grade, count)
+                        self.update_stats(score, grade, count)
             except Exception:
                 pass   # server may not be ready yet
             time.sleep(60)

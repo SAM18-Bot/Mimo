@@ -1083,8 +1083,28 @@
       const token = localStorage.getItem('mimo_token');
       if (!token) {
         document.getElementById('auth-overlay').classList.add('open');
+      } else {
+        reportTokenToDesktop(token);
       }
     }
+
+    // If we're running inside the Mimo desktop app (pywebview), hand the
+    // token to the Python side so the system tray and other background
+    // threads can make authenticated calls too — plain browser tabs just
+    // won't have window.pywebview, so this is a no-op there.
+    function reportTokenToDesktop(token) {
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.report_token) {
+        window.pywebview.api.report_token(token).catch(() => {});
+      }
+    }
+
+    // pywebview injects window.pywebview asynchronously after page load —
+    // if we already had a cached token before the bridge was ready
+    // (returning user, app restarted), report it once it becomes available.
+    window.addEventListener('pywebviewready', function () {
+      const token = localStorage.getItem('mimo_token');
+      if (token) reportTokenToDesktop(token);
+    });
 
     function handleEmailAuth(e) { e.preventDefault(); }
 
@@ -1102,6 +1122,7 @@
         if (res.ok) {
           const data = await res.json();
           localStorage.setItem('mimo_token', data.access_token);
+          reportTokenToDesktop(data.access_token);
           if (data.user && data.user.onboarding_completed === false) {
             document.getElementById('auth-login-view').classList.add('hidden');
             document.getElementById('auth-onboard-view').classList.remove('hidden');
@@ -1129,7 +1150,8 @@
         if (res.ok) {
           const data = await res.json();
           localStorage.setItem('mimo_token', data.access_token);
-          
+          reportTokenToDesktop(data.access_token);
+
           if (data.user && data.user.onboarding_completed === false) {
             document.getElementById('auth-login-view').classList.add('hidden');
             document.getElementById('auth-onboard-view').classList.remove('hidden');

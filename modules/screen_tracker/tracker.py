@@ -119,9 +119,9 @@ class ScreenTracker:
     def stop(self):
         self._running = False
         # Flush any in-progress session
-        closed = self._stitcher.flush()
-        if closed:
-            self._save_session(closed)
+        closed_sessions = self._stitcher.flush()
+        for session in closed_sessions:
+            self._save_session(session)
         if self._thread:
             self._thread.join(timeout=5)
         log.info("Screen tracker stopped.")
@@ -135,10 +135,9 @@ class ScreenTracker:
                 category   = categorize_app(app, title)
                 now        = datetime.now()
 
-                closed = self._stitcher.on_window_change(app, title, category, now)
-
-                if closed:
-                    self._save_session(closed)
+                closed_sessions = self._stitcher.on_window_change(app, title, category, now)
+                for session in closed_sessions:
+                    self._save_session(session)
 
                 # Check if we should block the app
                 if category == "distracting":
