@@ -117,17 +117,7 @@ def mock_window_change(payload: MockWindowEvent, user: User = Depends(current_us
     cat = payload.category or categorize_app(payload.app, payload.title)
     now = datetime.now()
 
-    db.add(ScreenSession(
-        user_id      = user.id,
-        app_name     = payload.app,
-        window_title = payload.title,
-        category     = cat,
-        started_at   = now,
-        ended_at     = now,
-        duration_s   = 60,
-        session_date = now.date(),
-    ))
-    db.commit()
+    # No fake session insertion here anymore! Android uses /sync/push for stats.
 
     event = {
         "type":     "window_change",
@@ -147,3 +137,28 @@ def mock_window_change(payload: MockWindowEvent, user: User = Depends(current_us
         pass
 
     return {"ok": True, "app": payload.app, "category": cat}
+
+class StitchedSession(BaseModel):
+    app_name: str
+    window_title: str
+    category: str
+    started_at: str
+    ended_at: str | None = None
+    duration_s: int
+    session_date: str
+
+@router.post("/session")
+def save_session(payload: StitchedSession, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    from datetime import datetime, date
+    db.add(ScreenSession(
+        user_id      = user.id,
+        app_name     = payload.app_name,
+        window_title = payload.window_title,
+        category     = payload.category,
+        started_at   = datetime.fromisoformat(payload.started_at),
+        ended_at     = datetime.fromisoformat(payload.ended_at) if payload.ended_at else None,
+        duration_s   = payload.duration_s,
+        session_date = date.fromisoformat(payload.session_date),
+    ))
+    db.commit()
+    return {"ok": True}

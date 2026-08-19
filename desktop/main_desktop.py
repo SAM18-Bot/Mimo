@@ -120,6 +120,30 @@ def _resolve_server_url():
 
 SERVER_URL, RUN_LOCAL_SERVER = _resolve_server_url()
 
+_FIRST_RUN_MARKER = os.path.expanduser("~/.mimo/.first_run_complete")
+
+
+def _enable_autostart_on_first_run():
+    """
+    The very first time Mimo successfully starts, register it to launch on
+    system boot automatically — most users expect an accountability/tracking
+    app to "just work" without them finding a settings toggle first.
+
+    After this first time, we leave it alone: if the user later turns it off
+    from the tray menu, we never silently turn it back on for them.
+    """
+    try:
+        if os.path.exists(_FIRST_RUN_MARKER):
+            return
+        os.makedirs(os.path.dirname(_FIRST_RUN_MARKER), exist_ok=True)
+        from desktop.autostart import enable
+        if enable():
+            log.info("First run — autostart enabled automatically.")
+        with open(_FIRST_RUN_MARKER, "w") as f:
+            f.write(str(time.time()))
+    except Exception as e:
+        log.warning("Could not set up autostart on first run (non-critical): %s", e)
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # Step 1 — Single instance
@@ -321,6 +345,8 @@ def main():
     splash.update("Server ready — opening dashboard…")
     log.info("Server is ready. Initialising desktop components.")
 
+    _enable_autostart_on_first_run()
+
     # ── window manager ────────────────────────────────────────────────────
     from desktop.window_manager import WindowManager
     wm             = WindowManager(url=SERVER_URL)
@@ -329,6 +355,16 @@ def main():
 
     # ── system tray ───────────────────────────────────────────────────────
     tray, tray_thread = _start_tray(wm)
+    
+    # ── decoupled background tracker ──────────────────────────────────────
+    try:
+        from modules.screen_tracker.tracker import ScreenTracker
+        _desktop_tracker = ScreenTracker()
+        _desktop_tracker.start()
+        atexit.register(_desktop_tracker.stop)
+        log.info("Decoupled ScreenTracker started.")
+    except Exception as e:
+        log.warning("Failed to start decoupled ScreenTracker: %s", e)
 
     # ── startup notification ──────────────────────────────────────────────
     try:

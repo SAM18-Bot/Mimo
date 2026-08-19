@@ -23,6 +23,21 @@ from datetime import date, timedelta
 def today_plus(days: int) -> str:
     return (date.today() + timedelta(days=days)).isoformat()
 
+def _insert_session(client, headers, app, title, cat, dur=60):
+    from datetime import datetime
+    now = datetime.now()
+    r = client.post("/screen/session", json={
+        "app_name": app,
+        "window_title": title,
+        "category": cat,
+        "started_at": now.isoformat(),
+        "ended_at": now.isoformat(),
+        "duration_s": dur,
+        "session_date": now.date().isoformat()
+    }, headers=headers)
+    if r.status_code != 200:
+        print("ERROR IN INSERT:", r.json())
+
 
 # ── health ────────────────────────────────────────────────────────────────
 
@@ -163,14 +178,14 @@ class TestScreenAPI:
 
     def test_mock_updates_breakdown(self, client, auth_headers):
         # Inject 2 productive sessions
-        client.post("/screen/mock", json={"app": "code", "title": "project.py"}, headers=auth_headers)
-        client.post("/screen/mock", json={"app": "notion", "title": "Notes"}, headers=auth_headers)
+        _insert_session(client, auth_headers, "code", "project.py", "productive")
+        _insert_session(client, auth_headers, "notion", "Notes", "productive")
         r = client.get("/screen/breakdown", headers=auth_headers)
         # Should have some sessions
         assert r.status_code == 200
 
     def test_sessions_list(self, client, auth_headers):
-        client.post("/screen/mock", json={"app": "code", "title": "test.py"}, headers=auth_headers)
+        _insert_session(client, auth_headers, "code", "test.py", "productive")
         r = client.get("/screen/sessions", headers=auth_headers)
         assert r.status_code == 200
         sessions = r.json()
@@ -372,11 +387,11 @@ class TestFullWorkflow:
         aid = r.json()["id"]
 
         # Productive session
-        client.post("/screen/mock", json={"app": "code", "title": "ai_project.py"}, headers=auth_headers)
+        _insert_session(client, auth_headers, "code", "ai_project.py", "productive")
         client.post("/cv/mock", json={"event": "present"}, headers=auth_headers)
 
         # Distraction
-        client.post("/screen/mock", json={"app": "instagram", "title": "Instagram"}, headers=auth_headers)
+        _insert_session(client, auth_headers, "instagram", "Instagram", "distracting")
         client.post("/cv/mock", json={"event": "distracted"}, headers=auth_headers)
 
         # Check stats

@@ -18,7 +18,7 @@ roast_engine     = None
 
 NO_HARDWARE = os.getenv("NO_HARDWARE", "1").strip() == "1"  # default: skip hardware
 NO_VOICE    = os.getenv("NO_VOICE",    "1").strip() == "1"  # default: skip voice
-NO_TRACKER  = os.getenv("NO_TRACKER",  "0").strip() == "1"  # default: run tracker
+NO_TRACKER  = True # Decoupled client  # default: run tracker
 
 
 class EventDispatcher:

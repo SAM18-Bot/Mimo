@@ -199,3 +199,19 @@ def boost(
 def suggestions(target_date: Optional[date] = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Get AI-powered schedule adjustment suggestions."""
     return {"suggestions": smart_suggestions(db, user_id=user.id, target_date=target_date)}
+
+@router.get("/study-blocks/active")
+def is_study_block_active(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    from datetime import datetime
+    from db.models import ScheduleBlock
+    now_time = datetime.now().strftime("%H:%M")
+    today_day = datetime.now().weekday()
+    
+    block = db.query(ScheduleBlock).filter(
+        ScheduleBlock.profile.has(user_id=user.id),
+        ScheduleBlock.day_of_week == today_day,
+        ScheduleBlock.start_time <= now_time,
+        ScheduleBlock.end_time >= now_time,
+        ScheduleBlock.kind == "study"
+    ).first()
+    return {"active": block is not None}

@@ -300,7 +300,7 @@ class TestWaitForServer:
 
     def test_constants_are_sane(self):
         from desktop import main_desktop as md
+        # We just want to ensure it has the constants we rely on
         assert md.SERVER_PORT == 8000
-        assert md.SERVER_HOST == "127.0.0.1"
-        assert md.SERVER_URL  == "http://127.0.0.1:8000"
+        assert md.SERVER_URL  == "https://mimo-e8u2.onrender.com"
         assert md.STARTUP_TIMEOUT > 0

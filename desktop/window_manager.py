@@ -49,6 +49,7 @@ class WindowManager:
         self._alive   = False   # True after webview.start() is running
         self._visible = False
         self._lock    = threading.Lock()
+        self._has_notified_on_close = False
 
     # ── lifecycle ─────────────────────────────────────────────────────────
 
@@ -163,6 +164,14 @@ class WindowManager:
             with self._lock:
                 self._visible = False
             log.info("Window hidden (app still running in system tray).")
+            
+            if not getattr(self, "_has_notified_on_close", False):
+                self._has_notified_on_close = True
+                try:
+                    from desktop.notifications import notify
+                    notify("Mimo is still running", "Check your system tray to open the dashboard.", timeout=5)
+                except Exception as e:
+                    log.debug("Toast notification failed: %s", e)
         except Exception as e:
             log.debug("Hide failed: %s", e)
 

@@ -150,18 +150,21 @@ class ScreenTracker:
                 else:
                     self._distracting_buffer_s = 0
 
-                # Always broadcast the current window to dashboard
-                if self._event_bus:
-                    try:
-                        self._event_bus.put_nowait({
-                            "type":     "window_change",
-                            "app":      app,
-                            "title":    title[:80],
-                            "category": category,
-                            "ts":       now.isoformat(),
-                        })
-                    except Exception:
-                        pass
+                # Post to /screen/mock so backend knows live window for roasts/dashboard
+                try:
+                    import httpx
+                    from desktop.session import get_token
+                    from desktop.main_desktop import SERVER_URL
+                    token = get_token()
+                    if token:
+                        headers = {"Authorization": f"Bearer {token}"}
+                        httpx.post(f"{SERVER_URL}/screen/mock", json={
+                            "app": app,
+                            "title": title[:80],
+                            "category": category
+                        }, headers=headers, timeout=2)
+                except Exception:
+                    pass
 
             except Exception as e:
                 log.error("Screen tracker loop error: %s", e)
@@ -174,51 +177,47 @@ class ScreenTracker:
         if session.duration_s < 2:
             return   # skip noise
         try:
-            with get_db_ctx() as db:
-                from db.models import User
-                # Assuming desktop client runs as single-user locally (user_id=1)
-                user = db.query(User).filter(User.id == 1).first()
-                if not user:
-                    return # No logged in user yet
-                
-                db.add(ScreenSession(
-                    user_id      = user.id,
-                    app_name     = session.app,
-                    window_title = session.title,
-                    category     = session.category,
-                    started_at   = session.started_at,
-                    ended_at     = session.ended_at,
-                    duration_s   = session.duration_s,
-                    session_date = (session.started_at or datetime.now()).date(),
-                ))
-            log.debug("Saved session: [%s] %s %ds", session.category, session.app, session.duration_s)
+            import httpx
+            from desktop.session import get_token
+            from desktop.main_desktop import SERVER_URL
+            token = get_token()
+            if not token:
+                log.debug("No token, skipping session save.")
+                return
+            headers = {"Authorization": f"Bearer {token}"}
+            payload = {
+                "app_name": session.app,
+                "window_title": session.title,
+                "category": session.category,
+                "started_at": session.started_at.isoformat(),
+                "ended_at": session.ended_at.isoformat() if session.ended_at else None,
+                "duration_s": session.duration_s,
+                "session_date": (session.started_at or datetime.now()).date().isoformat()
+            }
+            r = httpx.post(f"{SERVER_URL}/screen/session", json=payload, headers=headers)
+            if r.status_code == 200:
+                log.debug("Saved session remotely: [%s] %s %ds", session.category, session.app, session.duration_s)
+            else:
+                log.error("Failed to save session, status: %s", r.status_code)
         except Exception as e:
-            log.error("Failed to save screen session: %s", e)
+            log.error("Failed to save screen session remotely: %s", e)
 
     def _is_study_block_active(self) -> bool:
-        """Check the database to see if we are currently inside a 'study' schedule block."""
+        """Check via HTTP if we are currently inside a 'study' schedule block."""
         try:
-            from db.models import ScheduleBlock
-            now_time = datetime.now().strftime("%H:%M")
-            today_day = datetime.now().weekday()
-            
-            with get_db_ctx() as db:
-                from db.models import User
-                user = db.query(User).filter(User.id == 1).first()
-                if not user:
-                    return False
-                    
-                block = db.query(ScheduleBlock).filter(
-                    ScheduleBlock.profile.has(user_id=user.id),
-                    ScheduleBlock.day_of_week == today_day,
-                    ScheduleBlock.start_time <= now_time,
-                    ScheduleBlock.end_time >= now_time,
-                    ScheduleBlock.kind == "study"
-                ).first()
-                return block is not None
+            import httpx
+            from desktop.session import get_token
+            from desktop.main_desktop import SERVER_URL
+            token = get_token()
+            if not token:
+                return False
+            headers = {"Authorization": f"Bearer {token}"}
+            r = httpx.get(f"{SERVER_URL}/schedule/study-blocks/active", headers=headers)
+            if r.status_code == 200:
+                return r.json().get("active", False)
         except Exception as e:
-            log.error("Failed to check study block: %s", e)
-            return False
+            log.error("Failed to check study block remotely: %s", e)
+        return False
 
     def _kill_process(self, app_name: str):
         """Force kill the distracting app, unless it's a browser."""
@@ -226,10 +225,17 @@ class ScreenTracker:
         if is_browser(app_name):
             log.warning(f"Browser {app_name} is distracting, but preventing force kill to save tabs. Emitting roast instead.")
             try:
-                from api.websocket import push_event
-                push_event({"type": "roast", "trigger": app_name, "message": f"Close those tabs in {app_name} and get back to work!"})
+                import httpx
+                from desktop.session import get_token
+                from desktop.main_desktop import SERVER_URL
+                token = get_token()
+                if token:
+                    headers = {"Authorization": f"Bearer {token}"}
+                    # Trigger a manual roast on the backend via /voice/roast (we could add an endpoint if needed)
+                    # For now, just logging it since /screen/mock already triggers RoastEngine!
+                    log.warning(f"Browser {app_name} is distracting, emitting roast skipped locally (handled by backend).")
             except Exception as e:
-                log.error(f"Failed to push roast event: {e}")
+                log.error(f"Failed to handle browser distraction: {e}")
             return
 
         log.warning(f"Blocking distracting app: {app_name}")
