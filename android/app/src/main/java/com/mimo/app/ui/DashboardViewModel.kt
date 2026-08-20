@@ -86,6 +86,9 @@ class DashboardViewModel @JvmOverloads constructor(
     private val _wsConnectionState = MutableStateFlow(WebSocketManager.ConnectionState.DISCONNECTED)
     val wsConnectionState: StateFlow<WebSocketManager.ConnectionState> = _wsConnectionState.asStateFlow()
 
+    private val _coachMessage = MutableSharedFlow<String>()
+    val coachMessage: SharedFlow<String> = _coachMessage.asSharedFlow()
+
     init {
         refresh()
         webSocketManager?.connect(TokenManager.getToken(application))
@@ -105,6 +108,9 @@ class DashboardViewModel @JvmOverloads constructor(
                             assignmentDao.insertAll(remoteTasks.map { it.toEntity(isSynced = true) })
                         }
                         "assignment_done", "assignment_added", "assignment_updated", "schedule_updated" -> refresh()
+                        "voice_response", "study_advice" -> event.message?.let {
+                            _coachMessage.emit(it)
+                        }
                     }
                 }
             }
@@ -236,6 +242,18 @@ class DashboardViewModel @JvmOverloads constructor(
                 isSynced = false
             )
             dailyStatsDao.insertOrUpdate(updatedEntity)
+        }
+    }
+
+    fun sendVoiceCommand(text: String, onResponse: (String?) -> Unit) {
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                // Hitting the endpoint with speak_response=false since Android has no TTS integrated yet
+                apiService.sendVoiceCommand(VoiceCommandRequest(text = text, speak_response = false))
+                // Note: The actual AI response comes back via WebSocket `voice_response` event!
+            } catch (e: Exception) {
+                _error.value = "Voice command failed: ${e.localizedMessage}"
+            }
         }
     }
 }

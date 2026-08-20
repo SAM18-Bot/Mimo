@@ -51,4 +51,12 @@ interface MimoApiService {
 
     @GET("/sync/pull")
     suspend fun pullSync(): SyncPayload
+
+    @POST("/voice/command")
+    suspend fun sendVoiceCommand(@Body body: VoiceCommandRequest): Map<String, Any>
 }
+
+data class VoiceCommandRequest(
+    val text: String,
+    val speak_response: Boolean = false
+)

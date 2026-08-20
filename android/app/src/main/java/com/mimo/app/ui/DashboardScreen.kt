@@ -17,6 +17,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Chat
 import com.mimo.app.network.WebSocketManager
 import com.mimo.app.ui.components.AssignmentList
 import com.mimo.app.ui.components.FocusScoreGauge
@@ -37,6 +39,12 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
     val wsConnectionState by viewModel.wsConnectionState.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        viewModel.coachMessage.collect { msg ->
+            snackbarHostState.showSnackbar(msg)
+        }
+    }
 
     LaunchedEffect(error) {
         error?.let {
@@ -71,8 +79,40 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
                 )
             },
             floatingActionButton = {
-                FloatingActionButton(onClick = { showAddDialog = true }) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Assignment")
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    var showCoachDialog by remember { mutableStateOf(false) }
+                    FloatingActionButton(onClick = { showCoachDialog = true }, containerColor = MaterialTheme.colorScheme.secondaryContainer) {
+                        Icon(Icons.Default.Chat, contentDescription = "Ask Coach")
+                    }
+                    FloatingActionButton(onClick = { showAddDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "Add Assignment")
+                    }
+                    
+                    if (showCoachDialog) {
+                        var commandText by remember { mutableStateOf("") }
+                        AlertDialog(
+                            onDismissRequest = { showCoachDialog = false },
+                            title = { Text("Ask Coach") },
+                            text = {
+                                OutlinedTextField(
+                                    value = commandText,
+                                    onValueChange = { commandText = it },
+                                    label = { Text("e.g. What should I study?") }
+                                )
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    if (commandText.isNotBlank()) {
+                                        viewModel.sendVoiceCommand(commandText) { }
+                                    }
+                                    showCoachDialog = false
+                                }) { Text("Ask") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showCoachDialog = false }) { Text("Cancel") }
+                            }
+                        )
+                    }
                 }
             },
             snackbarHost = { SnackbarHost(snackbarHostState) }

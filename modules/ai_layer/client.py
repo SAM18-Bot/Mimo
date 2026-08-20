@@ -167,3 +167,27 @@ def generate_study_recommendations(context: dict, engine: str = "openai", api_ke
     except Exception as e:
         log.error(f"Study rec parse failed: {e}")
         return None
+
+def generate_coach_response(
+    question: str,
+    context: dict,
+    engine: str = "openai",
+    api_key: str = None
+) -> str:
+    """Generates a conversational response from the AI coach."""
+    from modules.ai_layer.prompts import COACH_CHAT_SYSTEM, COACH_CHAT_USER
+    import config as cfg
+
+    user_prompt = COACH_CHAT_USER.format(
+        question=question,
+        pending_assignments=context.get("pending_assignments", "None"),
+        focus_score=context.get("focus_score", 0),
+        productive_min=context.get("productive_min", 0),
+        distracting_min=context.get("distracting_min", 0)
+    )
+
+    fast_model = config.OPENAI_FAST_MODEL if engine == "openai" else "gemini-2.5-flash"
+    result = _chat(COACH_CHAT_SYSTEM, user_prompt, model=fast_model, engine=engine, api_key=api_key)
+    if result:
+        return result
+    return "I'm offline right now. Check your internet connection."

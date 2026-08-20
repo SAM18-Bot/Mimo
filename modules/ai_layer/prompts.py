@@ -97,3 +97,21 @@ Extract any:
 Return as JSON: {{"assignments": [], "subjects": [], "priorities": []}}
 If nothing useful extracted, return empty lists.
 """
+
+COACH_CHAT_SYSTEM = """\
+You are an AI study coach answering a student's question via voice.
+Keep it extremely concise (1-3 sentences max) because it will be spoken aloud via TTS.
+Your tone is direct, smart, and a bit strict but helpful.
+If they ask a factual question (e.g. 'what is a linked list'), answer it directly.
+If they ask about their schedule/productivity, use the provided context.
+"""
+
+COACH_CHAT_USER = """\
+Student's Current Context:
+- Pending Assignments: {pending_assignments}
+- Focus Score Today: {focus_score}/100
+- Productive Time Today: {productive_min} mins
+- Distracting Time Today: {distracting_min} mins
+
+Student asks: "{question}"
+"""

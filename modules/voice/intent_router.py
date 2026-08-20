@@ -48,6 +48,8 @@ class IntentRouter:
             self._handle_what_to_study()
         elif intent == "eod_report":
             self._handle_eod_report()
+        elif intent == "ask_coach":
+            self._handle_ask_coach(text)
         else:
             if self._speak:
                 self._speak("I didn't catch that. Try: add assignment, show tasks, or how productive was I.")
@@ -66,7 +68,10 @@ class IntentRouter:
             return "what_to_study"
         if any(w in text for w in ["end of day", "my report", "daily report", "summary"]):
             return "eod_report"
-        return "unknown"
+        if any(w in text for w in ["coach", "ask", "tell me", "help", "explain", "what is", "who is", "why", "how do", "can you"]):
+            return "ask_coach"
+        # Since ask_coach handles generic things, let's treat unknown as ask_coach as well to allow free-flowing questions
+        return "ask_coach"
 
     # ── handlers ─────────────────────────────────────────────────────────
     def _handle_add_assignment(self, text: str):
@@ -213,3 +218,34 @@ class IntentRouter:
         if self._speak:
             self._speak("Generating your end of day report. Give me a moment.")
         run_eod_report(speak_fn=self._speak, broadcast_fn=self._broadcast)
+
+    def _handle_ask_coach(self, text: str):
+        from db.database import get_db_ctx
+        from modules.ai_layer.client import generate_coach_response
+        from modules.behavior_engine.aggregator import get_daily_stats
+        from modules.ai_layer.roast_engine import RoastEngine
+
+        # Get stats
+        with get_db_ctx() as db:
+            stats = get_daily_stats(db, user_id=self._user_id)
+        
+        # Get pending assignments
+        engine = RoastEngine()
+        context_data = engine._get_context(self._user_id)
+
+        context = {
+            "pending_assignments": context_data.get("pending_assignments", ""),
+            "focus_score": stats.get("focus_score", 0),
+            "productive_min": stats.get("productive_min", 0),
+            "distracting_min": stats.get("distracting_min", 0)
+        }
+
+        if self._speak:
+            self._speak("Let me think about that.")
+
+        response = generate_coach_response(text, context)
+
+        if self._speak:
+            self._speak(response)
+        if self._broadcast:
+            self._broadcast({"type": "voice_response", "message": response})
