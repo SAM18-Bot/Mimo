@@ -144,8 +144,8 @@ def generate_eod_report(context: dict, engine: str = "openai", api_key: str = No
         return None
 
 
-def generate_study_recommendations(context: dict, engine: str = "openai", api_key: str = None) -> Optional[list]:
-    """Returns list of recommendation dicts or None."""
+def generate_study_recommendations(context: dict, engine: str = "openai", api_key: str = None) -> Optional[dict]:
+    """Returns dict with recommendations and suggested_subjects or None."""
     from modules.ai_layer.prompts import STUDY_ADVISOR_SYSTEM, STUDY_ADVISOR_USER
 
     user_prompt = STUDY_ADVISOR_USER.format(**context)
@@ -159,10 +159,11 @@ def generate_study_recommendations(context: dict, engine: str = "openai", api_ke
         if raw.startswith("```"):
             raw = "\n".join(raw.split("\n")[1:-1])
         data = json.loads(raw)
-        # handle both {"recommendations": [...]} and bare [...]
+        
+        # handle legacy array format just in case
         if isinstance(data, list):
-            return data
-        return data.get("recommendations", [])
+            return {"recommendations": data, "suggested_subjects": []}
+        return data
     except Exception as e:
         log.error(f"Study rec parse failed: {e}")
         return None

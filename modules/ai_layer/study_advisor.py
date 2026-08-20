@@ -50,18 +50,25 @@ class StudyAdvisor:
           subjects, weak_subjects, strong_subjects,
           time_per_subject, last_studied, recommendations
         """
+        from modules.schedule.manager import get_active_profile
+        
         time_map   = self._subject_time(user_id, days)
         completion = self._completion_rates(user_id)
         last_seen  = self._last_studied(user_id)
         overdue    = self._overdue_subjects(user_id)
         patterns   = get_weekly_patterns(self._db, user_id=user_id)
+        profile    = get_active_profile(self._db, user_id)
+        
+        profile_notes = profile.notes if profile and profile.notes else "No specific notes or year of study provided."
 
         ranked = self._rank_subjects(time_map, completion, last_seen, overdue)
         weak   = [s for s, _ in ranked[:3]]
         strong = [s for s, score in ranked if score > 70]
 
         plan    = self._build_study_plan(ranked, patterns.get("peak_productive_hour"))
-        ai_recs = self._ai_recommendations(time_map, completion, patterns, weak)
+        ai_data = self._ai_recommendations(time_map, completion, patterns, weak, profile_notes)
+        ai_recs = ai_data.get("recommendations", [])
+        suggested_subjects = ai_data.get("suggested_subjects", [])
 
         return {
             "analysis_date":      date.today().isoformat(),
@@ -75,6 +82,7 @@ class StudyAdvisor:
             "priority_ranking":   [{"subject": s, "need_score": round(n, 1)} for s, n in ranked],
             "daily_study_plan":   plan,
             "recommendations":    ai_recs,
+            "suggested_subjects": suggested_subjects,
             "peak_hour":          patterns.get("peak_productive_hour"),
             "weekly_patterns":    patterns.get("insights", []),
         }
@@ -250,13 +258,16 @@ class StudyAdvisor:
         completion: Dict[str, float],
         patterns:  dict,
         weak:      List[str],
-    ) -> List[dict]:
+        profile_notes: str,
+    ) -> dict:
         """
         Try AI-generated recommendations. Falls back to rule-based if no API key.
+        Returns a dict: {"recommendations": [...], "suggested_subjects": [...]}
         """
         try:
             from modules.ai_layer.client import generate_study_recommendations
             context = {
+                "profile_notes":    profile_notes,
                 "weekly_data":      patterns.get("weekly_data", "No data"),
                 "weak_subjects":    ", ".join(weak) if weak else "none identified",
                 "peak_window":      _fmt_peak(patterns.get("peak_productive_hour")),
@@ -270,7 +281,10 @@ class StudyAdvisor:
             log.debug("AI recommendations failed: %s", e)
 
         # Rule-based fallback
-        return _rule_based_recommendations(time_map, completion, weak)
+        return {
+            "recommendations": _rule_based_recommendations(time_map, completion, weak),
+            "suggested_subjects": []
+        }
 
 
 # ── subject extraction from window titles ────────────────────────────────

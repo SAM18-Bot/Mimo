@@ -1355,6 +1355,7 @@
         if (!res.ok) return;
         const data = await res.json();
         S.studyRecs = data.recommendations || [];
+        S.suggestedSubjects = data.suggested_subjects || [];
         S.studyPlan = data.daily_study_plan || [];
         S.patterns = data.weekly_patterns || [];
 
@@ -1941,20 +1942,39 @@
       const list = document.getElementById('rec-list');
       if (!list) return;
       const recs = S.studyRecs;
+      
+      let html = '';
       if (!recs || recs.length === 0) {
-        list.innerHTML = '<li class="text-xs text-muted text-center py-2">No recommendations available</li>';
-        return;
+        html += '<li class="text-xs text-muted text-center py-2">No recommendations available</li>';
+      } else {
+        html += recs.map(r => {
+          const prio = (typeof r === 'object' && r.priority ? r.priority : 'medium').toLowerCase();
+          const msg = typeof r === 'string' ? r : (r.recommendation || r.message || r.text || JSON.stringify(r));
+          return `
+            <li class="rec-item">
+              <span class="rec-priority ${prio}">${prio.toUpperCase()}</span>
+              <span class="text-xs text-primary">${esc(msg)}</span>
+            </li>
+          `;
+        }).join('');
       }
-      list.innerHTML = recs.map(r => {
-        const prio = (typeof r === 'object' && r.priority ? r.priority : 'medium').toLowerCase();
-        const msg = typeof r === 'string' ? r : (r.recommendation || r.message || r.text || JSON.stringify(r));
-        return `
-          <li class="rec-item">
-            <span class="rec-priority ${prio}">${prio.toUpperCase()}</span>
-            <span class="text-xs text-primary">${esc(msg)}</span>
+
+      if (S.suggestedSubjects && S.suggestedSubjects.length > 0) {
+        html += `<li class="text-xs text-muted font-bold mt-3 mb-1 uppercase tracking-widest border-b border-subtle pb-1">AI Suggested Topics</li>`;
+        html += S.suggestedSubjects.map(sub => `
+          <li class="rec-item flex items-center justify-between">
+            <span class="text-xs text-primary font-medium">${esc(sub)}</span>
+            <button onclick="addSuggestedSubject('${esc(sub).replace(/'/g, "\\'")}')" class="text-[10px] bg-purple text-white px-2 py-1 rounded font-bold hover:opacity-80 transition-opacity">Track +</button>
           </li>
-        `;
-      }).join('');
+        `).join('');
+      }
+      
+      list.innerHTML = html;
+    }
+
+    async function addSuggestedSubject(subject) {
+      if (!confirm(`Add "${subject}" as a new trackable subject? You'll be redirected to your schedule builder.`)) return;
+      window.location.href = `/schedule`;
     }
 
     function renderStudyPlan() {

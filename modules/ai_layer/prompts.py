@@ -58,12 +58,15 @@ Generate the end-of-day report JSON now.
 """
 
 STUDY_ADVISOR_SYSTEM = """\
-You are an AI academic advisor. Based on behavioral data and study patterns, 
-give specific, actionable study recommendations. Be concise. No generic advice.
-Reference the student's actual patterns and weak subjects.
+You are an AI academic advisor. Based on behavioral data, study patterns, and the student's profile, 
+give specific, actionable study recommendations and suggest new relevant topics to learn. Be concise.
+Reference the student's actual patterns, weak subjects, and their field/year of study.
 """
 
 STUDY_ADVISOR_USER = """\
+Student's Profile Notes (Year of Study, Activities, etc.):
+{profile_notes}
+
 Student's 7-day pattern data:
 {weekly_data}
 
@@ -72,8 +75,15 @@ Most productive time window: {peak_window}
 Average daily study time: {avg_study_min} minutes
 Assignment completion rate: {completion_rate}%
 
-Give 3 specific recommendations for improvement. Each max 2 sentences.
-Format as JSON array: [{{"recommendation": "...", "priority": "high|medium"}}]
+1. Give 3 specific recommendations for improvement. Each max 2 sentences.
+2. Based on their Profile Notes (e.g., Year of Study) and current subjects, suggest 2-3 NEW specific topics or skills they should learn next.
+Format as JSON object exactly like this:
+{{
+  "recommendations": [
+    {{"recommendation": "...", "priority": "high|medium"}}
+  ],
+  "suggested_subjects": ["Topic 1", "Topic 2"]
+}}
 """
 
 ACCOUNTABILITY_FOLLOW_UP = """\
