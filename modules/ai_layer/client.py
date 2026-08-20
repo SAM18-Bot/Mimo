@@ -26,8 +26,8 @@ _last_call_time: float = 0.0
 _MIN_CALL_INTERVAL = 2.0   # seconds between calls (avoid hammering)
 
 
-def _chat(system: str, user: str, model: str = None, json_mode: bool = False, engine: str = "openai", api_key: str = None) -> Optional[str]:
-    """Synchronous AI call with basic rate limiting and multi-engine support."""
+def _chat(system: str, user: str, model: str = None, json_mode: bool = False, engine: str = "gemini", api_key: str = None) -> Optional[str]:
+    """Synchronous AI call. STRICTLY uses Gemini first, falling back to OpenAI only on failure/limits."""
     global _last_call_time
 
     # Rate limit guard
@@ -37,41 +37,43 @@ def _chat(system: str, user: str, model: str = None, json_mode: bool = False, en
         
     _last_call_time = time.time()
 
-    if engine == "gemini":
-        key = api_key or config.GEMINI_API_KEY
-        if not key:
-            log.warning("GEMINI_API_KEY not set. Falling back to OpenAI.")
-        else:
-            try:
-                client = genai.Client(api_key=key)
-                gemini_model = model or "gemini-2.5-flash"
+    # ALWAYS try Gemini first, regardless of the 'engine' parameter passed by older db rows
+    gemini_key = getattr(config, 'GEMINI_API_KEY', None)
+    if gemini_key:
+        try:
+            client = genai.Client(api_key=gemini_key)
+            # Default to 3.6-flash if not specified
+            gemini_model = model if (model and "gemini" in model.lower()) else "gemini-2.5-flash"
+            
+            config_args = {
+                "system_instruction": system,
+                "temperature": 0.85,
+            }
+            if json_mode:
+                config_args["response_mime_type"] = "application/json"
                 
-                config_args = {
-                    "system_instruction": system,
-                    "temperature": 0.85,
-                }
-                if json_mode:
-                    config_args["response_mime_type"] = "application/json"
-                    
-                response = client.models.generate_content(
-                    model=gemini_model,
-                    contents=user,
-                    config=types.GenerateContentConfig(**config_args),
-                )
+            response = client.models.generate_content(
+                model=gemini_model,
+                contents=user,
+                config=types.GenerateContentConfig(**config_args),
+            )
+            if response and response.text:
                 return response.text.strip()
-            except Exception as e:
-                log.error(f"Gemini call failed: {e}. Falling back to OpenAI...")
+        except Exception as e:
+            log.error(f"Gemini call failed (limit reached or unresponsive): {e}. Falling back to OpenAI...")
+    else:
+        log.warning("GEMINI_API_KEY not set in config. Falling back to OpenAI...")
 
     # Fallback to OpenAI
-    key = api_key or config.OPENAI_API_KEY
-    if not key:
-        log.warning("OPENAI_API_KEY not set")
+    openai_key = getattr(config, 'OPENAI_API_KEY', None)
+    if not openai_key:
+        log.warning("OPENAI_API_KEY not set. No AI engines available.")
         return None
         
-    model = model or config.OPENAI_MODEL
+    openai_model = model if (model and "gpt" in model.lower()) else config.OPENAI_MODEL
     try:
         kwargs = dict(
-            model    = model,
+            model    = openai_model,
             messages = [
                 {"role": "system", "content": system},
                 {"role": "user",   "content": user},
@@ -82,12 +84,12 @@ def _chat(system: str, user: str, model: str = None, json_mode: bool = False, en
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
 
-        client = openai.OpenAI(api_key=key)
+        client = openai.OpenAI(api_key=openai_key)
         resp = client.chat.completions.create(**kwargs)
         return resp.choices[0].message.content.strip()
 
     except Exception as e:
-        log.error(f"OpenAI call failed: {e}")
+        log.error(f"OpenAI fallback call failed: {e}")
         return None
 
 
