@@ -42,12 +42,15 @@ input,select,textarea{width:100%;background:var(--bg3);border:1px solid var(--bo
         <div><label for="goal">Study minutes per day</label><input id="goal" type="number" value="120" min="1" max="600"></div>
         <div><label for="session">Session length</label><input id="session" type="number" value="50" min="15" max="180"></div>
       </div></div>
-      <div class="section"><div class="section-title">School / Coaching</div><div class="days" id="school-days"></div><div class="grid" style="margin-top:12px">
+      <div class="section"><div class="section-title">Student Profile</div><div class="grid" style="margin-bottom:12px">
+        <div><label for="year-of-study">Year of Study</label><input id="year-of-study" type="text" placeholder="e.g. High School Senior, College Sophomore" value="College Sophomore"></div>
+      </div>
+      <div class="section-title">School / College Days</div><div class="days" id="school-days"></div><div class="grid" style="margin-top:12px">
         <div><label for="school-start">Start</label><input id="school-start" type="time" value="08:00"></div>
         <div><label for="school-end">End</label><input id="school-end" type="time" value="15:00"></div>
       </div></div>
       <div class="section"><div class="section-title">Subjects</div><div class="row-list" id="subjects"></div><button class="add-btn" onclick="addSubject()">Add subject</button></div>
-      <div class="section"><div class="section-title">Fixed Commitments</div><div class="row-list" id="fixed-blocks"></div><button class="add-btn" onclick="addFixedBlock()">Add fixed block</button></div>
+      <div class="section"><div class="section-title">Daily Activities (College, Gym, Lunch, Dinner, etc.)</div><div class="row-list" id="fixed-blocks"></div><button class="add-btn" onclick="addFixedBlock()">Add activity block</button></div>
       <div class="section"><div class="section-title">Notes</div><textarea id="notes" placeholder="Anything Mimo should remember about this schedule"></textarea></div>
       <button class="primary-btn" id="build-btn" onclick="buildSchedule()">Build schedule</button>
       <div class="status" id="status"></div>
@@ -59,17 +62,53 @@ input,select,textarea{width:100%;background:var(--bg3);border:1px solid var(--bo
   </section>
 </main>
 <script>
+const originalFetch = window.fetch;
+window.fetch = async function(...args) {
+    let [resource, config] = args;
+    if (!config) config = {};
+    if (!config.headers) config.headers = {};
+    const token = localStorage.getItem('mimo_token');
+    if (token && !config.headers['Authorization'] && !config.headers.Authorization) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return await originalFetch(resource, config);
+};
 const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 function bootDays(){const el=document.getElementById('school-days');el.innerHTML='';DAYS.forEach((day,i)=>{const label=document.createElement('label');label.className='day-toggle';label.innerHTML=`<input type="checkbox" value="${i}" ${i<5?'checked':''}><span>${day}</span>`;el.appendChild(label)})}
 function addSubject(name='',priority='medium'){const row=document.createElement('div');row.className='inline-row subject-row';row.innerHTML=`<div><label>Subject</label><input class="subject-name" value="${esc(name)}" placeholder="Math"></div><div><label>Priority</label><select class="subject-priority"><option value="high" ${priority==='high'?'selected':''}>High</option><option value="medium" ${priority==='medium'?'selected':''}>Medium</option><option value="low" ${priority==='low'?'selected':''}>Low</option></select></div><button class="icon-btn" title="Remove" onclick="this.closest('.subject-row').remove()">x</button>`;document.getElementById('subjects').appendChild(row)}
 function addFixedBlock(data={}){const row=document.createElement('div');row.className='inline-row fixed-row fixed-block-row';row.innerHTML=`<div><label>Title</label><input class="fixed-title" value="${esc(data.title||'')}" placeholder="Tuition"></div><div><label>Day</label><select class="fixed-day">${DAYS.map((d,i)=>`<option value="${i}" ${data.day_of_week===i?'selected':''}>${d}</option>`).join('')}</select></div><div><label>Start</label><input class="fixed-start" type="time" value="${esc(data.start_time||'17:00')}"></div><div><label>End</label><input class="fixed-end" type="time" value="${esc(data.end_time||'18:00')}"></div><button class="icon-btn" title="Remove" onclick="this.closest('.fixed-block-row').remove()">x</button>`;document.getElementById('fixed-blocks').appendChild(row)}
-function readPayload(){const subjects=[...document.querySelectorAll('.subject-row')].map(row=>({name:row.querySelector('.subject-name').value.trim(),priority:row.querySelector('.subject-priority').value})).filter(s=>s.name);const fixed_blocks=[...document.querySelectorAll('.fixed-block-row')].map(row=>({title:row.querySelector('.fixed-title').value.trim(),day_of_week:Number(row.querySelector('.fixed-day').value),start_time:row.querySelector('.fixed-start').value,end_time:row.querySelector('.fixed-end').value})).filter(b=>b.title);return{wake_time:document.getElementById('wake').value,sleep_time:document.getElementById('sleep').value,school_days:[...document.querySelectorAll('#school-days input:checked')].map(i=>Number(i.value)),school_start:document.getElementById('school-start').value||null,school_end:document.getElementById('school-end').value||null,study_goal_minutes:Number(document.getElementById('goal').value||120),session_minutes:Number(document.getElementById('session').value||50),break_minutes:10,subjects,fixed_blocks,notes:document.getElementById('notes').value.trim()||null}}
+function readPayload(){
+  const subjects=[...document.querySelectorAll('.subject-row')].map(row=>({name:row.querySelector('.subject-name').value.trim(),priority:row.querySelector('.subject-priority').value})).filter(s=>s.name);
+  const fixed_blocks=[...document.querySelectorAll('.fixed-block-row')].map(row=>({title:row.querySelector('.fixed-title').value.trim(),day_of_week:Number(row.querySelector('.fixed-day').value),start_time:row.querySelector('.fixed-start').value,end_time:row.querySelector('.fixed-end').value})).filter(b=>b.title);
+  const yearOfStudy = document.getElementById('year-of-study').value.trim();
+  let baseNotes = document.getElementById('notes').value.trim();
+  const notes = yearOfStudy ? `Year of Study: ${yearOfStudy}\n${baseNotes}` : baseNotes;
+  return{
+    wake_time:document.getElementById('wake').value,
+    sleep_time:document.getElementById('sleep').value,
+    school_days:[...document.querySelectorAll('#school-days input:checked')].map(i=>Number(i.value)),
+    school_start:document.getElementById('school-start').value||null,
+    school_end:document.getElementById('school-end').value||null,
+    study_goal_minutes:Number(document.getElementById('goal').value||120),
+    session_minutes:Number(document.getElementById('session').value||50),
+    break_minutes:10,
+    subjects,
+    fixed_blocks,
+    notes: notes||null
+  }
+}
 async function buildSchedule(){const btn=document.getElementById('build-btn');btn.disabled=true;showStatus('Building schedule...','');try{const r=await fetch('/schedule/onboarding',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(readPayload())});const data=await r.json();if(!r.ok){showStatus(data.detail||'Could not build schedule.','err');return}renderWeek(data.blocks||[]);showStatus('Schedule saved.','ok')}catch{showStatus('Server error while building schedule.','err')}finally{btn.disabled=false}}
 async function loadSchedule(){try{const r=await fetch('/schedule/weekly');renderWeek(await r.json()||[])}catch{renderWeek([])}}
 function renderWeek(blocks){const week=document.getElementById('week');week.innerHTML='';const byDay=Array.from({length:7},()=>[]);(blocks||[]).forEach(block=>byDay[block.day_of_week]?.push(block));byDay.forEach((items,day)=>{const col=document.createElement('div');col.className='day-col';col.innerHTML=`<div class="day-head">${DAYS[day]}</div>`;if(!items.length){col.innerHTML+='<div class="empty">No blocks</div>'}else{items.forEach(block=>{const el=document.createElement('div');el.className=`block ${block.kind}`;el.innerHTML=`<div class="time">${esc(block.start_time)}-${esc(block.end_time)}</div><div class="title">${esc(block.title)}</div><div class="meta">${esc(block.flexibility)} / ${esc(block.status)}</div>`;col.appendChild(el)})}week.appendChild(col)});document.getElementById('schedule-state').textContent=blocks.length?`${blocks.length} blocks in active schedule`:'No schedule loaded'}
 function showStatus(text,cls){const el=document.getElementById('status');el.textContent=text;el.className='status '+(cls||'')}
 function esc(value){return String(value||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
-bootDays();addSubject('Math','high');addSubject('Physics','medium');loadSchedule();
+bootDays();
+addSubject('Math','high');
+addSubject('Physics','medium');
+addFixedBlock({title: 'Lunch', day_of_week: 0, start_time: '13:00', end_time: '14:00'});
+addFixedBlock({title: 'Dinner', day_of_week: 0, start_time: '20:00', end_time: '21:00'});
+addFixedBlock({title: 'Gym', day_of_week: 0, start_time: '18:00', end_time: '19:00'});
+loadSchedule();
 </script>
 </body>
 </html>

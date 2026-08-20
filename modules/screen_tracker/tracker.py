@@ -12,8 +12,6 @@ from datetime import datetime, date
 
 import psutil
 
-from db.database import get_db_ctx
-from db.models import ScreenSession
 from modules.screen_tracker.categorizer import categorize_app
 from modules.screen_tracker.session import SessionStitcher, Session
 import config
