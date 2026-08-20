@@ -103,8 +103,14 @@ function renderWeek(blocks){const week=document.getElementById('week');week.inne
 function showStatus(text,cls){const el=document.getElementById('status');el.textContent=text;el.className='status '+(cls||'')}
 function esc(value){return String(value||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 bootDays();
-addSubject('Math','high');
-addSubject('Physics','medium');
+  const urlParams = new URLSearchParams(window.location.search);
+  const addSubjectParam = urlParams.get('add_subject');
+  if (addSubjectParam) {
+    addSubject(addSubjectParam, 'high');
+  } else {
+    addSubject('Math','high');
+    addSubject('Physics','medium');
+  }
 addFixedBlock({title: 'Lunch', day_of_week: 0, start_time: '13:00', end_time: '14:00'});
 addFixedBlock({title: 'Dinner', day_of_week: 0, start_time: '20:00', end_time: '21:00'});
 addFixedBlock({title: 'Gym', day_of_week: 0, start_time: '18:00', end_time: '19:00'});
