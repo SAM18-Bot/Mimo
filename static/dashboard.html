@@ -591,6 +591,113 @@
       transition: opacity 0.3s ease;
     }
     .modal-overlay.open { opacity: 1; pointer-events: auto; }
+  
+    /* --- COACH CHAT WIDGET --- */
+    #coach-widget {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      pointer-events: none;
+    }
+    #coach-toggle {
+      width: 56px;
+      height: 56px;
+      border-radius: 28px;
+      background: var(--brand);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+      transition: transform 0.2s;
+      pointer-events: auto;
+    }
+    #coach-toggle:hover { transform: scale(1.05); }
+    #coach-panel {
+      width: 320px;
+      height: 400px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 16px;
+      display: none;
+      flex-direction: column;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      pointer-events: auto;
+      overflow: hidden;
+    }
+    #coach-panel.open { display: flex; }
+    #coach-header {
+      background: var(--bg-card-hover);
+      padding: 12px 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #coach-close { cursor: pointer; color: var(--text-muted); }
+    #coach-close:hover { color: var(--text-primary); }
+    #coach-messages {
+      flex: 1;
+      padding: 12px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .coach-msg {
+      max-width: 85%;
+      padding: 8px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .coach-msg.user {
+      align-self: flex-end;
+      background: var(--brand);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+    }
+    .coach-msg.ai {
+      align-self: flex-start;
+      background: var(--bg-pill);
+      color: var(--text-primary);
+      border-bottom-left-radius: 4px;
+    }
+    #coach-input-area {
+      padding: 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+    }
+    #coach-input {
+      flex: 1;
+      background: var(--bg-body);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 8px 12px;
+      color: var(--text-primary);
+      outline: none;
+      font-size: 13px;
+    }
+    #coach-send {
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      padding: 0 16px;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
   </style>
 </head>
 <body>
@@ -1250,7 +1357,50 @@
       applyTheme(S.theme);
       startClock();
       initBreakdownChart();
-      loadInitialData();
+      
+    /* --- COACH WIDGET LOGIC --- */
+    const coachToggle = document.getElementById('coach-toggle');
+    const coachPanel = document.getElementById('coach-panel');
+    const coachClose = document.getElementById('coach-close');
+    const coachInput = document.getElementById('coach-input');
+    const coachSend = document.getElementById('coach-send');
+    const coachMessages = document.getElementById('coach-messages');
+
+    if(coachToggle) coachToggle.onclick = () => coachPanel.classList.toggle('open');
+    if(coachClose) coachClose.onclick = () => coachPanel.classList.remove('open');
+    
+    function appendCoachMessage(text, sender) {
+      const div = document.createElement('div');
+      div.className = 'coach-msg ' + sender;
+      div.textContent = text;
+      coachMessages.appendChild(div);
+      coachMessages.scrollTop = coachMessages.scrollHeight;
+    }
+
+    async function sendCoachCommand() {
+      const text = coachInput.value.trim();
+      if (!text) return;
+      
+      appendCoachMessage(text, 'user');
+      coachInput.value = '';
+      
+      try {
+        await fetch('/voice/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text, speak_response: false })
+        });
+      } catch (e) {
+        console.warn('Coach request failed', e);
+      }
+    }
+
+    if(coachSend) coachSend.onclick = sendCoachCommand;
+    if(coachInput) coachInput.addEventListener('keypress', e => {
+      if (e.key === 'Enter') sendCoachCommand();
+    });
+
+    loadInitialData();
       connectWebSocket();
 
       if (typeof lucide !== 'undefined') {
@@ -1461,9 +1611,7 @@
         case 'study_advice':
           showToast('🎯 ' + (msg.message || 'Study advice received'));
           break;
-        case 'voice_response':
-          showToast('🔊 ' + (msg.message || 'Voice update'));
-          break;
+        case 'voice_response': showToast('🎙️ ' + (msg.message || 'Voice update')); if (typeof appendCoachMessage === 'function') appendCoachMessage(msg.message, 'ai'); break;
       }
     }
 
@@ -2164,5 +2312,28 @@
       if (sidebar) sidebar.classList.toggle('mobile-open');
     }
   </script>
+
+  <!-- COACH WIDGET -->
+  <div id="coach-widget">
+    <div id="coach-panel">
+      <div id="coach-header">
+        <span>AI Coach</span>
+        <span id="coach-close">✖</span>
+      </div>
+      <div id="coach-messages">
+        <div class="coach-msg ai">Hey there. What do you need help with?</div>
+      </div>
+      <div id="coach-input-area">
+        <input type="text" id="coach-input" placeholder="Ask coach..." autocomplete="off">
+        <button id="coach-send">Send</button>
+      </div>
+    </div>
+    <div id="coach-toggle">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+    </div>
+  </div>
+
 </body>
 </html>
