@@ -6,9 +6,6 @@ load_dotenv()
 # ─────────────────────────────────────────
 # AI Engines
 # ─────────────────────────────────────────
-OPENAI_API_KEY    = os.getenv("OPENAI_API_KEY", "")
-OPENAI_MODEL      = "gpt-4o"
-OPENAI_FAST_MODEL = "gpt-4o-mini"   # for real-time roasts (cheaper + faster)
 GEMINI_API_KEY    = os.getenv("GEMINI_API_KEY", "")
 
 # ─────────────────────────────────────────
