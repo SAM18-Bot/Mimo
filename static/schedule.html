@@ -44,6 +44,7 @@ input,select,textarea{width:100%;background:var(--bg3);border:1px solid var(--bo
       </div></div>
       <div class="section"><div class="section-title">Student Profile</div><div class="grid" style="margin-bottom:12px">
         <div><label for="year-of-study">Year of Study</label><input id="year-of-study" type="text" placeholder="e.g. High School Senior, College Sophomore" value="College Sophomore"></div>
+        <div><label for="primary-goal">Primary Goal (Optional)</label><input id="primary-goal" type="text" placeholder="e.g. Ace my finals, get into med school"></div>
       </div>
       <div class="section-title">School / College Days</div><div class="days" id="school-days"></div><div class="grid" style="margin-top:12px">
         <div><label for="school-start">Start</label><input id="school-start" type="time" value="08:00"></div>
@@ -81,8 +82,11 @@ function readPayload(){
   const subjects=[...document.querySelectorAll('.subject-row')].map(row=>({name:row.querySelector('.subject-name').value.trim(),priority:row.querySelector('.subject-priority').value})).filter(s=>s.name);
   const fixed_blocks=[...document.querySelectorAll('.fixed-block-row')].map(row=>({title:row.querySelector('.fixed-title').value.trim(),day_of_week:Number(row.querySelector('.fixed-day').value),start_time:row.querySelector('.fixed-start').value,end_time:row.querySelector('.fixed-end').value})).filter(b=>b.title);
   const yearOfStudy = document.getElementById('year-of-study').value.trim();
+  const primaryGoal = document.getElementById('primary-goal').value.trim();
   let baseNotes = document.getElementById('notes').value.trim();
-  const notes = yearOfStudy ? `Year of Study: ${yearOfStudy}\n${baseNotes}` : baseNotes;
+  let notes = baseNotes;
+  if (primaryGoal) notes = `Primary Goal: ${primaryGoal}\n` + notes;
+  if (yearOfStudy) notes = `Year of Study: ${yearOfStudy}\n` + notes;
   return{
     wake_time:document.getElementById('wake').value,
     sleep_time:document.getElementById('sleep').value,
@@ -98,7 +102,70 @@ function readPayload(){
   }
 }
 async function buildSchedule(){const btn=document.getElementById('build-btn');btn.disabled=true;showStatus('Building schedule...','');try{const r=await fetch('/schedule/onboarding',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(readPayload())});const data=await r.json();if(!r.ok){showStatus(data.detail||'Could not build schedule.','err');return}renderWeek(data.blocks||[]);showStatus('Schedule saved.','ok')}catch{showStatus('Server error while building schedule.','err')}finally{btn.disabled=false}}
-async function loadSchedule(){try{const r=await fetch('/schedule/weekly');renderWeek(await r.json()||[])}catch{renderWeek([])}}
+async function loadSchedule() {
+  try {
+    let profileLoaded = false;
+    const profRes = await fetch('/schedule/profile');
+    if (profRes.ok) {
+      const p = await profRes.json();
+      if (p && p.id) {
+        profileLoaded = true;
+        document.getElementById('wake').value = p.wake_time || '06:30';
+        document.getElementById('sleep').value = p.sleep_time || '22:30';
+        document.getElementById('goal').value = p.study_goal_minutes || 120;
+        document.getElementById('session').value = p.session_minutes || 50;
+        if (p.school_start) document.getElementById('school-start').value = p.school_start;
+        if (p.school_end) document.getElementById('school-end').value = p.school_end;
+        if (p.notes) {
+          let n = p.notes;
+          const yearMatch = n.match(/Year of Study:\s*(.*)/);
+          if (yearMatch) {
+            document.getElementById('year-of-study').value = yearMatch[1].trim();
+            n = n.replace(/Year of Study:.*\n?/, '');
+          }
+          const goalMatch = n.match(/Primary Goal:\s*(.*)/);
+          if (goalMatch) {
+            document.getElementById('primary-goal').value = goalMatch[1].trim();
+            n = n.replace(/Primary Goal:.*\n?/, '');
+          }
+          document.getElementById('notes').value = n.trim();
+        }
+      }
+    }
+    const r = await fetch('/schedule/weekly');
+    if (r.ok) {
+      const blocks = await r.json() || [];
+      renderWeek(blocks);
+      
+      // If profile exists, also extract subjects and fixed blocks from the weekly schedule
+      if (profileLoaded && blocks.length > 0) {
+        document.getElementById('subjects').innerHTML = '';
+        document.getElementById('fixed-blocks').innerHTML = '';
+        
+        const addedSubjects = new Set();
+        const addedFixed = new Set();
+        
+        blocks.forEach(b => {
+          if (b.kind === 'study' && b.subject && !addedSubjects.has(b.subject)) {
+             addedSubjects.add(b.subject);
+             addSubject(b.subject, 'medium');
+          } else if (b.kind === 'fixed') {
+             const key = b.title + b.day_of_week + b.start_time;
+             if (!addedFixed.has(key)) {
+                addedFixed.add(key);
+                addFixedBlock({ title: b.title, day_of_week: b.day_of_week, start_time: b.start_time, end_time: b.end_time });
+             }
+          }
+        });
+      }
+    } else {
+      renderWeek([]);
+    }
+  } catch (e) {
+    console.error(e);
+    renderWeek([]);
+  }
+}
 function renderWeek(blocks){const week=document.getElementById('week');week.innerHTML='';const byDay=Array.from({length:7},()=>[]);(blocks||[]).forEach(block=>byDay[block.day_of_week]?.push(block));byDay.forEach((items,day)=>{const col=document.createElement('div');col.className='day-col';col.innerHTML=`<div class="day-head">${DAYS[day]}</div>`;if(!items.length){col.innerHTML+='<div class="empty">No blocks</div>'}else{items.forEach(block=>{const el=document.createElement('div');el.className=`block ${block.kind}`;el.innerHTML=`<div class="time">${esc(block.start_time)}-${esc(block.end_time)}</div><div class="title">${esc(block.title)}</div><div class="meta">${esc(block.flexibility)} / ${esc(block.status)}</div>`;col.appendChild(el)})}week.appendChild(col)});document.getElementById('schedule-state').textContent=blocks.length?`${blocks.length} blocks in active schedule`:'No schedule loaded'}
 function showStatus(text,cls){const el=document.getElementById('status');el.textContent=text;el.className='status '+(cls||'')}
 function esc(value){return String(value||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
