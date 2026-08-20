@@ -13,10 +13,11 @@ def reset_database():
     
     # Require confirmation if not sqlite
     if not str(engine.url).startswith("sqlite"):
-        confirm = input("WARNING: This is not a local SQLite database. Are you sure you want to DROP all tables? (y/N): ")
-        if confirm.lower() != 'y':
-            print("Aborted.")
-            sys.exit(0)
+        if "--force" not in sys.argv:
+            confirm = input("WARNING: This is not a local SQLite database (e.g. Neon/Postgres). Are you sure you want to DROP all tables? (y/N): ")
+            if confirm.lower() != 'y':
+                print("Aborted. Run with --force to bypass this prompt.")
+                sys.exit(0)
 
     print("Dropping all tables...")
     Base.metadata.drop_all(bind=engine)
