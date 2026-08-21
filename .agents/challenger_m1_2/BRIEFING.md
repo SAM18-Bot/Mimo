@@ -1,41 +1,47 @@
-# BRIEFING â€” 2026-08-13T03:50:00Z
+# BRIEFING — 2026-08-20T18:07:30Z
 
 ## Mission
-Adversarial verification of Milestone M1 fixes: stress-test DailySummary schema columns, push_sync()/pull_sync() parameters, and RoastLog creation, run pytest, and deliver handoff with explicit verdict.
+Empirically verify API route authentication and error handling for unauthorized requests across /settings/*, /monitoring/*, /voice/*, /sync/*, verify 401s and token access, run test suites, stress-test API security, and provide verdict.
 
-## ðŸ”’ My Identity
-- Archetype: empirical_challenger
+## ?? My Identity
+- Archetype: EMPIRICAL CHALLENGER
 - Roles: critic, specialist
 - Working directory: c:\Users\samee\projects\Mimo\.agents\challenger_m1_2
-- Original parent: 8b1b6e44-a34d-477f-b259-f51e8d00bb77
-- Milestone: M1
-- Instance: 2 of 2 (or 1 of 1 for challenger)
+- Original parent: 389aea7e-cf85-4179-95b1-4294b4b55e7b
+- Milestone: milestone_1
+- Instance: 2 of 2
 
-## ðŸ”’ Key Constraints
-- Empirically verify all claims using code execution / pytest / stress scripts.
-- Do NOT fix implementation bugs yourself â€” report them in the handoff.
-- Write report and explicit verdict (APPROVE or REJECT) to `c:\Users\samee\projects\Mimo\.agents\challenger_m1_2\handoff.md`.
-- Send message to parent (ID `8b1b6e44-a34d-477f-b259-f51e8d00bb77`) upon completion.
+## ?? Key Constraints
+- Review-only — do NOT modify implementation code directly
+- Must run verification code independently (do NOT trust worker claims)
+- If cannot reproduce a bug empirically, it does not count
 
 ## Current Parent
-- Conversation ID: 8b1b6e44-a34d-477f-b259-f51e8d00bb77
-- Updated: 2026-08-13T03:40:24Z
+- Conversation ID: 389aea7e-cf85-4179-95b1-4294b4b55e7b
+- Updated: not yet
+
+## Review Scope
+- **Files to review**: pi/routes_settings.py, pi/routes_monitoring.py, pi/routes_voice.py, pi/routes_sync.py, pi/routes_auth.py, 	ests/test_api.py, 	ests/test_auth_device_parent.py, 	ests/test_cv_voice.py
+- **Interface contracts**: PROJECT.md, ORIGINAL_REQUEST.md
+- **Review criteria**: Authentication enforcement on all routes, 401 on missing/invalid token, 200/appropriate on valid token, multi-tenant isolation, error handling, test suite performance.
 
 ## Attack Surface
-- **Hypotheses tested**:
-  - `DailySummary` schema column mismatch in `push_sync()`: Verified `productive_time_s`, `distracted_time_s`, `neutral_time_s`, `desk_time_s`. Created and ran `test_push_sync_stress_column_names_and_dates`. (PASSED)
-  - `pull_sync()` missing auth and `user_id` parameter to `get_upcoming()`: Verified multi-tenant user isolation. Created and ran `test_pull_sync_user_isolation`. (PASSED)
-  - `RoastEngine._save_roast()` missing `user_id`: Verified explicit `user_id` persistence to `RoastLog` DB model. Created and ran `test_roast_engine_creation_and_multiuser`. (PASSED)
-  - `IntentRouter._handle_what_to_study()` missing `user_id` & session scoping: Tested fallback path under `StudyAdvisor` exception. (FAILED with `DetachedInstanceError`)
-- **Vulnerabilities found**:
-  - `modules/voice/intent_router.py:198-204`: `_handle_what_to_study()` accesses `most_urgent.title` and `most_urgent.due_date` outside `with get_db_ctx() as db:`, triggering `sqlalchemy.orm.exc.DetachedInstanceError`.
-- **Untested angles**: M2/M3/M4/M5 requirements outside M1 scope.
+- **Hypotheses tested**: 
+  - All endpoints in /settings/*, /monitoring/*, /voice/*, /sync/* reject unauthenticated requests with 401: VERIFIED (14 target endpoints return 401).
+  - Malformed headers, expired tokens, revoked tokens, and ghost user tokens are rejected with 401: VERIFIED.
+  - Valid tokens allow appropriate access: VERIFIED.
+  - Multi-tenant cross-user data isolation on /sync/* and /voice/*: VERIFIED.
+  - Edge case error handling (zero durations, future dates, unparseable voice text, malformed schemas): VERIFIED.
+- **Vulnerabilities found**: None. System is resilient.
+- **Untested angles**: Hardware-dependent peripherals (mocked in test environment via NO_HARDWARE=1, NO_VOICE=1).
 
 ## Loaded Skills
-- None specified in prompt.
+- None
+
+## Key Decisions Made
+- Auth and error handling verified across 80 tests in required suites and 418 tests in full suite. Verdict: APPROVE.
 
 ## Artifact Index
-- `.agents/challenger_m1_2/DISPATCH.md` â€” Incoming dispatch log
-- `.agents/challenger_m1_2/BRIEFING.md` â€” Working briefing
-- `.agents/challenger_m1_2/handoff.md` â€” Final verification report & verdict
-- `tests/test_empirical_m1_stress.py` â€” Empirical stress test harness suite
+- .agents/challenger_m1_2/progress.md — Liveness & progress tracking
+- .agents/challenger_m1_2/handoff.md — Final verdict and empirical challenge report
+- 	ests/test_challenger_m1_2_empirical.py — Custom empirical test suite (31 tests)

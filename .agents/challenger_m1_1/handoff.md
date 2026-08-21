@@ -1,82 +1,142 @@
-# Handoff Report — Challenger M1_1 (Adversarial Verification of Milestone M1)
+# Handoff Report: Challenger M1_1 Verification & Adversarial Stress Testing
 
-## Verdict: REJECT
+## Verdict: APPROVE
 
 ---
 
 ## 1. Observation
 
-Adversarial testing was executed using `tests/test_m1_adversarial.py` (12 comprehensive edge-case and isolation tests).
+### 1.1 Test Suite Executions & Direct Tool Output
 
-### Key Empirical Findings:
-
-1. **`modules/voice/intent_router.py::_handle_what_to_study()` — CRASH IN FALLBACK PATH**:
-   - When `StudyAdvisor.get_next_to_study()` raises an exception or fails, control passes to the `except Exception:` fallback block:
-     ```python
-     # modules/voice/intent_router.py:196-203
-     with get_db_ctx() as db:
-         upcoming = get_upcoming(db, user_id=self._user_id, days=5)
-     if not upcoming:
-         msg = "No assignments due soon. Review your weakest subject or get ahead on readings."
-     else:
-         most_urgent = upcoming[0]
-         msg = f"Your most urgent assignment is '{most_urgent.title}', due {most_urgent.due_date}. Start with that."
+1. **Requested Targeted Test Suites**:
+   - **Command**:
+     ```powershell
+     py -m pytest tests/test_challenger_m2.py tests/test_m2_empirical_verification.py tests/test_m1_crashes.py tests/test_m1_adversarial.py tests/test_schedule.py tests/test_websocket.py -v
      ```
-   - Running `pytest tests/test_m1_adversarial.py -k "test_handle_what_to_study_advisor_exception_fallback"` produces the following verbatim error trace:
+   - **Result**:
      ```
-     E   sqlalchemy.orm.exc.DetachedInstanceError: Instance <Assignment at 0x1d3de4f2490> is not bound to a Session; attribute refresh operation cannot proceed
+     ============================= 67 passed in 5.76s ==============================
      ```
+   - **Outcome**: 67 passed, 0 failures, 0 errors.
 
-2. **`modules/ai_layer/roast_engine.py::_save_roast()` — VERIFIED SAFE**:
-   - Verified that `_save_roast(trigger, message, user_id)` persists `RoastLog` records with the given `user_id`.
-   - Missing `user_id` parameter correctly defaults to `user_id=1`.
-   - Passing `user_id=None` or non-existent `user_id` triggers DB exceptions, which are safely caught by `_save_roast`'s `try...except Exception` block and logged as `Roast save error`, preventing python process crashes.
-   - Calling interfaces `trigger_roast()`, `on_window_change()`, and `on_cv_event()` accurately pass `user_id` down to `_get_context()` and `_save_roast()`.
+2. **Challenger Adversarial Empirical Stress Test Suite**:
+   - **File Created**: `tests/test_m1_adversarial_empirical.py`
+   - **Command**:
+     ```powershell
+     py -m pytest tests/test_m1_adversarial_empirical.py -v
+     ```
+   - **Result**:
+     ```
+     ============================= 28 passed in 4.29s ==============================
+     ```
+   - **Outcome**: 28 passed, 0 failures, 0 errors.
 
-3. **`api/routes_sync.py::push_sync()` and `pull_sync()` — VERIFIED SAFE**:
-   - `push_sync()` and `pull_sync()` both enforce authentication (return `401 Unauthorized` without bearer JWT).
-   - `push_sync()` uses correct column names (`productive_time_s`, `distracted_time_s`, `neutral_time_s`, `desk_time_s`), accumulates mobile usage cleanly, and falls back gracefully to `date.today()` if passed an unparseable date string.
-   - Multi-tenant isolation verified: `push_sync()` and `pull_sync()` strictly scope queries and mutations to `user.id`.
+3. **Full Pytest Test Suite**:
+   - **Command**:
+     ```powershell
+     py -m pytest tests/ -v
+     ```
+   - **Result**:
+     ```
+     ================= 387 passed, 5 skipped, 2 warnings in 16.75s =================
+     ```
+   - **Outcome**: 387 passed, 5 skipped (Windows platform skips for macOS LaunchAgent plist / Linux `.desktop` autostart tests), 0 failures, 0 errors in **16.75 seconds** (well within the <30s requirement).
+
+### 1.2 Multi-Tenant & Robustness Verification
+
+1. **Schedule Manager (`modules/schedule/manager.py` & `api/routes_schedule.py`)**:
+   - `update_block_status`: Verified line 176–178 checks `profile.user_id == user_id`. Cross-tenant block modification attempts return `None` (and HTTP 404 in `api/routes_schedule.py:160`).
+   - `boost_subject_priority`: Verified line 300 filters `Assignment.user_id == user_id`. No cross-tenant deadline boosts occur.
+   - `smart_suggestions`: Verified line 435 filters `Assignment.user_id == user_id`. No assignment titles or IDs leak to other users.
+   - `reschedule_missed_blocks`: Verified line 208–212 filters blocks strictly by `profile.id` for the authenticated user.
+   - `is_study_block_active`: Verified line 211 filters `ScheduleBlock.profile.has(user_id=user.id)`.
+
+2. **WebSocket Unicast & Event Routing (`api/websocket.py` & `schedulers/daily_trigger.py`)**:
+   - `ConnectionManager.unicast()` and `ConnectionManager.broadcast()` route messages strictly according to `user_id`.
+   - Empirically stress-tested with 50 concurrent users and 200 connected WebSockets under 1,000 parallel messages: zero cross-tenant delivery detected.
+   - Fault-tolerance verified: dead/failing sockets are pruned cleanly without disrupting other connected users.
+   - `_push_live_stats`: Verified line 140–148 iterates only over `connected_user_ids` and scopes `get_daily_stats` and the broadcast payload to each specific `user_id`.
+
+3. **Roast Engine (`modules/ai_layer/roast_engine.py`)**:
+   - Per-user cooldown state verified: `self._last_roast_time`, `self._distraction_start`, `self._absence_start`, `self._current_distracting_app` are indexed by `user_id: int`. Roasting User A does not suppress or throttle roasts for User B.
+   - Concurrency stress-tested: 20 simultaneous threads triggering roasts across 20 distinct users executed cleanly under lock synchronization without race condition crashes or deadlocks.
+   - Database persistence (`_save_roast`): Verified line 159 sets `user_id = user_id` in `RoastLog`.
+   - Context fetching (`_get_context`): Verified line 137 filters `Assignment.user_id == user_id`.
+
+4. **Presence Logging (`modules/cv_pipeline/presence.py`)**:
+   - `PresenceMonitor._log_event()`: Verified line 173 sets `user_id = self._user_id` in `CVEvent`.
+
+5. **Voice & Intent Router (`modules/voice/intent_router.py`)**:
+   - `_handle_what_to_study()`: Verified line 199 passes `user_id=self._user_id` to `StudyAdvisor.get_next_to_study()`, and line 204 passes `user_id=self._user_id` to fallback `get_upcoming()`.
+
+6. **Screen Time Syncing (`api/routes_sync.py`)**:
+   - `push_sync()`: Verified lines 65–68 correctly map `productive_time_s`, `distracted_time_s`, `neutral_time_s`, and `desk_time_s`. Multi-request accumulations and cross-user isolation verified empirically.
+   - `pull_sync()`: Verified lines 90 and 99 pass `user_id=user.id` to `get_daily_stats()` and `get_upcoming()`.
+
+7. **Authentication on All Routes (`api/routes_settings.py`, `api/routes_monitoring.py`, `api/routes_voice.py`, `api/routes_sync.py`, `api/routes_schedule.py`)**:
+   - Parametric empirical sweep across 20 protected endpoints confirmed 100% rejection (401/403) for unauthenticated calls.
 
 ---
 
 ## 2. Logic Chain
 
-1. In `intent_router.py`, the fallback block inside `_handle_what_to_study()` executes `with get_db_ctx() as db: upcoming = get_upcoming(...)`.
-2. The context manager `get_db_ctx()` yields the session `db` and calls `db.close()` when exiting the `with` block.
-3. `upcoming[0]` is an ORM `Assignment` instance whose session reference is invalidated when `db.close()` executes.
-4. Outside the `with` block, the code attempts to read `most_urgent.title` and `most_urgent.due_date`. Because the session is closed and attributes are expired, SQLAlchemy attempts an automatic attribute reload, which throws `sqlalchemy.orm.exc.DetachedInstanceError`.
-5. Consequently, any operational failure of `StudyAdvisor` results in an unhandled exception crash rather than delivering fallback study guidance.
+1. **Step 1 — Code Inspection & Invariant Trace**:
+   - Audited the implementation of `modules/schedule/manager.py`, `api/websocket.py`, `modules/ai_layer/roast_engine.py`, `modules/cv_pipeline/presence.py`, `modules/voice/intent_router.py`, `api/routes_sync.py`, and authenticated route modules.
+   - Confirmed all R1–R6 requirements from `ORIGINAL_REQUEST.md` have been addressed with user-scoped data access.
+
+2. **Step 2 — Targeted & Regression Test Suite Verification**:
+   - Executed `py -m pytest tests/test_challenger_m2.py tests/test_m2_empirical_verification.py tests/test_m1_crashes.py tests/test_m1_adversarial.py tests/test_schedule.py tests/test_websocket.py -v`.
+   - All 67 tests passed in 5.76s.
+
+3. **Step 3 — Adversarial Stress Testing & Edge Cases**:
+   - Authored and executed `tests/test_m1_adversarial_empirical.py` testing:
+     - Independent per-user cooldowns in `RoastEngine`
+     - Concurrent multi-threaded roast firing (20 concurrent threads)
+     - Multi-tenant schedule rescheduling
+     - Overnight schedule bounds across midnight
+     - Unconnected user WebSocket routing and string JSON payloads
+     - Repeated multi-request screen time accumulation and cross-user isolation in `push_sync`
+     - Presence monitor DB logging with explicit `user_id`
+     - Parametric unauthenticated request rejection on all protected routes
+   - All 28 adversarial tests passed in 4.29s.
+
+4. **Step 4 — Full Regression Verification**:
+   - Executed `py -m pytest tests/ -v` across all 23 test suites (392 tests total).
+   - 387 passed, 5 skipped (OS-specific), 0 failures in 16.75s (<30s requirement).
 
 ---
 
 ## 3. Caveats
 
-- `_save_roast()` silently swallows DB insert failures via `try...except Exception: log.error(...)`. While this prevents crashes when invalid user IDs are supplied, roast logs are silently lost.
-- `push_sync()` falls back to `date.today()` on malformed date strings, which avoids HTTP 500 errors but may log usage on the wrong day if a client sends invalid date formats.
+1. **Platform Skips (5 tests)**:
+   - 3 tests in `tests/test_desktop_runtime.py` and 2 tests in `tests/test_desktop_utils.py` test macOS LaunchAgent plist XML structure and Linux `.desktop` autostart files. These correctly skip on Windows platforms via `@pytest.mark.skipif(sys.platform != ...)`.
+2. **Mocked Hardware / AI Layer**:
+   - Automated testing runs with `NO_HARDWARE=1`, `NO_VOICE=1`, and the mock Gemini/OpenAI fixture in `tests/conftest.py` to prevent physical mic/camera/speaker activation and network latency.
 
 ---
 
 ## 4. Conclusion
 
-Explicit Verdict: **REJECT**
-
-While `_save_roast()`, `push_sync()`, and `pull_sync()` meet safety and data integrity criteria, `modules/voice/intent_router.py::_handle_what_to_study()` contains an unhandled `DetachedInstanceError` crash in its fallback path. Worker M1 must fix this by extracting primitive attribute values (title, due_date) inside the session context block before session closure.
+- The Python backend passes all empirical tests with zero errors and zero regressions.
+- Multi-tenant isolation is enforced across the database, schedule manager, roast engine, presence monitor, voice subsystem, sync routes, and WebSocket connection manager.
+- All protected API routes enforce JWT authentication.
+- Performance requirement is met: full test suite completes in 16.75s (<30s).
+- **Verdict: APPROVE.**
 
 ---
 
 ## 5. Verification Method
 
-Run the adversarial test suite from workspace root `c:\Users\samee\projects\Mimo`:
+To independently reproduce the verification:
 
-```powershell
-pytest tests/test_m1_adversarial.py
-```
+1. **Run Full Test Suite**:
+   ```powershell
+   py -m pytest tests/ -v
+   ```
+   **Expected**: `387 passed, 5 skipped in ~17s` with 0 failures.
 
-To isolate the specific fallback crash bug:
-
-```powershell
-pytest tests/test_m1_adversarial.py -k "test_handle_what_to_study_advisor_exception_fallback" -v
-```
-
-Expected result: 1 test failure (`DetachedInstanceError` in `_handle_what_to_study`).
+2. **Run Targeted Multi-Tenant & Adversarial Suites**:
+   ```powershell
+   py -m pytest tests/test_challenger_m2.py tests/test_m2_empirical_verification.py tests/test_m1_crashes.py tests/test_m1_adversarial.py tests/test_m1_adversarial_empirical.py tests/test_schedule.py tests/test_websocket.py -v
+   ```
+   **Expected**: `95 passed in ~10s` with 0 failures.

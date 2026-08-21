@@ -1,17 +1,29 @@
-## 2026-08-13T09:21:47Z
+## 2026-08-20T18:01:43Z
+You are worker_m2 (Desktop App Packaging Specialist).
+Working directory: c:\Users\samee\projects\Mimo\.agents\worker_m2
 
-Worker M2 Assignment: Milestone M2 — Fix Cross-Tenant Data Leaks & WebSocket Multi-Tenancy (Requirement R2)
+Read the authoritative requirements at:
+`c:\Users\samee\projects\Mimo\.agents\ORIGINAL_REQUEST.md`
 
-Tasks:
-1. `modules/schedule/manager.py`:
-   - `boost_subject_priority()`: filter `Assignment` query by `.filter(Assignment.user_id == user_id)`.
-   - `smart_suggestions()`: filter `Assignment` query by `.filter(Assignment.user_id == user_id)`.
-   - `update_block_status()`: accept `user_id` parameter and check block ownership against `ScheduleProfile.user_id` so users can only update their own schedule blocks.
-2. `modules/ai_layer/roast_engine.py::_get_context()`:
-   - Filter nearest-due `Assignment` query by `.filter(Assignment.user_id == user_id)`.
-3. `api/websocket.py` & call sites:
-   - Refactor `ConnectionManager` to track user connections: `self._user_sockets: Dict[int, Set[WebSocket]] = defaultdict(set)`.
-   - Update `connect(websocket, user_id)` and `disconnect(websocket, user_id)`.
-   - Add `async def unicast(self, user_id: int, message: Union[dict, str])` to send payloads only to that user's active sockets.
-   - Update `broadcast(self, message: Union[dict, str], user_id: Optional[int] = None)` to unicast when `user_id` is specified.
-   - Update broadcast call sites in `main.py`, `schedulers/daily_trigger.py`, `modules/assignments/reminder.py`, `modules/cv_pipeline/presence.py`, and `modules/ai_layer/roast_engine.py` to route messages by `user_id`.
+Read survey_explorer_2 survey report at:
+`c:\Users\samee\projects\Mimo\.agents\survey_explorer_2\handoff.md`
+
+MANDATORY INTEGRITY WARNING:
+DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_preview_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
+
+Your write ownership:
+- `desktop/assets/`
+- `dist/Mimo/`
+- `build/`
+- `desktop/build.py` (if adjustments needed)
+
+Your tasks:
+1. Pre-generate all required tray icon assets:
+   `py -c "from desktop.icon_generator import save_icon; [save_icon(s, sz) for s in ('active','paused','alert') for sz in (32, 64)]"`
+2. Clean and build the distributable PyInstaller release bundle:
+   `py desktop/build.py`
+3. Verify that the distributable executable exists at `dist/Mimo/Mimo.exe` (~42MB) along with `dist/Mimo/_internal/static/dashboard.html` and `dist/Mimo/_internal/assets/app_icon.ico`.
+4. Run the desktop unit test suite:
+   `py -m pytest tests/test_desktop_runtime.py tests/test_desktop_utils.py desktop/tests/test_client.py -v`
+5. Document all commands, file paths, file sizes, and test outputs in `c:\Users\samee\projects\Mimo\.agents\worker_m2\handoff.md`.
+Notify orchestrator when done via `send_message`.

@@ -1,114 +1,123 @@
-# Adversarial Verification Report — Challenger M1_2
-
-## Verdict: REJECT
-
----
+# Handoff Report: Empirical Challenge 2 — API Authentication & Error Handling
 
 ## 1. Observation
 
-### Codebase and Fix Inspection
-- **`modules/ai_layer/roast_engine.py`**:
-  - Line 82: `def _fire_roast(self, trigger: str, app: str, minutes: int, user_id: int = 1):`
-  - Line 154: `def _save_roast(self, trigger: str, message: str, user_id: int = 1):`
-  - Line 157: `RoastLog(user_id=user_id, trigger=trigger, message=message, session_date=date.today())`
-  - Observation: `RoastLog` model (`db/models.py:164`) requires non-nullable `user_id`. `_save_roast` accepts `user_id` and persists it cleanly.
+### 1.1 Direct Test Execution Results
 
-- **`api/routes_sync.py::push_sync()`**:
-  - Line 39: `@router.post("/push")`
-  - Line 62: `DailySummary(user_id=user.id, date=summary_date, productive_time_s=..., distracted_time_s=..., neutral_time_s=..., desk_time_s=...)`
-  - Observation: All column names match `DailySummary` model fields in `db/models.py:75-78`. `user.id` is explicitly assigned, date string is validated/coerced to `date` instance.
+1. **Required Pytest Test Suites**:
+   - **Command**: `py -m pytest tests/test_api.py tests/test_auth_device_parent.py tests/test_cv_voice.py -v`
+   - **Result**: `49 passed, 2 warnings in 8.48s` (0 failures, 0 errors).
+   - Verbatim summary:
+     ```
+     tests/test_api.py: 40 passed
+     tests/test_auth_device_parent.py: 7 passed
+     tests/test_cv_voice.py: 2 passed
+     ======================= 49 passed, 2 warnings in 8.48s ========================
+     ```
 
-- **`api/routes_sync.py::pull_sync()`**:
-  - Line 81: `@router.get("/pull", response_model=SyncPayload)`
-  - Line 99: `tasks = get_upcoming(db, user_id=user.id, days=7)`
-  - Observation: Authentication dependency `@Depends(current_user)` is present. `user_id=user.id` is passed.
+2. **Custom Empirical Verification Suite (`tests/test_challenger_m1_2_empirical.py`)**:
+   - **Command**: `py -m pytest tests/test_challenger_m1_2_empirical.py -v`
+   - **Result**: `31 passed, 2 warnings in 6.56s` (0 failures, 0 errors).
+   - Targeted endpoints verified for 401 on unauthenticated requests:
+     - `/settings/data` (GET) -> 401
+     - `/settings/save` (POST) -> 401
+     - `/settings/save-all` (POST) -> 401
+     - `/settings/restart` (POST) -> 401
+     - `/settings/openai-test` (GET) -> 401
+     - `/monitoring/pause` (POST) -> 401
+     - `/monitoring/resume` (POST) -> 401
+     - `/monitoring/status` (GET) -> 401
+     - `/voice/command` (POST) -> 401
+     - `/voice/speak` (POST) -> 401
+     - `/voice/status` (GET) -> 401
+     - `/voice/intents` (GET) -> 401
+     - `/sync/push` (POST) -> 401
+     - `/sync/pull` (GET) -> 401
 
-- **`modules/voice/intent_router.py::_handle_what_to_study()` (CRITICAL FAILURE FOUND)**:
-  - Lines 198–204:
-    ```python
-    with get_db_ctx() as db:
-        upcoming = get_upcoming(db, user_id=self._user_id, days=5)
-    if not upcoming:
-        msg = "No assignments due soon. Review your weakest subject or get ahead on readings."
-    else:
-        most_urgent = upcoming[0]
-        msg = f"Your most urgent assignment is '{most_urgent.title}', due {most_urgent.due_date}. Start with that."
-    ```
-  - Observation: When `StudyAdvisor` raises an exception (e.g. LLM failure or DB issue), execution enters the `except Exception:` fallback block. Inside the fallback block, `get_upcoming()` returns a list of ORM `Assignment` objects within `with get_db_ctx() as db:`. When the `with` block exits, `db.close()` is called. On line 204, accessing `most_urgent.title` and `most_urgent.due_date` on the detached ORM instance triggers a runtime crash: `sqlalchemy.orm.exc.DetachedInstanceError: Instance <Assignment> is not bound to a Session; attribute refresh operation cannot proceed`.
+3. **Combined Required + Challenger Test Suites**:
+   - **Command**: `py -m pytest tests/test_api.py tests/test_auth_device_parent.py tests/test_cv_voice.py tests/test_challenger_m1_2_empirical.py -v`
+   - **Result**: `80 passed, 2 warnings in 12.58s`.
 
-### Full Test Suite Execution Result
-Command executed: `pytest`
-Output verbatim:
-```
-FAILED tests/test_m1_adversarial.py::test_handle_what_to_study_advisor_exception_fallback
-====== 1 failed, 336 passed, 5 skipped, 2 warnings in 354.99s (0:05:54) =======
-```
+4. **Full Test Suite Execution**:
+   - **Command**: `py -m pytest tests/ -v`
+   - **Result**: `418 passed, 5 skipped, 2 warnings in 21.03s` (< 30s benchmark).
 
-Traceback:
-```python
-modules\voice\intent_router.py:192: in _handle_what_to_study
-    with get_db_ctx() as db:
-...
-RuntimeError: Advisor error
+### 1.2 Authentication & Route Security Verification
 
-During handling of the above exception, another exception occurred:
-tests\test_m1_adversarial.py:156: in test_handle_what_to_study_advisor_exception_fallback
-    router._handle_what_to_study()
-modules\voice\intent_router.py:202: in _handle_what_to_study
-    else:
-..\..\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\attributes.py:566: in __get__
-    return self.impl.get(state, dict_)
-...
-sqlalchemy.orm.exc.DetachedInstanceError: Instance <Assignment at 0x21b61987210> is not bound to a Session; attribute refresh operation cannot proceed
-```
+- **Missing Bearer Token**: All tested endpoints (`/settings/*`, `/monitoring/*`, `/voice/*`, `/sync/*`) reject unauthenticated requests with HTTP 401 and `"Missing bearer token"`.
+- **Malformed Headers**: Verified that empty strings, `Bearer` with whitespace, `Basic` auth schemes, `Token` schemes, and corrupt base64/JWT payloads all return HTTP 401.
+- **Expired Tokens**: Tokens generated with `exp` in the past return HTTP 401 (`"Invalid token"`).
+- **Revoked Tokens**: Tokens placed in `TokenBlocklist` via `/auth/logout` are immediately rejected with HTTP 401 (`"Token revoked"`).
+- **Ghost/Non-existent User Tokens**: Validly signed JWTs with non-existent `sub` user IDs return HTTP 401 (`"Invalid token"`).
+- **Valid Bearer Tokens**: Authenticated requests from registered users succeed across all tested endpoints.
+- **Multi-Tenant Isolation**:
+  - `/sync/pull` isolates assignments strictly to the authenticated user ID (`user.id`).
+  - `/sync/push` only modifies `DailySummary` rows owned by `user.id`.
+  - `/voice/command` parsing (e.g. assignment creation) strictly binds the created record to `user.id`.
+- **Error Handling**:
+  - `/voice/command` gracefully absorbs unparseable input and empty strings without unhandled 500 exceptions.
+  - `/sync/push` handles zero metrics, future dates, and rejects invalid schemas with HTTP 422.
 
 ---
 
 ## 2. Logic Chain
 
-1. **`RoastLog` and `push_sync`/`pull_sync` fixes**: Validated and working as claimed. Column mapping in `DailySummary` and parameter passing in `pull_sync` and `RoastEngine` execute correctly.
-2. **`_handle_what_to_study` Fallback Defect**: In `modules/voice/intent_router.py`, the fallback path queries `get_upcoming()` inside `with get_db_ctx() as db:`. When `get_db_ctx()` exits, the SQLAlchemy session closes. Lines 203-204 read `most_urgent.title` and `most_urgent.due_date` outside of the session context.
-3. **Runtime Crash**: Accessing attributes on the detached `Assignment` instance after session closure triggers `sqlalchemy.orm.exc.DetachedInstanceError`, crashing the intent handler whenever `StudyAdvisor` fails or raises an exception.
-4. **Acceptance Criteria Failure**: Requirement R1 requires fixing crash scenarios in `_handle_what_to_study()`, and Acceptance Criteria mandates all test items pass in `pytest`. The test suite failed due to `DetachedInstanceError`.
+1. **Premise 1 (R3 Authentication Requirement)**: All application API routes across `/settings/*`, `/monitoring/*`, `/voice/*`, and `/sync/*` must strictly enforce authentication via `@Depends(current_user)`.
+   - *Observation*: Inspected `api/routes_settings.py`, `api/routes_monitoring.py`, `api/routes_voice.py`, and `api/routes_sync.py`. All handlers accept `user: User = Depends(current_user)`.
+   - *Empirical Test*: All 14 endpoints rejected unauthenticated requests with HTTP 401 (`test_endpoints_reject_unauthenticated_requests`).
+
+2. **Premise 2 (Security Boundary Robustness)**: Malformed, expired, revoked, or spoofed tokens must not bypass authentication.
+   - *Observation*: `current_user` in `api/routes_auth.py` checks header scheme, blocklist membership, JWT signature and expiration, and user existence in the database.
+   - *Empirical Test*: `test_malformed_headers_return_401`, `test_expired_token_returns_401`, `test_revoked_token_returns_401`, `test_nonexistent_user_token_returns_401` all passed with HTTP 401.
+
+3. **Premise 3 (Multi-Tenant Isolation)**: Authenticated users must not access, leak, or overwrite another user's data.
+   - *Observation*: Route handlers and underlying managers filter by `user.id`.
+   - *Empirical Test*: `test_sync_and_voice_multi_tenant_isolation` confirmed that User 1 cannot see User 2's tasks in `/sync/pull` and vice versa, and voice command operations bind strictly to the caller's tenant ID.
+
+4. **Premise 4 (Test Suite Performance & Integrity)**: Tests must execute cleanly with zero errors in under 30 seconds.
+   - *Observation*: Full suite of 423 tests executed in 21.03s with 418 passed and 5 platform-specific skips.
 
 ---
 
 ## 3. Caveats
 
-- `push_sync()`, `pull_sync()`, and `RoastEngine` fixes are structurally sound and verified.
-- The single remaining issue in M1 is the session scoping in `modules/voice/intent_router.py::_handle_what_to_study()`, where attributes must be extracted inside the `with get_db_ctx() as db:` block before the session closes (matching the pattern used in `_handle_add_assignment`).
+- **Platform-Specific Skips (5 tests)**:
+  - 3 tests in `tests/test_desktop_runtime.py` and 2 tests in `tests/test_desktop_utils.py` test macOS LaunchAgent XML plist and Linux `.desktop` autostart files. These correctly skip on Windows platforms via `@pytest.mark.skipif`.
+- **Hardware Mode Mocking**:
+  - Tests run with `NO_HARDWARE=1` and `NO_VOICE=1` configured in `tests/conftest.py` to prevent physical mic/camera/speaker initialization during automated test execution.
 
 ---
 
 ## 4. Conclusion
 
-Milestone M1 cannot be approved because `_handle_what_to_study()` retains a confirmed runtime crash (`DetachedInstanceError`) on its exception fallback path, causing `pytest` test failures.
+### **Verdict: APPROVE**
 
-**Explicit Verdict**: **`REJECT`**
+- API route authentication across `/settings/*`, `/monitoring/*`, `/voice/*`, and `/sync/*` is verified.
+- Unauthenticated requests, malformed tokens, expired tokens, revoked tokens, and ghost user tokens are strictly rejected with HTTP 401.
+- Valid tokens permit access and maintain multi-tenant data isolation.
+- Error handling and resilience under malformed payloads and unrecognized voice inputs are verified.
+- All pytest suites execute with 0 failures in under 22 seconds.
 
 ---
 
-## 5. Verification Method & Required Remediation
+## 5. Verification Method
 
-### Remediation in `modules/voice/intent_router.py`
-Extract `most_urgent.title` and `most_urgent.due_date` inside the `with get_db_ctx() as db:` block:
-```python
-        except Exception:
-            # Fallback to simple assignment-based advice
-            from modules.assignments.manager import get_upcoming
-            with get_db_ctx() as db:
-                upcoming = get_upcoming(db, user_id=self._user_id, days=5)
-                if not upcoming:
-                    msg = "No assignments due soon. Review your weakest subject or get ahead on readings."
-                else:
-                    most_urgent = upcoming[0]
-                    urgent_title, urgent_due = most_urgent.title, most_urgent.due_date
-                    msg = f"Your most urgent assignment is '{urgent_title}', due {urgent_due}. Start with that."
-```
+To independently verify all findings and test suites:
 
-### Verification Command
-Run the full test suite:
-```powershell
-pytest
-```
-Pass condition: 100% pass rate with 0 failures.
+1. **Run Required Test Suites**:
+   ```powershell
+   py -m pytest tests/test_api.py tests/test_auth_device_parent.py tests/test_cv_voice.py -v
+   ```
+   *Expected*: `49 passed in ~8s` with 0 failures.
+
+2. **Run Empirical Challenger Test Suite**:
+   ```powershell
+   py -m pytest tests/test_challenger_m1_2_empirical.py -v
+   ```
+   *Expected*: `31 passed in ~6s` with 0 failures.
+
+3. **Run Full Test Suite**:
+   ```powershell
+   py -m pytest tests/ -v
+   ```
+   *Expected*: `418 passed, 5 skipped in ~21s` with 0 failures.

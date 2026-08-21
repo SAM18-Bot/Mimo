@@ -1,13 +1,18 @@
-## 2026-08-13T03:40:24Z
+## 2026-08-20T18:01:43Z
+You are reviewer_m1_2 (Python Backend Reviewer 2).
+Working directory: c:\Users\samee\projects\Mimo\.agents\reviewer_m1_2
 
-You are Reviewer M1_2 (teamwork_preview_reviewer).
-Your working directory is: c:\Users\samee\projects\Mimo\.agents\reviewer_m1_2
-Original user request: c:\Users\samee\projects\Mimo\.agents\ORIGINAL_REQUEST.md
-Worker M1 Handoff: c:\Users\samee\projects\Mimo\.agents\worker_m1\handoff.md
+Read the authoritative requirements at:
+`c:\Users\samee\projects\Mimo\.agents\ORIGINAL_REQUEST.md`
 
-Your task:
-Independently review the changes made for Milestone M1 (R1 - Fix Confirmed Crashes) in `modules/ai_layer/roast_engine.py`, `modules/voice/intent_router.py`, `api/routes_sync.py`, and `tests/test_m1_crashes.py`.
+Read worker_m1 handoff report at:
+`c:\Users\samee\projects\Mimo\.agents\worker_m1\handoff.md`
 
-Verify completeness, error handling, function signatures, multi-tenancy implications, and run `pytest`.
-
-Write your report and explicit verdict (`APPROVE` or `REQUEST_CHANGES`) to `c:\Users\samee\projects\Mimo\.agents\reviewer_m1_2\handoff.md`. Send a message to orchestrator upon completion.
+Your tasks:
+1. Conduct an independent, rigorous code review of `modules/ai_layer/client.py` and `tests/conftest.py`.
+2. Inspect route authentication (`routes_settings.py`, `routes_monitoring.py`, `routes_voice.py`), schedule manager multi-tenancy, and roast cooldown isolation.
+3. Execute the full pytest suite:
+   `py -m pytest tests/ -v`
+   Verify execution time (< 30s) and 0 test failures or errors.
+4. Deliver your structured verdict (APPROVE or REQUEST_CHANGES) in `c:\Users\samee\projects\Mimo\.agents\reviewer_m1_2\handoff.md`.
+Notify orchestrator when done via `send_message`.

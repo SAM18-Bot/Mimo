@@ -1,11 +1,12 @@
-# Progress Tracker — Worker M2
+# Progress Tracker — worker_m2 (Desktop App Packaging Specialist)
 
-Last visited: 2026-08-13T09:26:00Z
+Last visited: 2026-08-20T18:23:00Z
 
-- [x] Step 1: Inspect target files and verify existing code state
-- [x] Step 2: Implement changes in `modules/schedule/manager.py`
-- [x] Step 3: Implement changes in `modules/ai_layer/roast_engine.py::_get_context()`
-- [x] Step 4: Implement multi-tenant `ConnectionManager` in `api/websocket.py`
-- [x] Step 5: Update broadcast call sites in `main.py`, `schedulers/daily_trigger.py`, `modules/assignments/reminder.py`, `modules/cv_pipeline/presence.py`, and `modules/ai_layer/roast_engine.py`
-- [x] Step 6: Run `pytest` and add/update tests to ensure correctness and coverage for M2 changes
-- [x] Step 7: Write final handoff report and notify orchestrator
+## Status: Completed
+
+### Tasks
+- [x] Task 1: Pre-generate tray icon assets (`active`, `paused`, `alert` in 32, 64) - Complete (6 PNGs created in `desktop/assets/`)
+- [x] Task 2: Clean and build PyInstaller release bundle (`py desktop/build.py`) - Complete (`dist/Mimo/Mimo.exe` created successfully)
+- [x] Task 3: Verify executable `dist/Mimo/Mimo.exe` (~42.19 MB) and internal static/assets (`_internal/static/dashboard.html`, `_internal/assets/app_icon.ico`, `_internal/desktop/assets/*.png`) - Verified
+- [x] Task 4: Run desktop unit test suite (`py -m pytest tests/test_desktop_runtime.py tests/test_desktop_utils.py desktop/tests/test_client.py -v`) - 68 passed, 5 skipped, 0 failed
+- [x] Task 5: Document in handoff.md and notify orchestrator - Complete

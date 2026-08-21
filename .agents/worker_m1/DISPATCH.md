@@ -1,21 +1,27 @@
-## 2026-08-13T03:37:26Z
-Worker M1 (teamwork_preview_worker)
+## 2026-08-20T17:55:36Z
+You are worker_m1 (Python Backend & Testing Specialist).
 Working directory: c:\Users\samee\projects\Mimo\.agents\worker_m1
-Original user request: c:\Users\samee\projects\Mimo\.agents\ORIGINAL_REQUEST.md
 
-Scope: Milestone M1 — Fix Confirmed Crashes (Requirement R1)
+Read the authoritative requirements at:
+`c:\Users\samee\projects\Mimo\.agents\ORIGINAL_REQUEST.md`
 
-Task Details:
-1. `modules/ai_layer/roast_engine.py::_save_roast()`:
-   - Pass `user_id` when inserting `RoastLog` (e.g. `RoastLog(user_id=user_id, ...)`). Update `_save_roast` signature and caller `trigger_roast` if necessary to accept `user_id`.
-2. `modules/voice/intent_router.py::_handle_what_to_study()`:
-   - Pass `user_id` to `StudyAdvisor.get_next_to_study(user_id=user_id)` and the fallback `get_upcoming(db, user_id=user_id, days=5)`.
-3. `api/routes_sync.py::push_sync()`:
-   - Fix column names in `DailySummary` creation to `productive_time_s`, `distracted_time_s`, `neutral_time_s`, and pass `user_id=current_user.id`.
-4. `api/routes_sync.py::pull_sync()`:
-   - Accept authenticated user `current_user: User = Depends(current_user)` and pass `user_id=current_user.id` to `get_upcoming(db, user_id=current_user.id, days=7)`.
+Survey findings & blueprint from survey_explorer_1:
+`c:\Users\samee\projects\Mimo\.agents\survey_explorer_1\handoff.md`
 
 MANDATORY INTEGRITY WARNING:
 DO NOT CHEAT. All implementations must be genuine. DO NOT hardcode test results, create dummy/facade implementations, or circumvent the intended task. A teamwork_preview_auditor will independently verify your work. Integrity violations WILL be detected and your work WILL be rejected.
 
-Run `pytest` to verify your implementation and ensure no syntax or runtime errors. Write your handoff report to `c:\Users\samee\projects\Mimo\.agents\worker_m1\handoff.md` with test results and files modified. Send a message to orchestrator upon completion.
+Your write ownership:
+- `modules/ai_layer/client.py`
+- `tests/conftest.py`
+
+Your tasks:
+1. Fix the syntax error in `modules/ai_layer/client.py` (lines 107-110 and 129-132) where multiline string splits have unescaped newlines. Replace with valid `"\n".join(raw.split("\n")[1:-1])`.
+2. Add an autouse mock fixture in `tests/conftest.py` for `modules.ai_layer.client._chat` (and/or `google.genai.Client`) so that tests calling AI generation do not trigger rate limit delays (`time.sleep(2.0)` in `client.py`) or network calls.
+3. Run the full pytest test suite:
+   `py -m pytest tests/ -v`
+   Verify that all 364 tests across 22 test files run, with 0 failures, 0 errors, in under 30 seconds.
+4. Also verify specific multi-tenant and crash test suites:
+   `py -m pytest tests/test_challenger_m2.py tests/test_m2_empirical_verification.py tests/test_m1_crashes.py tests/test_m1_adversarial.py -v`
+5. Document all actions, changes made, and exact test output in `c:\Users\samee\projects\Mimo\.agents\worker_m1\handoff.md` and update `progress.md`.
+Notify orchestrator when done via `send_message`.

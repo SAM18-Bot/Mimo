@@ -29,9 +29,14 @@ def build_executable():
         "--hidden-import", "psutil",
         "--hidden-import", "sqlite3",
         "--hidden-import", "pydantic",
+        "--hidden-import", "webview",
+        "--hidden-import", "pystray",
+        "--hidden-import", "plyer",
+        "--hidden-import", "plyer.platforms.win.notification",
         # Include static and assets directories
         "--add-data", f"static{os.pathsep}static",
         "--add-data", f"assets{os.pathsep}assets",
+        "--add-data", f"desktop{os.sep}assets{os.pathsep}desktop{os.sep}assets",
         "--icon", "assets/app_icon.ico",
         "run_desktop.py"
     ], check=True)

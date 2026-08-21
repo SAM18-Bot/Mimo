@@ -105,9 +105,7 @@ def generate_eod_report(context: dict, engine: str = "gemini", api_key: str = No
         # Strip markdown code fences if present
         raw = raw.strip()
         if raw.startswith("```"):
-            raw = "
-".join(raw.split("
-")[1:-1])
+            raw = "\n".join(raw.split("\n")[1:-1])
         return json.loads(raw)
     except json.JSONDecodeError as e:
         log.error(f"EOD report JSON parse failed: {e}\nRaw: {raw[:200]}")
@@ -127,9 +125,7 @@ def generate_study_recommendations(context: dict, engine: str = "gemini", api_ke
     try:
         raw = raw.strip()
         if raw.startswith("```"):
-            raw = "
-".join(raw.split("
-")[1:-1])
+            raw = "\n".join(raw.split("\n")[1:-1])
         data = json.loads(raw)
         
         # handle legacy array format just in case

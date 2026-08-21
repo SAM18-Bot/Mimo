@@ -1,83 +1,97 @@
-# Review Report & Handoff — Reviewer M1_1
+# Handoff Report: Reviewer M1_1 (Python Backend & Test Verification)
 
 ## 1. Observation
 
-Direct observations from reviewing Milestone M1 implementation and tests:
+### 1.1 Reviewed Code Changes
+1. **`modules/ai_layer/client.py` (lines 105-110, 125-130)**:
+   - Fixed broken literal newline syntax inside `raw.split("\n")` by replacing it with standard `"\n".join(raw.split("\n")[1:-1])`.
+   - Verified that markdown code block fence stripping (`startswith("```")`) safely extracts the enclosed JSON payload before invoking `json.loads()`.
+   - Confirmed error handling with `try...except json.JSONDecodeError` / `try...except Exception` safely logs error and returns `None` on malformed inputs without crashing the application.
 
-### Target 1: `modules/ai_layer/roast_engine.py`
-- `_save_roast(self, trigger: str, message: str, user_id: int = 1)` (line 154) accepts `user_id` and instantiates `RoastLog(user_id=user_id, trigger=trigger, message=message, session_date=date.today())` (lines 157–162).
-- Call chain methods `on_window_change()`, `on_cv_event()`, `trigger_roast()`, `_fire_roast()`, and `_get_context()` all accept and pass `user_id`.
+2. **`tests/conftest.py` (lines 35-46, 238-297)**:
+   - Optimized `db_engine` fixture to use per-test unique in-memory SQLite URI strings (`file:mem_{uuid.uuid4().hex}?mode=memory&cache=shared&uri=true`), providing zero-disk-I/O test execution while supporting concurrent multi-connection thread access.
+   - Added autouse fixture `mock_gemini_ai` intercepting `modules.ai_layer.client._chat` and `google.genai.Client`, preventing live rate-limiting sleep delays (`time.sleep(2.0)`) and blocking unauthorized external network calls during tests.
 
-### Target 2: `modules/voice/intent_router.py`
-- In `_handle_what_to_study()` (lines 186–203), `advisor.get_next_to_study(user_id=self._user_id)` is invoked (line 192).
-- In the fallback branch, `get_upcoming(db, user_id=self._user_id, days=5)` is invoked (line 197). Both pass `self._user_id`.
+### 1.2 Multi-Tenancy, Route Authentication & Security Inspection
+- **Route Authentication**: Checked `api/routes_settings.py`, `api/routes_monitoring.py`, and `api/routes_voice.py`. All protected endpoints consistently use `user: User = Depends(current_user)` or require valid Bearer JWT authentication.
+- **Multi-Tenant Isolation**:
+  - `modules/schedule/manager.py`: `update_block_status()`, `boost_subject_priority()`, `smart_suggestions()`, and `get_day_schedule()` strictly filter by `user_id`.
+  - `modules/ai_layer/roast_engine.py`: `_get_context()` filters assignments by `Assignment.user_id == user_id`, and `_save_roast()` records `user_id`. Cooldown dictionaries are keyed per `user_id`.
+  - `api/websocket.py`: `ConnectionManager` isolates socket sets by `user_id` (`self._user_sockets[user_id]`) and supports targeted `unicast(user_id, message)`.
+  - `api/routes_sync.py`: Both `push_sync` and `pull_sync` operate solely on the authenticated `user.id`.
 
-### Target 3 & 4: `api/routes_sync.py`
-- `push_sync()` (lines 38–78): Declares `user: User = Depends(current_user)` (line 41). Creates `DailySummary` setting `user_id=user.id` and exact column names `productive_time_s`, `distracted_time_s`, `neutral_time_s` (lines 65–67, 72–74).
-- `pull_sync()` (lines 80–119): Declares `user: User = Depends(current_user)` (line 82). Calls `get_daily_stats(db, user_id=user.id)` (line 90) and `get_upcoming(db, user_id=user.id, days=7)` (line 99).
+### 1.3 Test Suite Execution Results
 
-### Unit Tests: `tests/test_m1_crashes.py` & Full Test Suite
-- `tests/test_m1_crashes.py` contains 5 unit test cases:
-  1. `test_roast_engine_save_roast`
-  2. `test_roast_engine_trigger_roast`
-  3. `test_intent_router_handle_what_to_study`
-  4. `test_push_sync_endpoint`
-  5. `test_pull_sync_endpoint`
-- Execution of `pytest` in workspace root returned: `326 passed in 7.03s`.
+#### Full Pytest Test Suite
+- **Command**: `py -m pytest tests/ -v`
+- **Results**:
+  - Total Tests: 364
+  - Passed: **359**
+  - Skipped: **5** (Platform-specific non-Windows tests: LaunchAgent plist / Linux desktop entries)
+  - Failed: **0**
+  - Errors: **0**
+  - Total Execution Time: **18.00 seconds** (Benchmark Requirement: <30.0 seconds)
+
+#### Targeted Multi-Tenant, Stress & Adversarial Suites
+- **Command**: `py -m pytest tests/test_challenger_m2.py tests/test_m2_empirical_verification.py tests/test_m1_crashes.py tests/test_m1_adversarial.py -v`
+- **Results**:
+  - Total Tests: 34
+  - Passed: **34**
+  - Failed: **0**
+  - Errors: **0**
+  - Total Execution Time: **7.70 seconds**
+
+### 1.4 Integrity Audit
+- No hardcoded test results embedded in source code.
+- No dummy/facade implementations masking missing business logic.
+- No shortcuts bypassing core requirements.
+- No fabricated verification outputs or logs.
+- All test runs executed independently in the live workspace.
 
 ---
 
 ## 2. Logic Chain
 
-1. **`RoastEngine` Fix**: Updating `_save_roast` signature and `RoastLog` constructor ensures non-null `user_id` is supplied to database queries, preventing SQL `NOT NULL` constraint crashes.
-2. **`IntentRouter` Fix**: Supplying `user_id=self._user_id` to `StudyAdvisor.get_next_to_study()` and `get_upcoming()` fulfills parameter requirements, resolving `TypeError: missing required positional argument`.
-3. **Sync Push Fix**: Updating column assignments to `productive_time_s`, `distracted_time_s`, and `neutral_time_s` matches the `DailySummary` model schema, preventing `AttributeError` runtime failures. Authenticating `push_sync` via `Depends(current_user)` links records to the authenticated user ID.
-4. **Sync Pull Fix**: Authenticating `pull_sync` via `Depends(current_user)` and passing `user_id=user.id` to `get_upcoming` and `get_daily_stats` eliminates single-tenant assumptions and prevents missing positional argument errors.
-5. **Integrity & Verification**: All fixes implement genuine logic with active database and API state assertions. No dummy/facade implementations or hardcoded shortcuts were found. All 326 tests in the test suite pass.
+1. **Syntax Fix Verification**:
+   - `modules/ai_layer/client.py` previously caused syntax parsing errors due to raw multiline split calls. Replacing these with `"\n".join(raw.split("\n")[1:-1])` resolved all syntax errors and restored valid module execution across the entire test harness.
+
+2. **AI Layer Mocking & Test Performance Verification**:
+   - In `tests/conftest.py`, the `mock_gemini_ai` fixture properly simulates deterministic JSON schemas for EOD reports and study recommendations.
+   - This removes the 2.0-second delay per call without leaking into non-test production executions.
+   - The test suite execution duration dropped to 18.00s, satisfying the <30s constraint.
+
+3. **Multi-Tenancy & Security Verification**:
+   - Adversarial tests in `test_m1_adversarial.py` and `test_m2_empirical_verification.py` confirm that cross-tenant access attempts return 404/empty responses and do not leak records or notifications between users.
 
 ---
 
 ## 3. Caveats
 
-No caveats. All changes are minimal, backward-compatible, and fully verified by unit tests.
+- **Skipped Tests (5 items)**: 3 tests in `tests/test_desktop_runtime.py` and 2 tests in `tests/test_desktop_utils.py` test macOS LaunchAgent XML and Linux desktop autostart configurations. These are marked with `@pytest.mark.skipif` when run on Windows, which is expected and correct behavior.
+- **Hardware Isolation**: Physical audio/camera devices remain bypassed during automated test execution via `NO_HARDWARE=1` and `NO_VOICE=1`.
 
 ---
 
 ## 4. Conclusion
 
-**Verdict**: `APPROVE`
+**Verdict: APPROVE**
 
-All 5 verification criteria for Milestone M1 (R1 - Fix Confirmed Crashes) have been thoroughly verified and pass without issue.
+The backend implementation and test harness modifications in `modules/ai_layer/client.py` and `tests/conftest.py` are robust, secure, and fully compliant with all stated requirements. The complete test suite runs in 18.00s with zero failures and zero regressions.
 
 ---
 
 ## 5. Verification Method
 
-To independently verify:
+To independently verify this evaluation:
 
-```powershell
-pytest tests/test_m1_crashes.py
-pytest
-```
+1. **Run the Full Test Suite**:
+   ```powershell
+   py -m pytest tests/ -v
+   ```
+   *Expected*: `359 passed, 5 skipped in ~18s` with 0 failures.
 
-Expected result: 326 passed in ~7 seconds.
-
----
-
-## Review Summary
-
-**Verdict**: APPROVE
-
-### Verified Claims
-
-- `roast_engine.py::_save_roast()` accepts and inserts `user_id` → verified via code inspection and `test_roast_engine_save_roast` → PASS
-- `intent_router.py::_handle_what_to_study()` passes `user_id` to `get_next_to_study()` & `get_upcoming()` → verified via code inspection and `test_intent_router_handle_what_to_study` → PASS
-- `routes_sync.py::push_sync()` correctly names columns (`productive_time_s`, `distracted_time_s`, `neutral_time_s`) and sets `user_id` → verified via code inspection and `test_push_sync_endpoint` → PASS
-- `routes_sync.py::pull_sync()` uses `Depends(current_user)` and passes `user_id` to `get_upcoming()` → verified via code inspection and `test_pull_sync_endpoint` → PASS
-- `pytest` suite passes completely → verified by running `pytest` (326 passed in 7.03s) → PASS
-
-### Coverage Gaps
-- None. All M1 crash targets were fully investigated and verified.
-
-### Unverified Items
-- None.
+2. **Run the Multi-Tenant & Adversarial Suites**:
+   ```powershell
+   py -m pytest tests/test_challenger_m2.py tests/test_m2_empirical_verification.py tests/test_m1_crashes.py tests/test_m1_adversarial.py -v
+   ```
+   *Expected*: `34 passed in ~8s` with 0 failures.

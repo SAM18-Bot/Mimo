@@ -27,24 +27,24 @@ from db.database import Base, get_db
 import db.models  # noqa: F401 — register models
 
 
+import uuid
+
+
 # ── per-test SQLite file engine ───────────────────────────────────────────
 
 @pytest.fixture(scope="function")
 def db_engine():
-    fd, path = tempfile.mkstemp(suffix=".db")
-    os.close(fd)
-
+    db_name = f"file:mem_{uuid.uuid4().hex}?mode=memory&cache=shared&uri=true"
     engine = create_engine(
-        f"sqlite:///{path}",
+        f"sqlite:///{db_name}",
         connect_args={"check_same_thread": False},
     )
     Base.metadata.create_all(engine)
     yield engine
     Base.metadata.drop_all(engine)
-    try:
-        os.unlink(path)
-    except OSError:
-        pass
+    engine.dispose()
+
+
 
 
 @pytest.fixture(scope="function")
@@ -230,5 +230,67 @@ def mock_openai(monkeypatch):
     try:
         import openai
         monkeypatch.setattr(openai, "OpenAI", mock_init)
+    except ImportError:
+        pass
+
+
+@pytest.fixture(autouse=True)
+def mock_gemini_ai(monkeypatch):
+    """Mock Gemini/AI layer calls to speed up tests, prevent network calls, and eliminate sleep delays."""
+    import json
+    import modules.ai_layer.client as ai_client
+
+    def mock_chat(system: str, user: str, model: str = None, json_mode: bool = False, engine: str = "gemini", api_key: str = None):
+        if json_mode:
+            sys_lower = system.lower()
+            if "study" in sys_lower or "advisor" in sys_lower or "student" in sys_lower:
+                return json.dumps({
+                    "recommendations": [
+                        {"recommendation": "Focus on high priority subjects.", "priority": "high"},
+                        {"recommendation": "Review lecture notes daily.", "priority": "medium"}
+                    ],
+                    "suggested_subjects": ["Math", "Physics"]
+                })
+            elif "end of day" in sys_lower or "eod" in sys_lower or "daily" in sys_lower:
+                return json.dumps({
+                    "summary": "Great study session today.",
+                    "focus_score_comment": "Consistent focus maintained.",
+                    "biggest_win": "Completed main tasks.",
+                    "biggest_fail": "Minor distraction in the afternoon.",
+                    "tomorrow_priority": "Prepare for upcoming exam.",
+                    "study_recommendation": "Review weak areas.",
+                    "roast_or_praise": "Solid work today!"
+                })
+            else:
+                return json.dumps({
+                    "recommendations": [{"recommendation": "Review priority topics", "priority": "medium"}],
+                    "suggested_subjects": ["Math"],
+                    "summary": "Mock summary",
+                    "focus_score_comment": "Good",
+                    "biggest_win": "None",
+                    "biggest_fail": "None",
+                    "tomorrow_priority": "None",
+                    "study_recommendation": "None",
+                    "roast_or_praise": "None"
+                })
+        return "Mocked AI Response"
+
+    monkeypatch.setattr(ai_client, "_chat", mock_chat)
+
+    class MockGenerateContentResponse:
+        def __init__(self, text="Mocked AI Response"):
+            self.text = text
+
+    class MockModels:
+        def generate_content(self, *args, **kwargs):
+            return MockGenerateContentResponse()
+
+    class MockGenAIClient:
+        def __init__(self, *args, **kwargs):
+            self.models = MockModels()
+
+    try:
+        from google import genai
+        monkeypatch.setattr(genai, "Client", MockGenAIClient)
     except ImportError:
         pass

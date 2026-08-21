@@ -44,3 +44,34 @@ Integrity mode: development
 - [ ] Add a mock for OpenAI/Gemini API calls in `conftest.py` or `test_api.py` to prevent real network calls during testing and fix the slow test suite issue.
 - [ ] Tests must be added or updated to cover the newly authenticated routes (`settings`, `monitoring`, `voice`).
 - [ ] Android project compiles successfully (`./gradlew assembleDebug` or similar).
+
+## 2026-08-20T17:45:38Z
+
+# Teamwork Project Prompt — Draft
+
+> Status: Launched
+> Goal: Craft prompt → get user approval → delegate to teamwork_preview
+> Requested team: A full agent team
+
+Deep scan the Mimo repository, run all test cases to ensure the system is working perfectly, and build the final release bundles for both the Android and Desktop apps.
+
+Working directory: c:\Users\samee\projects\Mimo
+Integrity mode: benchmark
+
+## Requirements
+
+### R1. Deep Scan and Testing
+Run the comprehensive test suite (`pytest`) and perform a codebase deep scan. Ensure that no regressions exist after recent AI engine and database changes. All Python backend tests must pass flawlessly.
+
+### R2. Desktop App Bundling
+Build a final, distributable bundle or executable for the Mimo Desktop app.
+
+### R3. Android Release Bundling
+Compile and build the final Android application. The output must be a signed **Release APK**, which requires configuring or utilizing the existing keystore details.
+
+## Acceptance Criteria
+
+### Verification
+- [ ] All Python tests (`pytest tests/`) pass with zero errors.
+- [ ] A successfully compiled Desktop app executable/bundle exists in the repository (e.g., in `dist/` or `build/`).
+- [ ] A successfully compiled, signed Android Release APK exists in the repository (e.g., in `android/app/build/outputs/apk/release/`).
