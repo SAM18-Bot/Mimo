@@ -1382,7 +1382,7 @@
         await fetch('/voice/command', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: text, speak_response: false })
+          body: JSON.stringify({ text: text, speak_response: true })
         });
       } catch (e) {
         console.warn('Coach request failed', e);
@@ -2116,7 +2116,7 @@
 
     async function addSuggestedSubject(subject) {
       if (!confirm(`Add "${subject}" as a new trackable subject? You'll be redirected to your schedule builder.`)) return;
-      window.location.href = `/schedule`;
+      window.location.href = `/schedule?add_subject=` + encodeURIComponent(subject);
     }
 
     function renderStudyPlan() {
