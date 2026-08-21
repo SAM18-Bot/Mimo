@@ -34,7 +34,7 @@ interface MimoApiService {
     @POST("/assignments/{id}/done")
     suspend fun markAssignmentDone(@Path("id") id: Int): Map<String, Any>
 
-    @GET("/schedule/")
+    @GET("/schedule/today")
     suspend fun getSchedule(): List<ScheduleBlock>
 
     @GET("/schedule/today")
