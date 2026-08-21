@@ -2,7 +2,6 @@
 Settings API endpoints — used by the settings.html page.
 
 GET  /settings          → returns current settings (sensitive keys masked)
-GET  /settings/raw      → returns raw values (for API use, not UI)
 POST /settings          → save one or more settings
 POST /settings/restart  → restart background services after settings change
 """
@@ -97,18 +96,4 @@ def restart_services(user: User = Depends(current_user)):
         return {"ok": False, "error": str(e)}
 
 
-@router.get("/openai-test")
-def test_openai(user: User = Depends(current_user)):
-    """Quick test to verify the OpenAI API key works."""
-    try:
-        import openai, config
-        client = openai.OpenAI(api_key=config.OPENAI_API_KEY)
-        resp   = client.chat.completions.create(
-            model      = "gpt-4o-mini",
-            messages   = [{"role": "user", "content": "Reply with exactly: OK"}],
-            max_tokens = 5,
-        )
-        reply = resp.choices[0].message.content.strip()
-        return {"ok": True, "reply": reply}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+
