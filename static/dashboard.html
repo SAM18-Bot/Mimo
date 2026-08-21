@@ -1177,7 +1177,13 @@
       if (token && !config.headers['Authorization'] && !config.headers.Authorization) {
         config.headers['Authorization'] = `Bearer ${token}`;
       }
-      return await originalFetch(resource, config);
+      const res = await originalFetch(resource, config);
+      if (res.status === 401 && token) {
+          console.error("API returned 401. Logging out.");
+          localStorage.removeItem('mimo_token');
+          window.location.reload();
+      }
+      return res;
     };
 
     function checkAuth() {
@@ -1196,16 +1202,31 @@
     function reportTokenToDesktop(token) {
       if (window.pywebview && window.pywebview.api && window.pywebview.api.report_token) {
         window.pywebview.api.report_token(token).catch(() => {});
+      } else {
+        let retries = 0;
+        let interval = setInterval(() => {
+          if (window.pywebview && window.pywebview.api && window.pywebview.api.report_token) {
+            window.pywebview.api.report_token(token).catch(() => {});
+            clearInterval(interval);
+          }
+          if (++retries > 20) clearInterval(interval);
+        }, 200);
       }
     }
 
-    // pywebview injects window.pywebview asynchronously after page load —
-    // if we already had a cached token before the bridge was ready
-    // (returning user, app restarted), report it once it becomes available.
-    window.addEventListener('pywebviewready', function () {
-      const token = localStorage.getItem('mimo_token');
-      if (token) reportTokenToDesktop(token);
-    });
+    function checkAndReportToken() {
+        const token = localStorage.getItem('mimo_token');
+        if (token) reportTokenToDesktop(token);
+    }
+
+    if (window.pywebview) {
+        checkAndReportToken();
+    } else {
+        window.addEventListener('pywebviewready', checkAndReportToken);
+    }
+
+    // Fallback if event already fired
+    setTimeout(checkAndReportToken, 1000);
 
     function handleEmailAuth(e) { e.preventDefault(); }
 
@@ -1555,7 +1576,7 @@
         } catch (e) {}
       };
 
-      ws.onclose = (event) => {
+      ws.onclose = () => {
         if (wsPingInterval) {
           clearInterval(wsPingInterval);
           wsPingInterval = null;
