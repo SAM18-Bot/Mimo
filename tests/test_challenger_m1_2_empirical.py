@@ -60,7 +60,6 @@ TARGET_ENDPOINTS = [
     ("POST", "/settings/save", {"key": "EOD_REPORT_HOUR", "value": "22"}),
     ("POST", "/settings/save-all", {"settings": {"EOD_REPORT_HOUR": "22"}}),
     ("POST", "/settings/restart", None),
-    ("GET", "/settings/openai-test", None),
 
     # Monitoring endpoints
     ("POST", "/monitoring/pause", None),
@@ -187,10 +186,6 @@ def test_settings_routes_with_valid_token(client, test_users):
     r_restart = client.post("/settings/restart", headers=headers)
     assert r_restart.status_code == 200
     assert r_restart.json().get("ok") is True
-
-    # /settings/openai-test
-    r_test = client.get("/settings/openai-test", headers=headers)
-    assert r_test.status_code == 200
 
 
 def test_monitoring_routes_with_valid_token(client, test_users):

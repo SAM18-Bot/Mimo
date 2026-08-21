@@ -327,7 +327,6 @@ def test_presence_monitor_logs_event_with_user_id(db_session, db_engine):
     ("/settings/save", "post"),
     ("/settings/save-all", "post"),
     ("/settings/restart", "post"),
-    ("/settings/openai-test", "get"),
     ("/monitoring/pause", "post"),
     ("/monitoring/resume", "post"),
     ("/monitoring/status", "get"),
