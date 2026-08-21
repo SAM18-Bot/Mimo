@@ -145,6 +145,24 @@ h1{font-size:22px;font-weight:600;margin-bottom:4px}
 </div>
 
 <script>
+const originalFetch = window.fetch;
+window.fetch = async function (...args) {
+  let [resource, config] = args;
+  if (!config) config = {};
+  if (!config.headers) config.headers = {};
+  const token = localStorage.getItem('mimo_token');
+  if (token && !config.headers['Authorization'] && !config.headers.Authorization) {
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
+  const res = await originalFetch(resource, config);
+  if (res.status === 401 && token) {
+      console.error("API returned 401. Logging out.");
+      localStorage.removeItem('mimo_token');
+      window.location.reload();
+  }
+  return res;
+};
+
 const changes = {};   // tracks what user has changed
 
 async function loadSettings() {

@@ -1555,7 +1555,7 @@
         } catch (e) {}
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         if (wsPingInterval) {
           clearInterval(wsPingInterval);
           wsPingInterval = null;
