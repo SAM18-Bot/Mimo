@@ -23,10 +23,11 @@ android {
 
     signingConfigs {
         create("release") {
+            // Read from GitHub Actions Secrets or environment variables
             storeFile = file("release.keystore")
-            storePassword = "mimo123"
-            keyAlias = "mimo"
-            keyPassword = "mimo123"
+            storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+            keyAlias = System.getenv("KEY_ALIAS") ?: ""
+            keyPassword = System.getenv("KEY_PASSWORD") ?: ""
         }
     }
 
