@@ -114,6 +114,11 @@ class FakeMimoApiService(
             mergedStats = null
         )
     }
+
+    override suspend fun sendVoiceCommand(body: VoiceCommandRequest): Map<String, Any> {
+        if (shouldThrowError) throw IOException("Network connection offline")
+        return mapOf("status" to "ok")
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

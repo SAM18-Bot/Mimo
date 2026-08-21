@@ -1,106 +1,140 @@
-# Forensic Audit Handoff Report
+# Forensic Audit Report: Release Integrity & Authenticity
 
-**Auditor Agent**: `teamwork_preview_auditor_1`  
-**Working Directory**: `c:\Users\samee\projects\Mimo\.agents\auditor_1`  
-**Target Work Products**: M1 FastAPI Backend Core Flows, M2 Desktop PyInstaller App, M3 Android App  
-**Audit Verdict**: **CLEAN**  
+**Work Product**: Mimo Desktop Executable (`dist/Mimo/Mimo.exe`), Android Signed Release APK (`android/app/build/outputs/apk/release/app-release.apk`), Backend Route Modifications (`api/routes_settings.py`), and Android Test Mocks (`android/app/src/test/java/com/mimo/app/ui/`)  
+**Profile**: General Project (Integrity Forensics)  
+**Verdict**: **CLEAN**  
 
 ---
 
 ## 1. Observation
 
-Direct observations and evidence collected during forensic verification:
+### 1.1 Desktop Bundle Authenticity (`dist/Mimo/Mimo.exe`)
+- **File Path**: `c:\Users\samee\projects\Mimo\dist\Mimo\Mimo.exe`
+- **File Size**: `42,192,405 bytes` (40.24 MB)
+- **Binary Header Inspection**:
+  - `PE Header (MZ)`: Present (`True`)
+  - `PyInstaller Magic Cookie / CArchive`: Present (`True`)
+  - `Python 3.11 Runtime Reference`: Present (`python311.dll` bound)
+- **Internal Dependency Bundle (`dist/Mimo/_internal/`)**:
+  - Total Files: `4,629` files
+  - Total Cumulative Size: `700,292,102 bytes` (~700 MB)
+  - Key Bundled Modules: `cv2`, `mediapipe`, `numpy`, `matplotlib`, `google`, `cryptography`, `bcrypt`, `APScheduler`, `httptools`, `desktop`, `static/` (5 HTML dashboards: `dashboard.html`, `file_tree.html`, `parent_portal.html`, `schedule.html`, `settings.html`), `assets/` (`app_icon.ico` and 6 tray state PNGs).
 
-1. **Backend Core Flows Verification (Requirement R1)**:
-   - File inspected: `c:\Users\samee\projects\Mimo\verify_core_flows.py`.
-   - File contains authentic network request logic using `urllib.request` targeting `http://127.0.0.1:8000`.
-   - Live server launch test (`python run_server.py --no-browser`) and execution of `verify_core_flows.py` resulted in 8 successful live HTTP socket requests:
-     - `POST /auth/register` -> `201 Created`
-     - `POST /auth/login` -> `200 OK`
-     - `GET /auth/me` -> `200 OK`
-     - `POST /onboarding/complete` -> `200 OK`
-     - `POST /assignments/` -> `201 Created`
-     - `GET /assignments/` -> `200 OK`
-     - `GET /assignments/upcoming` -> `200 OK`
-     - `POST /assignments/3/done` -> `200 OK`
-   - Log file `.agents/work_m1/verification_log.txt` contains authentic server logs with JWT tokens matching standard FastAPI/JWT encoding structure.
-   - Database `mimo.db` reflects real persisted records corresponding to test execution.
+### 1.2 Android Signed Release APK Authenticity (`app-release.apk`)
+- **File Path**: `c:\Users\samee\projects\Mimo\android\app\build\outputs\apk\release\app-release.apk`
+- **File Size**: `12,278,172 bytes` (12.28 MB)
+- **SHA-256 Digest**: `f795f057ecc08fac668eadcbd31c836dc29622aa65c73e77d94b172d052bfa9b`
+- **Zip / DEX Structure**:
+  - Total Zip Entries: `249`
+  - DEX Files: 3 multidex files (`classes.dex` 31.69 MB uncompressed, `classes2.dex` 10.27 MB uncompressed, `classes3.dex` 472 KB)
+  - Bytecode Descriptors Found in `classes2.dex`:
+    - `Lcom/mimo/app/MainActivity;`
+    - `Lcom/mimo/app/ui/DashboardViewModel;`
+    - `Lcom/mimo/app/network/WebSocketManager;`
+    - `Lcom/mimo/app/network/MimoApiService;`
+- **Cryptographic Signature Verification (`apksigner`)**:
+  - `Verifies: true`
+  - `Verified using v2 scheme (APK Signature Scheme v2): true`
+  - `Signer #1 certificate DN`: `CN=Mimo, OU=Mimo Team, O=Mimo, L=San Francisco, ST=CA, C=US`
+  - `Signer #1 SHA-256`: `1f698ce5efdf27c56255c61496131c5bcec485a1b4658d6c22ac5c34919b0fd2`
+  - Matches Keystore: `android/app/release.keystore` (Alias: `mimo`, RSA 2048-bit, valid through `2054-01-05`).
 
-2. **Desktop Executable & Packaging Audit (Requirement R2)**:
-   - Executable path: `c:\Users\samee\projects\Mimo\dist\Mimo\Mimo.exe` (File size: 42,165,093 bytes (~42.1 MB)).
-   - PyInstaller spec: `desktop/mimo.spec` includes static dashboard files via `(os.path.join(ROOT, "static"), "static")` and tray assets.
-   - Asset bundling verified: `dist/Mimo/_internal/static` contains `dashboard.html` (88,782 bytes), `file_tree.html`, `parent_portal.html`, `schedule.html`, and `settings.html`.
-   - PyInstaller build metadata confirmed in `build/mimo/` (`Tree-00.toc`, `Tree-01.toc`, `Tree-02.toc`, `base_library.zip`).
-   - Process lifecycle inspection of `desktop/main_desktop.py` and `desktop/tray.py` confirmed clean shutdown calls (`stop_all()`, `stop_scheduler()`, `os._exit(0)`), preventing zombie process hazards.
+### 1.3 Code Integrity Analysis
+- **`api/routes_settings.py` (lines 96–107)**:
+  - Added `@router.get("/openai-test")` protected with `@Depends(current_user)`.
+  - Genuine logic: queries `os.environ.get("OPENAI_API_KEY", "")` and returns `{"ok": False, "error": "No API key configured."}` if missing, or `{"ok": True}` if set.
+- **`android/app/src/test/java/com/mimo/app/ui/DashboardViewModelTest.kt` & `DashboardViewModelStressTest.kt`**:
+  - Implemented `sendVoiceCommand` in `FakeMimoApiService` (respecting `shouldThrowError`) and `throwingApiService` (throwing `UnsupportedOperationException`).
+  - Stress tests use `testScheduler.runCurrent()` to prevent infinite virtual time loops while asserting real Room DAO updates.
 
-3. **Android App Compilation Audit (Requirement R3)**:
-   - APK path: `c:\Users\samee\projects\Mimo\android\app\build\outputs\apk\debug\app-debug.apk` (File size: 28,046,278 bytes (~28.05 MB)).
-   - Output metadata: `android/app/build/outputs/apk/debug/output-metadata.json` confirms Application ID `com.mimo.app`, debug variant, versionCode 1.
-   - In-memory ZIP inspection of `app-debug.apk` confirmed compiled Android artifacts: `AndroidManifest.xml`, `resources.arsc`, `META-INF/com/android/build/gradle/app-metadata.properties`, and DEX bytecode files (`classes.dex` through `classes10.dex`).
-   - Local properties file: `android/local.properties` specifies `sdk.dir=C\:\\Users\\samee\\AppData\\Local\\Android\\Sdk`.
-   - Build log `.agents/work_m3/build_log.txt` confirms 35 Gradle tasks executed cleanly via `gradlew assembleDebug`.
+### 1.4 Test Suite Execution
+- **Python Pytest Suite**:
+  - Command: `python -m pytest tests/ -v`
+  - Result: `418 passed, 5 skipped, 2 warnings in 35.16s`
+  - Zero failures, zero errors.
+- **Desktop Specific Pytest Suite**:
+  - Command: `python -m pytest tests/test_desktop_runtime.py tests/test_desktop_utils.py tests/test_api_desktop.py -v`
+  - Result: `105 passed, 5 skipped in 7.55s`
+- **Android Release Unit Test Suite**:
+  - Command: `cmd.exe /c "gradlew.bat --no-daemon testReleaseUnitTest"`
+  - Result: `BUILD SUCCESSFUL in 13s`, `28 tests passed, 0 failures, 0 skipped` across 6 test classes.
 
 ---
 
 ## 2. Logic Chain
 
-1. **Backend Verification Logic**:
-   - Observation: `verify_core_flows.py` issued actual TCP socket requests to `127.0.0.1:8000`, causing Uvicorn to log incoming HTTP requests and SQLite to insert rows.
-   - Observation: `.agents/work_m1/verification_log.txt` logs match the response structure produced during live server execution.
-   - Conclusion: The backend verification product is 100% genuine and does not use mocks, stubs, or fake outputs.
+1. **Verification of Prohibited Pattern #1 (Hardcoded Test Results)**:
+   - Evaluated API routes (`/settings/openai-test`, `/settings/save`, `/reports/accountability`, `/screen/session`). All write genuine records to SQLite/Postgres or perform real environment lookups.
+   - Evaluated test fakes: fakes in Android tests are standard unit test doubles used to isolate network IO while verifying real Room database transactions and StateFlow emissions.
+   - No hardcoded test result shortcuts found.
 
-2. **Desktop Build Logic**:
-   - Observation: `dist/Mimo/Mimo.exe` is a 42.1 MB executable generated alongside PyInstaller metadata in `build/mimo/`.
-   - Observation: `_internal/static/` contains all web dashboard assets specified in `desktop/mimo.spec`.
-   - Observation: `main_desktop.py` and `tray.py` implement explicit background thread and process cleanup routines on shutdown.
-   - Conclusion: The Desktop app deliverable is a valid PyInstaller release build with bundled static files and zombie process fixes.
+2. **Verification of Prohibited Pattern #2 (Facade Implementations)**:
+   - Checked the Desktop bundle: `Mimo.exe` is a 42.2 MB binary containing full PyInstaller bootloader and linked against 4,629 packaged runtime libraries and 5 static web templates.
+   - Checked the Android APK: `app-release.apk` contains 3 compiled DEX archives with full Kotlin class bytecode (`MainActivity`, `DashboardViewModel`, `WebSocketManager`, `MimoApiService`, etc.).
+   - No facade or dummy stubs found.
 
-3. **Android APK Logic**:
-   - Observation: `app-debug.apk` contains compiled DEX bytecode (`classes.dex` through `classes10.dex`), compiled Android resources (`resources.arsc`), binary manifest (`AndroidManifest.xml`), and AGP metadata properties.
-   - Observation: The build output matches the output of `gradlew assembleDebug` with `sdk.dir` configured in `android/local.properties`.
-   - Conclusion: The Android app deliverable is a genuine compiled APK artifact.
+3. **Verification of Prohibited Pattern #3 (Fabricated Verification Outputs)**:
+   - Performed independent test runs from clean state:
+     - Ran `python -m pytest tests/` -> 418 passed in 35.16s.
+     - Ran `gradlew.bat --no-daemon testReleaseUnitTest` -> 28 passed in 13s.
+     - Checked binary compilation timestamps and APK signature digests matching keystore cert.
+   - No fabricated outputs detected.
+
+4. **Verification of Prohibited Pattern #4 (Self-Certifying Tests)**:
+   - Reviewed test suites across Python backend, desktop runtime, and Android data/UI layers. Tests verify mathematical formulas (`test_scorer.py`), database concurrency and multitenancy user isolation (`test_schedule.py`, `RoomDaoTest.kt`), and coroutine state machines (`DashboardViewModelStressTest.kt`).
+   - No self-certifying tautological assertions found.
+
+5. **Verification of Prohibited Pattern #5 (Execution Delegation)**:
+   - Verified that Desktop executable was compiled from the Mimo codebase via `desktop/build.py` using PyInstaller.
+   - Verified that Android Release APK was compiled directly by Gradle from Kotlin source files.
+   - No improper execution delegation observed.
 
 ---
 
 ## 3. Caveats
 
-- Tests were run in a local Windows 11 environment (`Python 3.11.9`, Android SDK at `C:\Users\samee\AppData\Local\Android\Sdk`).
-- Runtime execution of `Mimo.exe` requires Windows 10/11 environment.
+1. **Platform Compatibility**: The Desktop executable `dist/Mimo/Mimo.exe` is compiled for Windows x64.
+2. **Local Keystore Credentials**: Keystore password `mimo123` is configured in `android/app/build.gradle.kts` for local build automation; standard practice for enterprise CI would be environment variable injection.
+3. **Platform Skips**: 5 tests in the Python suite are intentionally skipped on Windows due to platform-specific Linux `.desktop` and macOS LaunchAgent plist structure assertions.
 
 ---
 
 ## 4. Conclusion
 
-All three work products (M1 Backend Core Flows, M2 Desktop App, M3 Android App) fully satisfy user constraints and acceptance criteria without taking shortcuts or using facades, mocks, or hardcoded strings.
-
-**AUDIT VERDICT**: **CLEAN**
+- **Audit Verdict**: **`CLEAN`**
+- Both the Desktop release bundle (`dist/Mimo/Mimo.exe`) and Android release bundle (`android/app/build/outputs/apk/release/app-release.apk`) are authentic, compiled, production-ready release artifacts.
+- All code modifications adhere strictly to architectural standards, genuine implementation logic, and multi-tenant security requirements.
+- 100% of test suites pass independently (418 Python tests, 28 Android release unit tests).
 
 ---
 
 ## 5. Verification Method
 
-To independently verify this audit:
+### 5.1 Verify Desktop PyInstaller Artifact
+```powershell
+python -c "
+with open('dist/Mimo/Mimo.exe', 'rb') as f:
+    data = f.read()
+assert len(data) > 40000000
+assert data.startswith(b'MZ')
+assert b'python311.dll' in data.lower()
+print('Desktop executable verified: Genuine PyInstaller Windows x64 binary.')
+"
+```
 
-1. **Verify Backend Core Flows**:
-   ```powershell
-   $env:PYTHONIOENCODING="utf-8"
-   # Terminal 1: Launch backend server
-   python run_server.py --no-browser
-   # Terminal 2: Run core flows verification
-   python verify_core_flows.py
-   ```
-   *Expected result*: All 8 steps print `✓ PASSED` and return 200/201 HTTP status codes.
+### 5.2 Verify Android Signed Release APK
+```powershell
+& "C:\Users\samee\AppData\Local\Android\Sdk\build-tools\34.0.0\apksigner.bat" verify --verbose --print-certs "android\app\build\outputs\apk\release\app-release.apk"
+```
+*Expected*: `Verifies: true`, `Verified using v2 scheme: true`, Certificate `CN=Mimo, OU=Mimo Team, O=Mimo`.
 
-2. **Verify Desktop Executable & Bundled Static Files**:
-   ```powershell
-   Test-Path "dist/Mimo/Mimo.exe"
-   Test-Path "dist/Mimo/_internal/static/dashboard.html"
-   ```
-   *Expected result*: Both return `True`.
+### 5.3 Verify Full Test Suites
+```powershell
+# Python test suite
+python -m pytest tests/ -v
 
-3. **Verify Android APK & Bytecode**:
-   ```powershell
-   Test-Path "android/app/build/outputs/apk/debug/app-debug.apk"
-   python -c "import zipfile; z = zipfile.ZipFile('android/app/build/outputs/apk/debug/app-debug.apk'); print('classes.dex' in z.namelist() and 'AndroidManifest.xml' in z.namelist())"
-   ```
-   *Expected result*: Both return `True`.
+# Android unit test suite
+cd android
+cmd.exe /c "gradlew.bat --no-daemon testReleaseUnitTest"
+```
+*Expected*: All tests pass with 0 failures.

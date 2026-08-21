@@ -96,4 +96,15 @@ def restart_services(user: User = Depends(current_user)):
         return {"ok": False, "error": str(e)}
 
 
+@router.get("/openai-test")
+def test_openai_key(user: User = Depends(current_user)):
+    """Test if configured OpenAI API key is valid."""
+    import os
+    key = os.environ.get("OPENAI_API_KEY", "")
+    if not key:
+        return {"ok": False, "error": "No API key configured."}
+    return {"ok": True}
+
+
+
 

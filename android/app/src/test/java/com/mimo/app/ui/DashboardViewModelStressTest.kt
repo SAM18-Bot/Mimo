@@ -72,7 +72,7 @@ class DashboardViewModelStressTest {
         // Perform sequential updates to stats
         for (i in 1..10) {
             viewModel.updateStats(productiveDelta = 2, distractingDelta = 1, neutralDelta = 0)
-            testScheduler.advanceUntilIdle()
+            testScheduler.runCurrent()
         }
 
         val stats = dailyStatsDao.getByDate("2026-08-07")
@@ -101,7 +101,7 @@ class DashboardViewModelStressTest {
 
         // Initial state for Aug 7
         viewModel.updateStats(productiveDelta = 30, distractingDelta = 10)
-        testScheduler.advanceUntilIdle()
+        testScheduler.runCurrent()
 
         assertEquals("2026-08-07", viewModel.stats.value.date)
         assertEquals(30, viewModel.stats.value.productive_min)
@@ -226,6 +226,10 @@ class DashboardViewModelStressTest {
             }
 
             override suspend fun pullSync(): SyncPayload {
+                throw UnsupportedOperationException()
+            }
+
+            override suspend fun sendVoiceCommand(body: VoiceCommandRequest): Map<String, Any> {
                 throw UnsupportedOperationException()
             }
         }

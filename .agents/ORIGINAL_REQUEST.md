@@ -75,3 +75,30 @@ Compile and build the final Android application. The output must be a signed **R
 - [ ] All Python tests (`pytest tests/`) pass with zero errors.
 - [ ] A successfully compiled Desktop app executable/bundle exists in the repository (e.g., in `dist/` or `build/`).
 - [ ] A successfully compiled, signed Android Release APK exists in the repository (e.g., in `android/app/build/outputs/apk/release/`).
+
+## 2026-08-21T02:00:35Z
+
+# Teamwork Project Prompt — Draft
+
+> Status: Launched
+> Goal: Craft prompt → get user approval → delegate to teamwork_preview
+> Requested team: A full agent team
+
+Recompile and build the final release bundles for both the Android and Desktop apps to ensure they include the latest backend, frontend, and API routing fixes.
+
+Working directory: c:\Users\samee\projects\Mimo
+Integrity mode: demo
+
+## Requirements
+
+### R1. Desktop App Bundling
+Rebuild a final, distributable bundle or executable for the Mimo Desktop app.
+
+### R2. Android Release Bundling
+Recompile and build the final Android application as a signed **Release APK**, utilizing the existing keystore details.
+
+## Acceptance Criteria
+
+### Verification
+- [ ] A successfully compiled Desktop app executable/bundle is updated in the repository (e.g., in `dist/` or `build/`).
+- [ ] A successfully compiled, signed Android Release APK is updated in the repository (e.g., in `android/app/build/outputs/apk/release/`).

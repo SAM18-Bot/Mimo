@@ -1,52 +1,50 @@
-# BRIEFING — 2026-08-20T18:01:30Z
+# BRIEFING — 2026-08-21T03:00:00Z
 
 ## Mission
-Fix syntax errors in `modules/ai_layer/client.py`, add mock fixtures in `tests/conftest.py` to eliminate rate limits/network calls during tests, optimize test execution speed, and verify that the full pytest suite (364 tests across 22 test files) passes with 0 failures/errors in under 30s.
+Fix pre-build test alignment, implement missing backend settings endpoint, fix Android unit test mocks, and verify all test suites pass.
 
 ## 🔒 My Identity
 - Archetype: worker_m1
 - Roles: implementer, qa, specialist
-- Working directory: c:\Users\samee\projects\Mimo\.agents\worker_m1
-- Original parent: 389aea7e-cf85-4179-95b1-4294b4b55e7b
-- Milestone: M1 Python Backend & Testing
+- Working directory: c:\Users\samee\projects\Mimo\.agents\worker_m1\
+- Original parent: f0ce6d5c-7207-4acd-84f6-ef1543ac1c7c
+- Milestone: M1 - Pre-Build Test Alignment & Route Fixes
 
 ## 🔒 Key Constraints
-- Fix syntax errors in `modules/ai_layer/client.py` genuine implementation.
-- Autouse mock fixture in `tests/conftest.py` without network calls or sleep delays.
-- Full test suite passes: 364 tests across 22 files, 0 failures, 0 errors, <30s.
-- Multi-tenant and crash test suites verified.
-- Integrity: no hardcoding test results or circumventing logic.
+- Minimal change principle: only modify required route and test mock files.
+- DO NOT CHEAT: genuine implementation with proper authentication and real behavior.
+- Pytest must pass all tests in < 30s.
+- Android unit tests must compile and pass cleanly.
 
 ## Current Parent
-- Conversation ID: 389aea7e-cf85-4179-95b1-4294b4b55e7b
-- Updated: 2026-08-20T18:01:30Z
+- Conversation ID: f0ce6d5c-7207-4acd-84f6-ef1543ac1c7c
+- Updated: 2026-08-21T03:00:00Z
 
 ## Task Summary
-- **What to build**: Fix syntax error in `modules/ai_layer/client.py`, update `tests/conftest.py` with mock fixtures and fast shared in-memory SQLite fixtures.
-- **Success criteria**: 364 tests pass with 0 errors/failures in <30s.
-- **Interface contracts**: `c:\Users\samee\projects\Mimo\.agents\ORIGINAL_REQUEST.md`
+- **What to build**: Add `@router.get("/openai-test")` in `api/routes_settings.py`, implement `sendVoiceCommand` mock methods in `DashboardViewModelTest.kt` and `DashboardViewModelStressTest.kt`.
+- **Success criteria**: Zero pytest failures (423 tests in < 30s), Android `testReleaseUnitTest` passes cleanly (`BUILD SUCCESSFUL`).
+- **Interface contracts**: `c:\Users\samee\projects\Mimo\.agents\orchestrator_r5\PROJECT.md`
+- **Code layout**: Backend routes in `api/`, Android tests in `android/app/src/test/`
 
 ## Key Decisions Made
-- Fixed unescaped literal newline splits in `modules/ai_layer/client.py` (lines 107-110 and 129-132) to use standard `"\n".join(raw.split("\n")[1:-1])`.
-- Added autouse `mock_gemini_ai` fixture in `tests/conftest.py` patching `modules.ai_layer.client._chat` and `google.genai.Client` with JSON mode support and zero sleep overhead.
-- Optimized `db_engine` in `tests/conftest.py` to use named in-memory SQLite with shared cache mode (`file:mem_{uuid}?mode=memory&cache=shared&uri=true`) to eliminate disk IO bottleneck on Windows while maintaining full cross-thread concurrency support.
+- `api/routes_settings.py`: Authenticated `@router.get("/openai-test")` with `current_user` dependency, checks `OPENAI_API_KEY` from `os.environ`.
+- `DashboardViewModelTest.kt`: Implemented `sendVoiceCommand` on `FakeMimoApiService` returning `mapOf("status" to "ok")` with error simulation.
+- `DashboardViewModelStressTest.kt`: Implemented `sendVoiceCommand` on `throwingApiService` throwing `UnsupportedOperationException`.
+- `DashboardViewModelStressTest.kt`: Replaced `advanceUntilIdle()` with `runCurrent()` during active `viewModel.stats` subscription tests to avoid infinite coroutine scheduler advancement on `currentDateFlow` periodic ticks.
 
 ## Artifact Index
-- `c:\Users\samee\projects\Mimo\.agents\worker_m1\DISPATCH.md` — Dispatch requirements
-- `c:\Users\samee\projects\Mimo\.agents\worker_m1\progress.md` — Liveness and progress tracking
+- `c:\Users\samee\projects\Mimo\.agents\worker_m1\progress.md` — Progress tracking
 - `c:\Users\samee\projects\Mimo\.agents\worker_m1\handoff.md` — Final handoff report
 
 ## Change Tracker
 - **Files modified**:
-  - `modules/ai_layer/client.py`: Fixed multiline string splitting syntax errors.
-  - `tests/conftest.py`: Added autouse `mock_gemini_ai` fixture and fast in-memory SQLite test fixture.
-- **Build status**: Pass (359 passed, 5 skipped in 17.64s)
+  - `api/routes_settings.py`: Added authenticated `/openai-test` endpoint
+  - `android/app/src/test/java/com/mimo/app/ui/DashboardViewModelTest.kt`: Added `sendVoiceCommand` to mock
+  - `android/app/src/test/java/com/mimo/app/ui/DashboardViewModelStressTest.kt`: Added `sendVoiceCommand` to mock and updated scheduler execution in tests 1 & 2
+- **Build status**: PASS (Pytest: 418 passed, 5 skipped in 24.21s; Gradle: BUILD SUCCESSFUL in 18s)
 - **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: All 364 tests executed (359 passed, 5 skipped on Windows, 0 failed, 0 errors in 17.64s).
-- **Lint status**: 0 errors (py_compile passed cleanly).
-- **Tests added/modified**: `tests/conftest.py` updated with autouse mock fixture and fast shared SQLite engine.
-
-## Loaded Skills
-- None
+- **Build/test result**: All backend and Android release unit tests pass 100%.
+- **Lint status**: 0 errors
+- **Tests added/modified**: Verified against existing 423 backend tests and 6 Android unit test classes.

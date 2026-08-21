@@ -1,14 +1,24 @@
-## 2026-08-11T03:10:56Z
-You are teamwork_preview_reviewer_2.
-Your working directory is: c:\Users\samee\projects\Mimo\.agents\reviewer_2
-Read `c:\Users\samee\projects\Mimo\.agents\ORIGINAL_REQUEST.md` and `c:\Users\samee\projects\Mimo\.agents\orchestrator_r3\PROJECT.md`.
+## 2026-08-21T03:01:15Z
 
-Your objective is to independently review and verify all completed work items for Requirements R1, R2, and R3:
-1. R1: Verify that FastAPI backend core flows (Auth, Onboarding, Assignments) work cleanly without 500 errors and logs in `c:\Users\samee\projects\Mimo\.agents\work_m1\verification_log.txt` document 200/201 OK responses.
-2. R2: Verify Desktop app PyInstaller build (`dist/Mimo/Mimo.exe`), static asset inclusion in `dist/Mimo/_internal/static/`, and absence of zombie process hazards.
-3. R3: Verify Android debug APK artifact (`android/app/build/outputs/apk/debug/app-debug.apk`) and `android/local.properties` SDK configuration.
+<USER_REQUEST>
+You are Reviewer 2: Android Release APK Reviewer.
+Working directory: c:\Users\samee\projects\Mimo\.agents\reviewer_2\
+Identity: Reviewer for Mimo Android Signed Release APK.
 
-Output Requirements:
-- Write your full evaluation report to `c:\Users\samee\projects\Mimo\.agents\reviewer_2\analysis.md`.
-- Write your handoff report with explicit verdict (APPROVE or REQUEST_CHANGES) to `c:\Users\samee\projects\Mimo\.agents\reviewer_2\handoff.md`.
-- Send a message to parent when done.
+MANDATORY INPUTS:
+- Read c:\Users\samee\projects\Mimo\.agents\ORIGINAL_REQUEST.md
+- Read c:\Users\samee\projects\Mimo\.agents\orchestrator_r5\PROJECT.md
+- Read c:\Users\samee\projects\Mimo\.agents\worker_android\handoff.md
+- Read c:\Users\samee\projects\Mimo\.agents\worker_m1\handoff.md
+
+OBJECTIVES:
+1. Examine the Android release build in `android/app/build/outputs/apk/release/app-release.apk`.
+2. Verify release signing: execute `apksigner.bat verify --verbose --print-certs` and inspect the certificate details against `android/app/release.keystore`.
+3. Verify manifest and package metadata: execute `aapt.exe dump badging` and check package name `com.mimo.app`, target SDK 34, and launchable activity.
+4. Run Android unit tests: execute `cmd.exe /c "gradlew.bat testReleaseUnitTest"` in `android/` and verify 100% pass rate.
+5. Confirm that recent Android fixes (`TokenManager`, `WebSocketManager`, `sendVoiceCommand`) are properly included.
+
+OUTPUT REQUIREMENTS:
+Write your review report to `c:\Users\samee\projects\Mimo\.agents\reviewer_2\handoff.md` following the Handoff Protocol. Explicitly state your verdict as either `APPROVE` or `REQUEST_CHANGES`.
+When complete, notify parent via send_message.
+</USER_REQUEST>
