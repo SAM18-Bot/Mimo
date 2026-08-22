@@ -23,6 +23,12 @@ from modules.auth.security import decode_access_token
 router = APIRouter(tags=["auth"])
 
 
+@router.get("/auth/google/client-id")
+def get_google_client_id():
+    import config
+    return {"client_id": config.GOOGLE_CLIENT_ID}
+
+
 
 class UserOut(BaseModel):
     id: int

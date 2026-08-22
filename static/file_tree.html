@@ -222,8 +222,9 @@ window.fetch = async function (...args) {
   if (token && !config.headers['Authorization'] && !config.headers.Authorization) {
     config.headers['Authorization'] = `Bearer ${token}`;
   }
+  const isAuthEndpoint = typeof resource === 'string' && resource.includes('/auth/');
   const res = await originalFetch(resource, config);
-  if (res.status === 401 && token) {
+  if (res.status === 401 && token && !isAuthEndpoint) {
       console.error("API returned 401. Logging out.");
       localStorage.removeItem('mimo_token');
       window.location.reload();

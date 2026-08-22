@@ -41,7 +41,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <!-- Google OAuth Client -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://accounts.google.com/gsi/client?onload=loadGoogleAuth" async defer></script>
 
   <style>
     /* ═══════════════════════════════════════════════════════════════════════════
@@ -1094,21 +1094,7 @@
         <div class="text-xs text-muted mb-4 text-center">— OR —</div>
         
         <div class="flex justify-center">
-          <div id="g_id_onload"
-             data-client_id="321308954784-dopanj969qp2ja5hvsnke5pm9af1bf5e.apps.googleusercontent.com"
-             data-context="signin"
-             data-ux_mode="popup"
-             data-callback="handleGoogleLogin"
-             data-auto_prompt="false">
-          </div>
-          <div class="g_id_signin"
-             data-type="standard"
-             data-shape="rectangular"
-             data-theme="outline"
-             data-text="signin_with"
-             data-size="large"
-             data-logo_alignment="left">
-          </div>
+          <div id="google-btn-container"></div>
         </div>
       </div>
 
@@ -1167,6 +1153,28 @@
        MIMO DASHBOARD MASTER JS ENGINE
        ═══════════════════════════════════════════════════════════════════════════ */
 
+    window.loadGoogleAuth = async function() {
+      try {
+        const res = await fetch('/auth/google/client-id');
+        const data = await res.json();
+        if (data.client_id) {
+          google.accounts.id.initialize({
+            client_id: data.client_id,
+            callback: handleGoogleLogin,
+            context: "signin",
+            ux_mode: "popup",
+            auto_prompt: false
+          });
+          google.accounts.id.renderButton(
+            document.getElementById("google-btn-container"),
+            { type: "standard", shape: "rectangular", theme: "outline", text: "signin_with", size: "large", logo_alignment: "left" }
+          );
+        }
+      } catch(e) {
+        console.error("Failed to load Google client ID", e);
+      }
+    };
+
     // Fetch Interceptor for Auth Token
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
@@ -1177,8 +1185,9 @@
       if (token && !config.headers['Authorization'] && !config.headers.Authorization) {
         config.headers['Authorization'] = `Bearer ${token}`;
       }
+      const isAuthEndpoint = typeof resource === 'string' && resource.includes('/auth/');
       const res = await originalFetch(resource, config);
-      if (res.status === 401 && token) {
+      if (res.status === 401 && token && !isAuthEndpoint) {
           console.error("API returned 401. Logging out.");
           localStorage.removeItem('mimo_token');
           window.location.reload();
