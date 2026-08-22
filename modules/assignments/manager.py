@@ -102,22 +102,36 @@ def delete_assignment(db: Session, assignment_id: int, user_id: int) -> bool:
 # ── reminders ────────────────────────────────────────────────────────────
 
 def _schedule_reminders(db: Session, assignment: Assignment):
-    """Create reminder rows at 3d, 1d, and day-of for an assignment."""
+    """
+    Create one reminder per day, every day, starting 7 days before the due
+    date (or from today, if the assignment was added with less than 7 days
+    left) through the day it's due. Tone escalates as the date gets closer.
+    """
     due = datetime.combine(assignment.due_date, datetime.min.time())
+    today = datetime.combine(date.today(), datetime.min.time())
 
-    schedule = [
-        (due - timedelta(days=3),  f"Heads up: '{assignment.title}' is due in 3 days."),
-        (due - timedelta(days=1),  f"Tomorrow is the deadline for '{assignment.title}'. Start if you haven't."),
-        (due,                       f"TODAY is the deadline for '{assignment.title}'. Submit it."),
-    ]
+    window_start = max(due - timedelta(days=7), today)
+    remind_hour  = timedelta(hours=9)   # send each day's nudge at 9am local
 
-    for remind_at, message in schedule:
+    days_out = (due - window_start).days
+    cursor = window_start
+    while cursor <= due:
+        days_left = (due - cursor).days
+        if days_left <= 0:
+            message = f"TODAY is the deadline for '{assignment.title}'. Submit it."
+        elif days_left == 1:
+            message = f"Tomorrow is the deadline for '{assignment.title}'. Start if you haven't."
+        else:
+            message = f"'{assignment.title}' is due in {days_left} days."
+
+        remind_at = cursor + remind_hour
         if remind_at > datetime.now():
             db.add(Reminder(
                 assignment_id = assignment.id,
                 remind_at     = remind_at,
                 message       = message,
             ))
+        cursor += timedelta(days=1)
 
 
 def get_pending_reminders(db: Session) -> List[Reminder]:

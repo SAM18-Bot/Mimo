@@ -64,16 +64,23 @@ input,select,textarea{width:100%;background:var(--bg3);border:1px solid var(--bo
 </main>
 <script>
 const originalFetch = window.fetch;
-window.fetch = async function(...args) {
-    let [resource, config] = args;
-    if (!config) config = {};
-    if (!config.headers) config.headers = {};
-    const token = localStorage.getItem('mimo_token');
-    if (token && !config.headers['Authorization'] && !config.headers.Authorization) {
-        config.headers['Authorization'] = `Bearer ${token}`;
-    }
-    return await originalFetch(resource, config);
+window.fetch = async function (...args) {
+  let [resource, config] = args;
+  if (!config) config = {};
+  if (!config.headers) config.headers = {};
+  const token = localStorage.getItem('mimo_token');
+  if (token && !config.headers['Authorization'] && !config.headers.Authorization) {
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
+  const res = await originalFetch(resource, config);
+  if (res.status === 401 && token) {
+      console.error("API returned 401. Logging out.");
+      localStorage.removeItem('mimo_token');
+      window.location.reload();
+  }
+  return res;
 };
+
 const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 function bootDays(){const el=document.getElementById('school-days');el.innerHTML='';DAYS.forEach((day,i)=>{const label=document.createElement('label');label.className='day-toggle';label.innerHTML=`<input type="checkbox" value="${i}" ${i<5?'checked':''}><span>${day}</span>`;el.appendChild(label)})}
 function addSubject(name='',priority='medium'){const row=document.createElement('div');row.className='inline-row subject-row';row.innerHTML=`<div><label>Subject</label><input class="subject-name" value="${esc(name)}" placeholder="Math"></div><div><label>Priority</label><select class="subject-priority"><option value="high" ${priority==='high'?'selected':''}>High</option><option value="medium" ${priority==='medium'?'selected':''}>Medium</option><option value="low" ${priority==='low'?'selected':''}>Low</option></select></div><button class="icon-btn" title="Remove" onclick="this.closest('.subject-row').remove()">x</button>`;document.getElementById('subjects').appendChild(row)}

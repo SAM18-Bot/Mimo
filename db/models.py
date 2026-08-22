@@ -183,12 +183,16 @@ class User(Base):
     
     @property
     def api_key(self):
-        from cryptography.fernet import Fernet
+        from cryptography.fernet import Fernet, InvalidToken
         import config
         if not self._api_key_encrypted: return None
-        if not config.SECRET_KEY: return self._api_key_encrypted
-        f = Fernet(config.SECRET_KEY.encode())
-        return f.decrypt(self._api_key_encrypted.encode()).decode()
+        if not config.SECRET_KEY or len(config.SECRET_KEY) < 43:
+            raise ValueError("SECRET_KEY must be configured with a valid 32-byte Fernet key.")
+        try:
+            f = Fernet(config.SECRET_KEY.encode())
+            return f.decrypt(self._api_key_encrypted.encode()).decode()
+        except InvalidToken:
+            return None
             
     @api_key.setter
     def api_key(self, value):
@@ -197,9 +201,8 @@ class User(Base):
         if not value:
             self._api_key_encrypted = None
             return
-        if not config.SECRET_KEY:
-            self._api_key_encrypted = value
-            return
+        if not config.SECRET_KEY or len(config.SECRET_KEY) < 43:
+            raise ValueError("SECRET_KEY must be configured with a valid 32-byte Fernet key to store personal API keys safely.")
         f = Fernet(config.SECRET_KEY.encode())
         self._api_key_encrypted = f.encrypt(value.encode()).decode()
     

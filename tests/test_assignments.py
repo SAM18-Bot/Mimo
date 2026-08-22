@@ -123,7 +123,7 @@ class TestUpcomingAndOverdue:
 class TestReminders:
 
     def test_auto_reminders_created(self, db_session):
-        """create_assignment should auto-schedule 3 reminder rows."""
+        """create_assignment should auto-schedule daily reminders (7 days prior + day-of = 8)."""
         a = create_assignment(
             db_session, user_id=1, title="Big Project",
             due_date=date.today() + timedelta(days=10),
@@ -131,8 +131,8 @@ class TestReminders:
         reminders = db_session.query(Reminder).filter(
             Reminder.assignment_id == a.id
         ).all()
-        # 3-day, 1-day, day-of reminders
-        assert len(reminders) == 3
+        # 7-day prior + day-of = 8 reminders
+        assert len(reminders) == 8
 
     def test_reminders_not_created_for_past_date(self, db_session):
         """Reminders for dates already past should be skipped."""

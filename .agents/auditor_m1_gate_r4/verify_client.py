@@ -124,7 +124,7 @@ mock_client_instance = MockGenAIClient("user-custom-key")
 with mock.patch("modules.ai_layer.client.genai.Client", return_value=mock_client_instance):
     res = c._chat(system="sys prompt", user="user prompt", json_mode=True, api_key="user-custom-key")
     assert res == "Genuine AI Output"
-    assert mock_client_instance.called_model == "gemini-2.5-flash"
+    assert mock_client_instance.called_model == "gemini-3.0-flash"
     assert mock_client_instance.called_contents == "user prompt"
     assert mock_client_instance.called_config.system_instruction == "sys prompt"
     assert mock_client_instance.called_config.response_mime_type == "application/json"

@@ -1,0 +1,77 @@
+6:   <title>Mimo — AI Student Accountability Dashboard</title>
+47:     /* ═══════════════════════════════════════════════════════════════════════════
+49:        ═══════════════════════════════════════════════════════════════════════════ */
+142:     /* ═══════════════════════════════════════════════════════════════════════════
+144:        ═══════════════════════════════════════════════════════════════════════════ */
+220:     /* ═══════════════════════════════════════════════════════════════════════════
+222:        ═══════════════════════════════════════════════════════════════════════════ */
+705:   <!-- ══ SIDEBAR NAVIGATION ══ -->
+752:   <!-- ══ MAIN CONTENT WRAPPER ══ -->
+768:         <span id="clock" class="font-mono text-xs font-semibold text-muted">—</span>
+781:       <!-- ══ LEFT COLUMN ══ -->
+791:             <div id="grade-badge" class="grade-badge grade-F">—</div>
+815:               <div id="score-verdict" class="score-verdict">Initializing…</div>
+918:             <li class="insight-item"><span>⏳</span><span>Loading patterns…</span></li>
+923:       <!-- ══ CENTER COLUMN ══ -->
+929:           <div class="app-name-big" id="app-name">—</div>
+930:           <div class="app-title-small" id="app-title">Waiting for activity…</div>
+959:             <span class="pres-text" id="pres-text">Checking camera…</span>
+960:             <span class="pres-detail" id="pres-detail">—</span>
+971:             <li class="text-xs text-muted text-center py-4">Awaiting live window events…</li>
+976:       <!-- ══ RIGHT COLUMN ══ -->
+1020:             <li class="text-xs text-muted text-center py-3">Loading assignments…</li>
+1031:             <li class="text-xs text-muted text-center py-2">Analyzing study history…</li>
+1047:       <!-- ══ FULL WIDTH ROAST ZONE ══ -->
+1051:           <span>Roast Zone — AI Accountability Feed</span>
+1061:   <!-- ══ MORNING Q&A MODAL OVERLAY ══ -->
+1064:       <div class="qa-title text-lg font-bold mb-1">Morning Accountability Check-In ☀️</div>
+1077:   <!-- ══ GOOGLE OAUTH & ONBOARDING OVERLAY ══ -->
+1094:         <div class="text-xs text-muted mb-4 text-center">— OR —</div>
+1161:   <!-- ══ TOAST NOTIFICATION ══ -->
+1164:   <!-- ══ ES6 MASTER JS ENGINE ══ -->
+1166:     /* ═══════════════════════════════════════════════════════════════════════════
+1168:        ═══════════════════════════════════════════════════════════════════════════ */
+1194:     // threads can make authenticated calls too — plain browser tabs just
+1202:     // pywebview injects window.pywebview asynchronously after page load —
+1312:       currentApp: '—',
+1343:     const fmtTime = d => (d instanceof Date && !isNaN(d)) ? d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true}) : '—';
+1346:     /* ═══════════════════════════════════════════════════════════════════════════
+1348:        ═══════════════════════════════════════════════════════════════════════════ */
+1414:     /* ═══════════════════════════════════════════════════════════════════════════
+1416:        ═══════════════════════════════════════════════════════════════════════════ */
+1514:     /* ═══════════════════════════════════════════════════════════════════════════
+1516:        ═══════════════════════════════════════════════════════════════════════════ */
+1564:         if (wsLbl) wsLbl.textContent = 'Reconnecting…';
+1597:           showToast('🔔 ' + (msg.message || msg.text || 'Reminder'));
+1603:           showToast('📊 EOD Summary: ' + (msg.report?.summary || 'Report generated'));
+1606:           showToast('🎯 ' + (msg.message || 'Study advice received'));
+1608:         case 'voice_response': showToast('🎙️ ' + (msg.message || 'Voice update')); if (typeof appendCoachMessage === 'function') appendCoachMessage(msg.message, 'ai'); break;
+1612:     /* ═══════════════════════════════════════════════════════════════════════════
+1614:        ═══════════════════════════════════════════════════════════════════════════ */
+1664:       S.currentApp = msg.app || '—';
+1693:         <span class="act-app" title="${esc(msg.title || '')}">${esc(msg.app || 'App')} — ${esc(msg.title || '')}</span>
+1719:         container.innerHTML = '<li class="text-xs text-muted text-center py-3">No upcoming assignments! 🎉</li>';
+1763:           showToast(`✓ Marked "${title}" as completed`);
+1785:           showToast('✓ Assignment added!');
+1797:             showToast('✓ Assignment added!');
+1817:         <span class="roast-icon">🔥</span>
+1829:       showToast('🔥 AI Roast Received!');
+1832:     // ── Productivity Pet Logic (Removed) ──────────────────────────────────────
+1837:     /* ═══════════════════════════════════════════════════════════════════════════
+1839:        ═══════════════════════════════════════════════════════════════════════════ */
+1935:     /* ═══════════════════════════════════════════════════════════════════════════
+1937:        ═══════════════════════════════════════════════════════════════════════════ */
+2080:     /* ═══════════════════════════════════════════════════════════════════════════
+2082:        ═══════════════════════════════════════════════════════════════════════════ */
+2161:           <li class="insight-item"><span>💡</span><span>Peak focus observed during morning study sessions.</span></li>
+2162:           <li class="insight-item"><span>⚡</span><span>Frequent task switching detected after 3:00 PM.</span></li>
+2168:           <span>💡</span>
+2174:     /* ═══════════════════════════════════════════════════════════════════════════
+2176:        ═══════════════════════════════════════════════════════════════════════════ */
+2201:             showToast('🎉 Focus Session Complete!');
+2228:     /* ═══════════════════════════════════════════════════════════════════════════
+2230:        ═══════════════════════════════════════════════════════════════════════════ */
+2247:     /* ═══════════════════════════════════════════════════════════════════════════
+2249:        ═══════════════════════════════════════════════════════════════════════════ */
+2295:         showToast('✓ Morning Check-In Completed!');
+2315:         <span id="coach-close">✖</span>
