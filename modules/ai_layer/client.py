@@ -40,7 +40,7 @@ def _chat(system: str, user: str, model: str | None = None, json_mode: bool = Fa
     try:
         client = genai.Client(api_key=gemini_key)
         # Default to 3.7-flash since it's the current stable version for 2026
-        gemini_model = model if (model and "gemini" in model.lower()) else "gemini-3.7-flash"
+        gemini_model = model if (model and "gemini" in model.lower()) else "gemini-3.1-flash-lite"
         
         config_args = {
             "system_instruction": system,
@@ -81,7 +81,7 @@ def generate_roast(
             pending_assignments = pending_assignments,
             days_until_deadline = days_until_deadline,
         )
-        result = _chat(ROAST_SYSTEM, user_prompt, model="gemini-3.7-flash", engine=engine, api_key=api_key)
+        result = _chat(ROAST_SYSTEM, user_prompt, model="gemini-3.1-flash-lite", engine=engine, api_key=api_key)
         if result:
             return result
 
@@ -152,7 +152,7 @@ def generate_coach_response(
         distracting_min=context.get("distracting_min", 0)
     )
 
-    result = _chat(COACH_CHAT_SYSTEM, user_prompt, model="gemini-3.7-flash", engine=engine, api_key=api_key)
+    result = _chat(COACH_CHAT_SYSTEM, user_prompt, model="gemini-3.1-flash-lite", engine=engine, api_key=api_key)
     if result:
         return result
     return "I'm offline right now. Check your internet connection or API Key limits."
