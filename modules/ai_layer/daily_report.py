@@ -30,7 +30,10 @@ def run_eod_report(
     5. Call OpenAI (or fallback) for report generation
     6. Save to DB, speak, broadcast to dashboard
     """
+    from db.models import User
     with get_db_ctx() as db:
+        user = db.get(User, user_id)
+        api_key = user.api_key if user else None
         stats = get_daily_stats(db, user_id=user_id)
         accountability_answers = _get_accountability_answers(db, user_id)
 
@@ -47,8 +50,8 @@ def run_eod_report(
         except Exception as e:
             log.debug("Pattern detector failed: %s", e)
 
-        # Study advisor recommendation
-        next_to_study = "Check your assignment list."
+        # Study advisor
+        next_to_study = "unknown"
         try:
             from modules.ai_layer.study_advisor import StudyAdvisor
             next_to_study = StudyAdvisor(db).get_next_to_study(user_id=user_id)
@@ -56,16 +59,20 @@ def run_eod_report(
             log.debug("Study advisor failed: %s", e)
 
     context = {
-        **stats,
-        "accountability_answers": accountability_answers or "No answers recorded today.",
-        "weekly_patterns":        weekly_insights,
+        "date":                   stats["date"],
+        "focus_score":            stats["focus_score"],
+        "productive_min":         stats["productive_min"],
+        "distracting_min":        stats["distracting_min"],
+        "top_apps":               stats.get("top_apps", ""),
+        "weekly_insights":        weekly_insights,
         "weekly_data":            weekly_data,
-        "peak_window":            peak_window,
+        "peak_productive_window": peak_window,
         "next_to_study":          next_to_study,
+        "accountability_answers": accountability_answers,
     }
 
     log.info("Running EOD report for %s", stats["date"])
-    report = generate_eod_report(context)
+    report = generate_eod_report(context, api_key=api_key)
 
     if not report:
         log.warning("EOD report generation failed — using fallback")

@@ -219,6 +219,7 @@ class IntentRouter:
 
     def _handle_ask_coach(self, text: str):
         from db.database import get_db_ctx
+        from db.models import User
         from modules.ai_layer.client import generate_coach_response
         from modules.ai_layer.roast_engine import RoastEngine
         from modules.behavior_engine.aggregator import get_daily_stats
@@ -226,6 +227,8 @@ class IntentRouter:
         # Get stats
         with get_db_ctx() as db:
             stats = get_daily_stats(db, user_id=self._user_id)
+            user = db.get(User, self._user_id)
+            api_key = user.api_key if user else None
         
         # Get pending assignments
         engine = RoastEngine()
@@ -241,7 +244,7 @@ class IntentRouter:
         if self._speak:
             self._speak("Let me think about that.")
 
-        response = generate_coach_response(text, context)
+        response = generate_coach_response(text, context, api_key=api_key)
 
         if self._speak:
             self._speak(response)

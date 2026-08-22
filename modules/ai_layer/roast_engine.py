@@ -98,6 +98,7 @@ class RoastEngine:
             time_spent_min      = minutes,
             pending_assignments = context["pending_assignments"],
             days_until_deadline = context["days_until_deadline"],
+            api_key             = context.get("api_key")
         )
 
         log.info(f"ROAST [{trigger}]: {roast_text}")
@@ -130,7 +131,10 @@ class RoastEngine:
 
     def _get_context(self, user_id: int = 1) -> dict:
         try:
+            from db.models import User
             with get_db_ctx() as db:
+                user = db.get(User, user_id)
+                api_key = user.api_key if user else None
                 upcoming = (
                     db.query(Assignment)
                     .filter(Assignment.user_id == user_id)
@@ -146,10 +150,10 @@ class RoastEngine:
                 else:
                     names = "none"
                     days  = 999
-                return {"pending_assignments": names, "days_until_deadline": days}
+                return {"pending_assignments": names, "days_until_deadline": days, "api_key": api_key}
         except Exception as e:
             log.error(f"Context fetch error: {e}")
-            return {"pending_assignments": "unknown", "days_until_deadline": 99}
+            return {"pending_assignments": "unknown", "days_until_deadline": 99, "api_key": None}
 
     def _save_roast(self, trigger: str, message: str, user_id: int = 1):
         try:

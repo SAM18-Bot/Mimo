@@ -49,8 +49,12 @@ class StudyAdvisor:
           subjects, weak_subjects, strong_subjects,
           time_per_subject, last_studied, recommendations
         """
+        from db.models import User
         from modules.schedule.manager import get_active_profile
         
+        user = self._db.get(User, user_id)
+        api_key = user.api_key if user else None
+
         time_map   = self._subject_time(user_id, days)
         completion = self._completion_rates(user_id)
         last_seen  = self._last_studied(user_id)
@@ -65,7 +69,7 @@ class StudyAdvisor:
         strong = [s for s, score in ranked if score > 70]
 
         plan    = self._build_study_plan(ranked, patterns.get("peak_productive_hour"))
-        ai_data = self._ai_recommendations(time_map, completion, patterns, weak, profile_notes)
+        ai_data = self._ai_recommendations(time_map, completion, patterns, weak, profile_notes, api_key=api_key)
         ai_recs = ai_data.get("recommendations", [])
         suggested_subjects = ai_data.get("suggested_subjects", [])
 
@@ -258,6 +262,7 @@ class StudyAdvisor:
         patterns:  dict,
         weak:      list[str],
         profile_notes: str,
+        api_key: str | None = None,
     ) -> dict:
         """
         Try AI-generated recommendations. Falls back to rule-based if no API key.
@@ -273,7 +278,7 @@ class StudyAdvisor:
                 "avg_study_min":    patterns.get("avg_productive_min", 0),
                 "completion_rate":  patterns.get("completion_rate_pct", 0),
             }
-            recs = generate_study_recommendations(context)
+            recs = generate_study_recommendations(context, api_key=api_key)
             if recs:
                 return recs
         except Exception as e:
