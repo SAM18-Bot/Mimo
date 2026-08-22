@@ -156,3 +156,23 @@ def generate_coach_response(
     if result:
         return result
     return "I'm offline right now. Check your internet connection or API Key limits."
+
+def customize_schedule(blocks: list[dict], notes: str, engine: str = "gemini", api_key: str | None = None) -> list[dict] | None:
+    """Use AI to customize a schedule based on user notes."""
+    import json
+    import logging
+    system = """You are an AI schedule assistant. You receive a weekly schedule (list of blocks) and user notes.
+You must modify, add, or remove blocks to satisfy the user's notes. 
+If the user asks for a workout block, add it. If they ask to adjust times, adjust them.
+A block MUST have: day_of_week (0=Mon, 6=Sun), start_time (HH:MM), end_time (HH:MM), kind (study/school/fixed), title, flexibility (movable/fixed), subject (str or null).
+Return ONLY a JSON array containing the full modified list of block objects. No markdown formatting, just raw JSON."""
+    
+    user_prompt = f"Notes: {notes}\nCurrent Schedule:\n{json.dumps(blocks)}"
+    
+    raw = _chat(system, user_prompt, json_mode=True, engine=engine, api_key=api_key)
+    if raw:
+        try:
+            return json.loads(raw)
+        except Exception as e:
+            logging.getLogger(__name__).error(f"Schedule customization parse failed: {e}")
+    return None

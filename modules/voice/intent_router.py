@@ -47,7 +47,7 @@ class IntentRouter:
         elif intent == "eod_report":
             self._handle_eod_report()
         elif intent == "ask_coach":
-            self._handle_ask_coach(text)
+            return self._handle_ask_coach(text)
         else:
             if self._speak:
                 self._speak("I didn't catch that. Try: add assignment, show tasks, or how productive was I.")
@@ -250,3 +250,5 @@ class IntentRouter:
             self._speak(response)
         if self._broadcast:
             self._broadcast({"type": "voice_response", "message": response})
+            
+        return response

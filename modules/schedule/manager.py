@@ -114,12 +114,48 @@ def build_onboarding_schedule(
     db.add(profile)
     db.flush()
 
-    for block in _generate_blocks(
+    raw_blocks = _generate_blocks(
         profile=profile,
         subjects=subject_list,
         fixed_blocks=fixed_list,
         school_days=school_days,
-    ):
+    )
+    
+    if notes:
+        from db.models import User
+        from modules.ai_layer.client import customize_schedule
+        user = db.get(User, user_id)
+        api_key = user.api_key if user else None
+        
+        # Serialize for AI
+        dicts = []
+        for b in raw_blocks:
+            dicts.append({
+                "day_of_week": b.day_of_week,
+                "start_time": b.start_time,
+                "end_time": b.end_time,
+                "kind": b.kind,
+                "title": b.title,
+                "subject": b.subject,
+                "flexibility": b.flexibility,
+            })
+            
+        customized = customize_schedule(dicts, notes, api_key=api_key)
+        if customized:
+            raw_blocks = []
+            for cb in customized:
+                raw_blocks.append(ScheduleBlock(
+                    profile_id=profile.id,
+                    day_of_week=cb.get("day_of_week", 0),
+                    start_time=cb.get("start_time", "00:00"),
+                    end_time=cb.get("end_time", "01:00"),
+                    kind=cb.get("kind", "study"),
+                    title=cb.get("title", "Study"),
+                    subject=cb.get("subject"),
+                    flexibility=cb.get("flexibility", "movable")
+                ))
+
+    for block in raw_blocks:
         db.add(block)
 
     db.commit()

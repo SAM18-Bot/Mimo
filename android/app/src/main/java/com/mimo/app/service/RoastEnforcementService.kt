@@ -53,6 +53,9 @@ class RoastEnforcementService : Service() {
                 if (event.type == "roast" && event.message != null) {
                     showRoastNotification(event.message)
                 }
+                else if (event.type == "voice_response" && event.message != null) {
+                    showCoachNotification(event.message)
+                }
             }
         }
 
@@ -62,12 +65,24 @@ class RoastEnforcementService : Service() {
     private fun showRoastNotification(message: String) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val notification = NotificationCompat.Builder(this, MimoApplication.CHANNEL_ID_ROASTS)
-            .setContentTitle("Mimo Roast \uD83D\uDD25")
+            .setContentTitle("Mimo is watching \ud83d\udc40")
             .setContentText(message)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .build()
+        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+    }
 
+    private fun showCoachNotification(message: String) {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notification = NotificationCompat.Builder(this, MimoApplication.CHANNEL_ID_ROASTS)
+            .setContentTitle("Coach \ud83e\uddd1\u200d\ud83c\udfeb")
+            .setContentText(message)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .build()
         notificationManager.notify(System.currentTimeMillis().toInt(), notification)
     }
 

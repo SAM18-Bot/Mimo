@@ -55,6 +55,11 @@ def send_command(payload: CommandRequest, user: User = Depends(current_user)):
         # Print to server console AND broadcast to dashboard
         print(f"\n🔊 [VOICE RESPONSE] {msg}\n")
         push_event({"type": "voice_response", "message": msg, "user_id": user.id})
+        try:
+            from desktop.notifications import notify
+            notify("Coach 🧑‍🏫", msg)
+        except ImportError:
+            pass
 
     try:
         from modules.voice.intent_router import IntentRouter
@@ -63,8 +68,8 @@ def send_command(payload: CommandRequest, user: User = Depends(current_user)):
             broadcast_fn = push_event,
             user_id      = user.id,
         )
-        router_inst.route(payload.text)
-        return {"ok": True, "routed_text": payload.text}
+        res = router_inst.route(payload.text)
+        return {"ok": True, "routed_text": payload.text, "ai_response": res}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
