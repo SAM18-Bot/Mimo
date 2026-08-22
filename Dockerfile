@@ -5,6 +5,10 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libpq-dev \
     portaudio19-dev \
+    libgl1 \
+    libglib2.0-0 \
+    espeak \
+    alsa-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -12,7 +16,11 @@ WORKDIR /app
 
 # Copy requirements and install
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN sed -i '/pygetwindow/d' requirements.txt && \
+    sed -i '/pywebview/d' requirements.txt && \
+    sed -i '/pystray/d' requirements.txt && \
+    sed -i '/plyer/d' requirements.txt && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .

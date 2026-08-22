@@ -9,6 +9,9 @@ services:
       - DATABASE_URL=postgresql://mimo_user:mimo_pass@mimo-db:5432/mimo_db
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change_me_in_prod}
+      - SECRET_KEY=${SECRET_KEY:-A_FAKE_KEY_FOR_EXAMPLE_DONT_USE_IN_PROD_123=}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - NO_HARDWARE=1
       - NO_VOICE=1
       - NO_TRACKER=1
