@@ -10,6 +10,7 @@ Tests:
 """
 
 import pytest
+
 from modules.behavior_engine.scorer import ProductivityScorer, score_day
 
 

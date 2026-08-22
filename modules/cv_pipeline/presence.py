@@ -12,8 +12,8 @@ Events are written to CVEvent table and forwarded to the roast engine.
 import logging
 import threading
 import time
-from datetime import datetime, date
-from typing import Optional, Callable
+from collections.abc import Callable
+from datetime import datetime
 
 import cv2
 import mediapipe as mp
@@ -22,6 +22,7 @@ import numpy as np
 from db.database import get_db_ctx
 from db.models import CVEvent
 from modules.cv_pipeline.stream_client import frame_slot
+
 try:
     from modules.cv_pipeline.focus_detector import GazeDetector as _GazeDetector
 except ImportError:
@@ -34,8 +35,8 @@ log = logging.getLogger(__name__)
 class PresenceMonitor:
     def __init__(
         self,
-        on_event: Optional[Callable] = None,   # callback(event_type: str)
-        broadcast_fn: Optional[Callable] = None,
+        on_event: Callable | None = None,   # callback(event_type: str)
+        broadcast_fn: Callable | None = None,
         user_id: int = 1,
     ):
         self._on_event    = on_event
@@ -47,7 +48,7 @@ class PresenceMonitor:
         # state machine
         self._state: str  = "unknown"   # present | absent | distracted
         self._last_seen   = time.time()
-        self._away_since: Optional[float] = None
+        self._away_since: float | None = None
 
         # Mediapipe face detector (lightweight model 0)
         self._detector = mp.solutions.face_detection.FaceDetection(

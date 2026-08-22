@@ -1,20 +1,23 @@
 from datetime import date
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
+from api.routes_auth import current_user
+from api.websocket import push_event
 from db.database import get_db
-from db.models import Assignment
+from db.models import User
 from modules.assignments.manager import (
-    create_assignment, get_all_assignments, get_upcoming,
-    get_overdue, mark_done, update_status, delete_assignment,
+    create_assignment,
+    delete_assignment,
+    get_all_assignments,
+    get_overdue,
+    get_upcoming,
+    mark_done,
+    update_status,
 )
 from modules.assignments.parser import parse_assignment_command
-from api.websocket import push_event
-from api.routes_auth import current_user
-from db.models import User
 
 router = APIRouter(prefix="/assignments", tags=["assignments"])
 
@@ -22,20 +25,20 @@ router = APIRouter(prefix="/assignments", tags=["assignments"])
 # ── Pydantic schemas ──────────────────────────────────────────────────────
 class AssignmentCreate(BaseModel):
     title:    str
-    subject:  Optional[str] = None
+    subject:  str | None = None
     due_date: date
-    priority: Optional[str] = "medium"
-    notes:    Optional[str] = None
+    priority: str | None = "medium"
+    notes:    str | None = None
 
 
 class AssignmentOut(BaseModel):
     id:       int
     title:    str
-    subject:  Optional[str]
+    subject:  str | None
     due_date: date
     priority: str
     status:   str
-    notes:    Optional[str]
+    notes:    str | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -82,18 +85,18 @@ def add_assignment_nlp(payload: NLPCreate, user: User = Depends(current_user), d
     return a
 
 
-@router.get("", response_model=List[AssignmentOut])
-@router.get("/", response_model=List[AssignmentOut], include_in_schema=False)
-def list_assignments(status: Optional[str] = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
+@router.get("", response_model=list[AssignmentOut])
+@router.get("/", response_model=list[AssignmentOut], include_in_schema=False)
+def list_assignments(status: str | None = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     return get_all_assignments(db, user_id=user.id, status=status)
 
 
-@router.get("/upcoming", response_model=List[AssignmentOut])
+@router.get("/upcoming", response_model=list[AssignmentOut])
 def list_upcoming(days: int = 7, user: User = Depends(current_user), db: Session = Depends(get_db)):
     return get_upcoming(db, user_id=user.id, days=days)
 
 
-@router.get("/overdue", response_model=List[AssignmentOut])
+@router.get("/overdue", response_model=list[AssignmentOut])
 def list_overdue(user: User = Depends(current_user), db: Session = Depends(get_db)):
     return get_overdue(db, user_id=user.id)
 

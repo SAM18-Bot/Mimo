@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 
+
 def build_executable():
     """Build the standalone Desktop Mimo App using PyInstaller."""
     

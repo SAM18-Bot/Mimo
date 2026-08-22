@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Iterable, Optional
 
 from sqlalchemy.orm import Session
 
 from db.models import Assignment, ScheduleBlock, ScheduleProfile
-
 
 DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 VALID_PRIORITIES = {"low", "medium", "high"}
@@ -18,7 +17,7 @@ VALID_STATUSES = {"planned", "done", "skipped", "moved", "missed"}
 class SubjectPreference:
     name: str
     priority: str = "medium"
-    target_minutes: Optional[int] = None
+    target_minutes: int | None = None
 
 
 @dataclass(frozen=True)
@@ -67,15 +66,15 @@ def build_onboarding_schedule(
     wake_time: str,
     sleep_time: str,
     timezone: str = "local",
-    school_days: Optional[list[int]] = None,
-    school_start: Optional[str] = None,
-    school_end: Optional[str] = None,
+    school_days: list[int] | None = None,
+    school_start: str | None = None,
+    school_end: str | None = None,
     study_goal_minutes: int = 120,
     session_minutes: int = 50,
     break_minutes: int = 10,
-    subjects: Optional[Iterable[SubjectPreference | dict]] = None,
-    fixed_blocks: Optional[Iterable[FixedBlock | dict]] = None,
-    notes: Optional[str] = None,
+    subjects: Iterable[SubjectPreference | dict] | None = None,
+    fixed_blocks: Iterable[FixedBlock | dict] | None = None,
+    notes: str | None = None,
 ) -> ScheduleProfile:
     wake_min = _parse_time(wake_time)
     sleep_min = _parse_time(sleep_time)
@@ -128,11 +127,11 @@ def build_onboarding_schedule(
     return profile
 
 
-def get_active_profile(db: Session, user_id: int) -> Optional[ScheduleProfile]:
+def get_active_profile(db: Session, user_id: int) -> ScheduleProfile | None:
     return (
         db.query(ScheduleProfile)
         .filter(ScheduleProfile.user_id == user_id)
-        .filter(ScheduleProfile.active == True)  # noqa: E712
+        .filter(ScheduleProfile.active == True)
         .order_by(ScheduleProfile.created_at.desc(), ScheduleProfile.id.desc())
         .first()
     )
@@ -150,7 +149,7 @@ def get_weekly_schedule(db: Session, user_id: int) -> list[ScheduleBlock]:
     )
 
 
-def get_day_schedule(db: Session, user_id: int, target_date: Optional[date] = None) -> list[ScheduleBlock]:
+def get_day_schedule(db: Session, user_id: int, target_date: date | None = None) -> list[ScheduleBlock]:
     target = target_date or date.today()
     profile = get_active_profile(db, user_id)
     if not profile:
@@ -165,8 +164,8 @@ def get_day_schedule(db: Session, user_id: int, target_date: Optional[date] = No
 
 
 def update_block_status(
-    db: Session, block_id: int, status: str, user_id: Optional[int] = None
-) -> Optional[ScheduleBlock]:
+    db: Session, block_id: int, status: str, user_id: int | None = None
+) -> ScheduleBlock | None:
     if status not in VALID_STATUSES:
         raise ValueError(f"status must be one of: {', '.join(sorted(VALID_STATUSES))}")
     block = db.get(ScheduleBlock, block_id)
@@ -194,7 +193,7 @@ def reschedule_missed_blocks(
     db: Session,
     user_id: int,
     *,
-    target_date: Optional[date] = None,
+    target_date: date | None = None,
 ) -> list[ScheduleBlock]:
     """Find skipped/missed study blocks for today and reschedule them into free windows."""
     target = target_date or date.today()
@@ -285,7 +284,7 @@ def boost_subject_priority(
     db: Session,
     user_id: int,
     *,
-    target_date: Optional[date] = None,
+    target_date: date | None = None,
     lookahead_days: int = 3,
 ) -> list[ScheduleBlock]:
     """Create extra study blocks for subjects with assignments due within lookahead_days."""
@@ -389,7 +388,7 @@ def smart_suggestions(
     db: Session,
     user_id: int,
     *,
-    target_date: Optional[date] = None,
+    target_date: date | None = None,
 ) -> list[dict]:
     """Generate AI-style schedule adjustment suggestions based on current state."""
     target = target_date or date.today()
@@ -563,7 +562,7 @@ def _make_block(
     *,
     kind: str,
     title: str,
-    subject: Optional[str] = None,
+    subject: str | None = None,
     flexibility: str = "movable",
     priority: str = "medium",
 ) -> ScheduleBlock:
@@ -582,7 +581,7 @@ def _make_block(
     )
 
 
-def _normalize_subjects(subjects: Optional[Iterable[SubjectPreference | dict]]) -> list[SubjectPreference]:
+def _normalize_subjects(subjects: Iterable[SubjectPreference | dict] | None) -> list[SubjectPreference]:
     if not subjects:
         return [SubjectPreference(name="General study", priority="medium")]
 
@@ -604,7 +603,7 @@ def _normalize_subjects(subjects: Optional[Iterable[SubjectPreference | dict]]) 
     return normalized
 
 
-def _normalize_fixed_blocks(fixed_blocks: Optional[Iterable[FixedBlock | dict]]) -> list[FixedBlock]:
+def _normalize_fixed_blocks(fixed_blocks: Iterable[FixedBlock | dict] | None) -> list[FixedBlock]:
     if not fixed_blocks:
         return []
     normalized = []

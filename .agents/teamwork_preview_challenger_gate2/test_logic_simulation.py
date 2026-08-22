@@ -1,5 +1,5 @@
-import subprocess
 import os
+import subprocess
 
 print("=== EMPIRICAL CHALLENGER SIMULATION & AUDIT TEST ===")
 

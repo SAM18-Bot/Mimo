@@ -10,7 +10,6 @@ Key design:
 """
 
 import os
-import tempfile
 
 # Force test env before any project imports
 os.environ["OPENAI_API_KEY"] = "sk-test-fake"
@@ -18,17 +17,15 @@ os.environ["NO_HARDWARE"]    = "1"
 os.environ["NO_VOICE"]       = "1"
 # Override DATABASE_URL — individual fixtures will patch the engine further
 
+import uuid
+from datetime import date, datetime, timedelta
+
 import pytest
-from datetime import datetime, date, timedelta
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from db.database import Base, get_db
 import db.models  # noqa: F401 — register models
-
-
-import uuid
-
+from db.database import Base, get_db
 
 # ── per-test SQLite file engine ───────────────────────────────────────────
 
@@ -65,9 +62,10 @@ def client(db_engine):
     (via get_db dependency) and service-layer (via get_db_ctx context manager)
     — to the same per-test SQLite file engine.
     """
-    import db.database as db_mod
-    from sqlalchemy.orm import sessionmaker as SM
     from fastapi.testclient import TestClient
+    from sqlalchemy.orm import sessionmaker as SM
+
+    import db.database as db_mod
 
     # Patch the global engine + SessionLocal so get_db_ctx() uses our engine
     original_engine      = db_mod.engine
@@ -178,9 +176,10 @@ def seed_assignments(db_session):
 @pytest.fixture
 def auth_headers(client, db_engine):
     """Create a test user and return auth headers with a valid JWT."""
+    from sqlalchemy.orm import sessionmaker as SM
+
     from db.models import User
     from modules.auth.security import create_access_token
-    from sqlalchemy.orm import sessionmaker as SM
 
     Session = SM(autocommit=False, autoflush=False, bind=db_engine)
     session = Session()
@@ -238,9 +237,10 @@ def mock_openai(monkeypatch):
 def mock_gemini_ai(monkeypatch):
     """Mock Gemini/AI layer calls to speed up tests, prevent network calls, and eliminate sleep delays."""
     import json
+
     import modules.ai_layer.client as ai_client
 
-    def mock_chat(system: str, user: str, model: str = None, json_mode: bool = False, engine: str = "gemini", api_key: str = None):
+    def mock_chat(system: str, user: str, model: str | None = None, json_mode: bool = False, engine: str = "gemini", api_key: str | None = None):
         if json_mode:
             sys_lower = system.lower()
             if "study" in sys_lower or "advisor" in sys_lower or "student" in sys_lower:

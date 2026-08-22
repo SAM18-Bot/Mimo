@@ -1,26 +1,24 @@
 import pytest
-from fastapi.testclient import TestClient
-from main import app
+
 
 def test_websocket_missing_token(client):
-    with pytest.raises(Exception):
-        with client.websocket_connect("/ws") as ws:
-            pass
+    with pytest.raises(Exception), client.websocket_connect("/ws"):
+        pass
 
 def test_websocket_invalid_token(client):
     with pytest.raises(Exception):
-        with client.websocket_connect("/ws?token=invalid_jwt") as ws:
+        with client.websocket_connect("/ws?token=invalid_jwt"):
             pass
 
 def test_websocket_dev_token(client):
-    with pytest.raises(Exception):
-        with client.websocket_connect("/ws?token=dev_token") as ws:
-            pass
+    with pytest.raises(Exception), client.websocket_connect("/ws?token=dev_token"):
+        pass
 
 
 @pytest.mark.anyio
 async def test_connection_manager_unicast_and_broadcast():
     from unittest.mock import AsyncMock
+
     from api.websocket import ConnectionManager
 
     cm = ConnectionManager()

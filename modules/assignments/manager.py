@@ -5,7 +5,6 @@ Used by both the FastAPI routes and the voice intent router.
 
 import logging
 from datetime import date, datetime, timedelta
-from typing import Optional, List
 
 from sqlalchemy.orm import Session
 
@@ -19,9 +18,9 @@ def create_assignment(
     user_id: int,
     title: str,
     due_date: date,
-    subject: Optional[str] = None,
+    subject: str | None = None,
     priority: str = "medium",
-    notes: Optional[str] = None,
+    notes: str | None = None,
 ) -> Assignment:
     a = Assignment(
         user_id  = user_id,
@@ -43,14 +42,14 @@ def create_assignment(
     return a
 
 
-def get_all_assignments(db: Session, user_id: int, status: Optional[str] = None) -> List[Assignment]:
+def get_all_assignments(db: Session, user_id: int, status: str | None = None) -> list[Assignment]:
     q = db.query(Assignment).filter(Assignment.user_id == user_id)
     if status:
         q = q.filter(Assignment.status == status)
     return q.order_by(Assignment.due_date).all()
 
 
-def get_upcoming(db: Session, user_id: int, days: int = 7) -> List[Assignment]:
+def get_upcoming(db: Session, user_id: int, days: int = 7) -> list[Assignment]:
     cutoff = date.today() + timedelta(days=days)
     return (
         db.query(Assignment)
@@ -62,7 +61,7 @@ def get_upcoming(db: Session, user_id: int, days: int = 7) -> List[Assignment]:
     )
 
 
-def get_overdue(db: Session, user_id: int) -> List[Assignment]:
+def get_overdue(db: Session, user_id: int) -> list[Assignment]:
     return (
         db.query(Assignment)
         .filter(Assignment.user_id == user_id)
@@ -72,7 +71,7 @@ def get_overdue(db: Session, user_id: int) -> List[Assignment]:
     )
 
 
-def mark_done(db: Session, assignment_id: int, user_id: int) -> Optional[Assignment]:
+def mark_done(db: Session, assignment_id: int, user_id: int) -> Assignment | None:
     a = db.get(Assignment, assignment_id)
     if a and a.user_id == user_id:
         a.status = "done"
@@ -81,7 +80,7 @@ def mark_done(db: Session, assignment_id: int, user_id: int) -> Optional[Assignm
     return a
 
 
-def update_status(db: Session, assignment_id: int, status: str, user_id: int) -> Optional[Assignment]:
+def update_status(db: Session, assignment_id: int, status: str, user_id: int) -> Assignment | None:
     a = db.get(Assignment, assignment_id)
     if a and a.user_id == user_id:
         a.status = status
@@ -113,7 +112,7 @@ def _schedule_reminders(db: Session, assignment: Assignment):
     window_start = max(due - timedelta(days=7), today)
     remind_hour  = timedelta(hours=9)   # send each day's nudge at 9am local
 
-    days_out = (due - window_start).days
+    (due - window_start).days
     cursor = window_start
     while cursor <= due:
         days_left = (due - cursor).days
@@ -134,12 +133,12 @@ def _schedule_reminders(db: Session, assignment: Assignment):
         cursor += timedelta(days=1)
 
 
-def get_pending_reminders(db: Session) -> List[Reminder]:
+def get_pending_reminders(db: Session) -> list[Reminder]:
     """Reminders that are due now and not yet delivered."""
     return (
         db.query(Reminder)
         .filter(Reminder.remind_at <= datetime.now())
-        .filter(Reminder.delivered == False)  # noqa: E712
+        .filter(Reminder.delivered == False)
         .all()
     )
 

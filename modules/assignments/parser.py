@@ -3,10 +3,9 @@ Natural language assignment parser.
 Handles: weekday names, 'next Monday', 'tomorrow', 'in X days', 'June 20', ISO dates.
 """
 
-import re
 import logging
+import re
 from datetime import date, timedelta
-from typing import Optional
 
 import dateparser
 
@@ -40,9 +39,9 @@ def _next_weekday(day_name: str) -> date:
     return today + timedelta(days=delta if delta else 7)
 
 
-def parse_assignment_command(text: str) -> Optional[dict]:
+def parse_assignment_command(text: str) -> dict | None:
     text_low = text.strip().lower()
-    due_date: Optional[date] = None
+    due_date: date | None = None
 
     # 1. "next <weekday>"
     m = re.search(r'\bnext\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b', text_low)

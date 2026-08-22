@@ -4,17 +4,17 @@ Uses SessionStitcher (from session.py) to stitch adjacent windows into sessions.
 Cross-platform: Windows (win32gui), Linux (xdotool), macOS (osascript).
 """
 
-import time
+import logging
 import platform
 import threading
-import logging
-from datetime import datetime, date
+import time
+from datetime import datetime
 
 import psutil
 
-from modules.screen_tracker.categorizer import categorize_app
-from modules.screen_tracker.session import SessionStitcher, Session
 import config
+from modules.screen_tracker.categorizer import categorize_app
+from modules.screen_tracker.session import Session, SessionStitcher
 
 log = logging.getLogger(__name__)
 
@@ -26,7 +26,8 @@ _LINUX = False
 
 if _SYSTEM == "Windows":
     try:
-        import win32gui, win32process
+        import win32gui
+        import win32process
         _WIN32 = True
     except ImportError:
         log.warning("pywin32 not installed. Install with: pip install pywin32")
@@ -151,8 +152,9 @@ class ScreenTracker:
                 # Post to /screen/mock so backend knows live window for roasts/dashboard
                 try:
                     import httpx
-                    from desktop.session import get_token
+
                     from desktop.main_desktop import SERVER_URL
+                    from desktop.session import get_token
                     token = get_token()
                     if token:
                         headers = {"Authorization": f"Bearer {token}"}
@@ -176,8 +178,9 @@ class ScreenTracker:
             return   # skip noise
         try:
             import httpx
-            from desktop.session import get_token
+
             from desktop.main_desktop import SERVER_URL
+            from desktop.session import get_token
             token = get_token()
             if not token:
                 log.debug("No token, skipping session save.")
@@ -204,8 +207,9 @@ class ScreenTracker:
         """Check via HTTP if we are currently inside a 'study' schedule block."""
         try:
             import httpx
-            from desktop.session import get_token
+
             from desktop.main_desktop import SERVER_URL
+            from desktop.session import get_token
             token = get_token()
             if not token:
                 return False
@@ -223,12 +227,9 @@ class ScreenTracker:
         if is_browser(app_name):
             log.warning(f"Browser {app_name} is distracting, but preventing force kill to save tabs. Emitting roast instead.")
             try:
-                import httpx
                 from desktop.session import get_token
-                from desktop.main_desktop import SERVER_URL
                 token = get_token()
                 if token:
-                    headers = {"Authorization": f"Bearer {token}"}
                     # Trigger a manual roast on the backend via /voice/roast (we could add an endpoint if needed)
                     # For now, just logging it since /screen/mock already triggers RoastEngine!
                     log.warning(f"Browser {app_name} is distracting, emitting roast skipped locally (handled by backend).")

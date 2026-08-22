@@ -2,16 +2,14 @@ from __future__ import annotations
 
 import secrets
 from datetime import datetime, timedelta
-from typing import Optional
 
-from sqlalchemy.orm import Session
-from google.oauth2 import id_token
 from google.auth.transport import requests
+from google.oauth2 import id_token
+from sqlalchemy.orm import Session
 
 import config
 from db.models import DailySummary, Device, ParentInvite, ParentStudentLink, User
 from modules.auth.security import create_access_token, hash_password, verify_password
-
 
 VALID_ROLES = {"student", "parent"}
 VALID_DEVICE_TYPES = {"desktop", "android", "hardware", "other"}
@@ -23,7 +21,7 @@ def register_user(
     email: str,
     password: str,
     role: str = "student",
-    display_name: Optional[str] = None,
+    display_name: str | None = None,
 ) -> tuple[User, str]:
     email = _normalize_email(email)
     role = role.lower()
@@ -97,7 +95,7 @@ def register_device(
     user: User,
     device_name: str,
     device_type: str,
-    platform: Optional[str] = None,
+    platform: str | None = None,
 ) -> Device:
     device_type = device_type.lower()
     if device_type not in VALID_DEVICE_TYPES:
@@ -118,7 +116,7 @@ def register_device(
     return device
 
 
-def mark_device_seen(db: Session, *, user: User, device_id: int) -> Optional[Device]:
+def mark_device_seen(db: Session, *, user: User, device_id: int) -> Device | None:
     device = db.get(Device, device_id)
     if not device or device.user_id != user.id:
         return None

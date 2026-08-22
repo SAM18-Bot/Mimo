@@ -19,8 +19,8 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, FileResponse
 
 # ── logging ───────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -31,10 +31,11 @@ log = logging.getLogger(__name__)
 
 # ── DB init ───────────────────────────────────────────────────────────────
 from db.database import init_db
+
 init_db()
 
 # ── WebSocket ──────────────────────────────────────────────────────────────
-from api.websocket import manager, drain_event_bus, push_event
+from api.websocket import drain_event_bus, manager, push_event
 
 
 def _speak(text: str):
@@ -91,17 +92,17 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ── API routers ───────────────────────────────────────────────────────────
 from api.routes_assignments import router as assignments_router
-from api.routes_screen       import router as screen_router
-from api.routes_reports      import router as reports_router
-from api.routes_cv           import router as cv_router
-from api.routes_voice        import router as voice_router         # NEW
-from modules.ai_layer.study_advisor  import router as study_router      # NEW
-from api.routes_settings             import router as settings_router    # NEW
-from api.routes_monitoring           import router as monitoring_router  # NEW
-from api.routes_schedule             import router as schedule_router     # NEW
-from api.routes_auth                 import router as auth_router         # NEW
-from api.routes_sync                 import router as sync_router         # NEW
-from api.routes_onboarding           import router as onboarding_router   # NEW
+from api.routes_auth import router as auth_router  # NEW
+from api.routes_cv import router as cv_router
+from api.routes_monitoring import router as monitoring_router  # NEW
+from api.routes_onboarding import router as onboarding_router  # NEW
+from api.routes_reports import router as reports_router
+from api.routes_schedule import router as schedule_router  # NEW
+from api.routes_screen import router as screen_router
+from api.routes_settings import router as settings_router  # NEW
+from api.routes_sync import router as sync_router  # NEW
+from api.routes_voice import router as voice_router  # NEW
+from modules.ai_layer.study_advisor import router as study_router  # NEW
 
 app.include_router(assignments_router)
 app.include_router(screen_router)
@@ -118,7 +119,7 @@ app.include_router(onboarding_router)
 
 # ── WebSocket ─────────────────────────────────────────────────────────────
 @app.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket, token: str = None):
+async def websocket_endpoint(ws: WebSocket, token: str | None = None):
     if not token:
         await ws.close(code=1008, reason="Missing token")
         return
@@ -141,8 +142,8 @@ async def websocket_endpoint(ws: WebSocket, token: str = None):
 
     await manager.connect(ws, user_id=user_id)
     try:
-        from modules.behavior_engine.aggregator import get_daily_stats
         from modules.assignments.manager import get_upcoming
+        from modules.behavior_engine.aggregator import get_daily_stats
 
         with get_db_ctx() as db:
             stats = get_daily_stats(db, user_id=user_id)
@@ -193,8 +194,9 @@ async def parent_portal():
 # ── health ────────────────────────────────────────────────────────────────
 @app.get("/health")
 def health():
-    from schedulers.background_tasks import screen_tracker, stream_client, roast_engine
     import os
+
+    from schedulers.background_tasks import roast_engine, screen_tracker, stream_client
     return {
         "status":          "ok",
         "version":         "2.0.0",

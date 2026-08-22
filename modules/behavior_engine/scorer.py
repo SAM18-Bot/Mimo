@@ -19,8 +19,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date, timedelta
-from typing import List, Optional
 
 log = logging.getLogger(__name__)
 
@@ -137,7 +135,7 @@ class ProductivityScorer:
 
     # ── streak ─────────────────────────────────────────────────────────
     @staticmethod
-    def compute_streak(daily_scores: List[float], threshold: float = 50.0) -> int:
+    def compute_streak(daily_scores: list[float], threshold: float = 50.0) -> int:
         """
         Count consecutive days (most recent first) where score >= threshold.
         Pass today's score first.
@@ -152,7 +150,7 @@ class ProductivityScorer:
 
     # ── percentile vs history ───────────────────────────────────────────
     @staticmethod
-    def percentile(score: float, history: List[float]) -> int:
+    def percentile(score: float, history: list[float]) -> int:
         """Return what percentile today's score is vs the history list."""
         if not history:
             return 50

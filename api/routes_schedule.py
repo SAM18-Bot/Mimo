@@ -4,11 +4,11 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
-from api.routes_auth import current_user
-from db.models import User
 
+from api.routes_auth import current_user
 from api.websocket import push_event
 from db.database import get_db
+from db.models import User
 from modules.schedule.manager import (
     boost_subject_priority,
     build_onboarding_schedule,
@@ -28,7 +28,7 @@ router = APIRouter(prefix="/schedule", tags=["schedule"])
 class SubjectPreferenceIn(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     priority: Literal["low", "medium", "high"] = "medium"
-    target_minutes: Optional[int] = Field(default=None, ge=0, le=600)
+    target_minutes: int | None = Field(default=None, ge=0, le=600)
 
 
 class FixedBlockIn(BaseModel):
@@ -44,25 +44,25 @@ class ScheduleOnboardingIn(BaseModel):
     sleep_time: str = "22:30"
     timezone: str = "local"
     school_days: list[int] = Field(default_factory=lambda: [0, 1, 2, 3, 4])
-    school_start: Optional[str] = None
-    school_end: Optional[str] = None
+    school_start: str | None = None
+    school_end: str | None = None
     study_goal_minutes: int = Field(default=120, ge=1, le=600)
     session_minutes: int = Field(default=50, ge=15, le=180)
     break_minutes: int = Field(default=10, ge=0, le=60)
     subjects: list[SubjectPreferenceIn] = Field(default_factory=list)
     fixed_blocks: list[FixedBlockIn] = Field(default_factory=list)
-    notes: Optional[str] = None
+    notes: str | None = None
 
 
 class ScheduleBlockOut(BaseModel):
     id: int
     day_of_week: int
-    block_date: Optional[date]
+    block_date: date | None
     start_time: str
     end_time: str
     kind: str
     title: str
-    subject: Optional[str]
+    subject: str | None
     flexibility: str
     source: str
     priority: str
@@ -76,13 +76,13 @@ class ScheduleProfileOut(BaseModel):
     timezone: str
     wake_time: str
     sleep_time: str
-    school_start: Optional[str]
-    school_end: Optional[str]
+    school_start: str | None
+    school_end: str | None
     study_goal_minutes: int
     session_minutes: int
     break_minutes: int
     active: bool
-    notes: Optional[str]
+    notes: str | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -144,7 +144,7 @@ def weekly(user: User = Depends(current_user), db: Session = Depends(get_db)):
 
 
 @router.get("/today", response_model=list[ScheduleBlockOut])
-def today(target_date: Optional[date] = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def today(target_date: date | None = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     return get_day_schedule(db, user_id=user.id, target_date=target_date)
 
 
@@ -161,7 +161,7 @@ def set_block_status(block_id: int, payload: BlockStatusIn, user: User = Depends
 
 
 @router.post("/reschedule", response_model=list[ScheduleBlockOut])
-def reschedule(target_date: Optional[date] = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def reschedule(target_date: date | None = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Find skipped/missed blocks for today and reschedule them into free windows."""
     new_blocks = reschedule_missed_blocks(db, user_id=user.id, target_date=target_date)
     if new_blocks:
@@ -175,7 +175,7 @@ def reschedule(target_date: Optional[date] = None, user: User = Depends(current_
 
 @router.post("/boost", response_model=list[ScheduleBlockOut])
 def boost(
-    target_date: Optional[date] = None,
+    target_date: date | None = None,
     lookahead_days: int = 3,
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
@@ -194,13 +194,14 @@ def boost(
 
 
 @router.get("/smart-suggestions")
-def suggestions(target_date: Optional[date] = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def suggestions(target_date: date | None = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Get AI-powered schedule adjustment suggestions."""
     return {"suggestions": smart_suggestions(db, user_id=user.id, target_date=target_date)}
 
 @router.get("/study-blocks/active")
 def is_study_block_active(user: User = Depends(current_user), db: Session = Depends(get_db)):
     from datetime import datetime
+
     from db.models import ScheduleBlock
     now_time = datetime.now().strftime("%H:%M")
     today_day = datetime.now().weekday()

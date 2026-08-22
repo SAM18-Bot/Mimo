@@ -1,9 +1,17 @@
 from sqlalchemy import (
-    Column, Integer, String, DateTime, Date,
-    Float, Boolean, Text, ForeignKey,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
 from db.database import Base
 
 
@@ -184,6 +192,7 @@ class User(Base):
     @property
     def api_key(self):
         from cryptography.fernet import Fernet, InvalidToken
+
         import config
         if not self._api_key_encrypted: return None
         if not config.SECRET_KEY or len(config.SECRET_KEY) < 43:
@@ -197,6 +206,7 @@ class User(Base):
     @api_key.setter
     def api_key(self, value):
         from cryptography.fernet import Fernet
+
         import config
         if not value:
             self._api_key_encrypted = None

@@ -1,6 +1,6 @@
 import sys
-import types
 import time
+import types
 from pathlib import Path
 
 repo_root = str(Path(__file__).resolve().parent.parent.parent)
@@ -18,7 +18,7 @@ client_mod.__file__ = str(Path(repo_root, 'modules/ai_layer/client.py'))
 exec(compile(fixed_code, 'modules/ai_layer/client.py', 'exec'), client_mod.__dict__)
 
 # Mock _chat to return fast mocked AI response without sleep
-def fast_mock_chat(system: str, user: str, model: str = None, json_mode: bool = False, engine: str = "gemini", api_key: str = None):
+def fast_mock_chat(system: str, user: str, model: str | None = None, json_mode: bool = False, engine: str = "gemini", api_key: str | None = None):
     if json_mode:
         return '{"recommendations": ["Focus on upcoming deadlines"], "suggested_subjects": ["Math"]}'
     return "Mocked AI Response"

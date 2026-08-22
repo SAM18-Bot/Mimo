@@ -7,21 +7,20 @@ Gemini client wrapper.
 
 import json
 import logging
-import os
 import random
 import time
-from typing import Optional
 
-import config
 from google import genai
 from google.genai import types
+
+import config
 
 log = logging.getLogger(__name__)
 
 _last_call_time: float = 0.0
 _MIN_CALL_INTERVAL = 2.0   # seconds between calls (avoid hammering)
 
-def _chat(system: str, user: str, model: str = None, json_mode: bool = False, engine: str = "gemini", api_key: str = None) -> Optional[str]:
+def _chat(system: str, user: str, model: str | None = None, json_mode: bool = False, engine: str = "gemini", api_key: str | None = None) -> str | None:
     """Synchronous AI call. STRICTLY uses Gemini."""
     global _last_call_time
 
@@ -68,11 +67,11 @@ def generate_roast(
     pending_assignments: str,
     days_until_deadline: int,
     engine: str = "gemini",
-    api_key: str = None,
+    api_key: str | None = None,
 ) -> str:
     """Generate a roast. Falls back to pre-written if AI is slow or unavailable."""
-    from modules.ai_layer.prompts import ROAST_SYSTEM, ROAST_USER
     import config as cfg
+    from modules.ai_layer.prompts import ROAST_SYSTEM, ROAST_USER
 
     if cfg.LIVE_ROAST_USE_AI:
         user_prompt = ROAST_USER.format(
@@ -91,7 +90,7 @@ def generate_roast(
     return random.choice(roasts)
 
 
-def generate_eod_report(context: dict, engine: str = "gemini", api_key: str = None) -> Optional[dict]:
+def generate_eod_report(context: dict, engine: str = "gemini", api_key: str | None = None) -> dict | None:
     """Generate end-of-day report. Returns parsed JSON dict or None."""
     from modules.ai_layer.prompts import EOD_SYSTEM, EOD_USER
 
@@ -112,7 +111,7 @@ def generate_eod_report(context: dict, engine: str = "gemini", api_key: str = No
         return None
 
 
-def generate_study_recommendations(context: dict, engine: str = "gemini", api_key: str = None) -> Optional[dict]:
+def generate_study_recommendations(context: dict, engine: str = "gemini", api_key: str | None = None) -> dict | None:
     """Returns dict with recommendations and suggested_subjects or None."""
     from modules.ai_layer.prompts import STUDY_ADVISOR_SYSTEM, STUDY_ADVISOR_USER
 
@@ -140,7 +139,7 @@ def generate_coach_response(
     question: str,
     context: dict,
     engine: str = "gemini",
-    api_key: str = None
+    api_key: str | None = None
 ) -> str:
     """Generates a conversational response from the AI coach."""
     from modules.ai_layer.prompts import COACH_CHAT_SYSTEM, COACH_CHAT_USER

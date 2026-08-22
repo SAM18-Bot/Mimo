@@ -54,7 +54,8 @@ def main():
 
     if not args.no_browser and not args.dev:
         # Open browser after a short delay (server needs a moment to start)
-        import threading, time
+        import threading
+        import time
         def _open():
             time.sleep(2.5)
             webbrowser.open(f"http://localhost:{args.port}")

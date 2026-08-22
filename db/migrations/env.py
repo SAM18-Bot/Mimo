@@ -6,18 +6,18 @@ Configured for:
   - Autogenerate support (reads SQLAlchemy models)
 """
 
-from logging.config import fileConfig
 import os
 import sys
+from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 # ── make project root importable ─────────────────────────────────────────
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from db.database import Base
 import db.models  # noqa: F401 — registers all models with Base.metadata
+from db.database import Base
 
 config = context.config
 
@@ -30,6 +30,7 @@ target_metadata = Base.metadata
 
 # ── override URL from environment if set ──────────────────────────────────
 from dotenv import load_dotenv
+
 load_dotenv()
 
 db_url = os.getenv("DATABASE_URL", "sqlite:///./accountability.db")

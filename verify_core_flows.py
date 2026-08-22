@@ -1,9 +1,9 @@
-import json
-import time
-import sys
 import datetime
-import urllib.request
+import json
+import sys
+import time
 import urllib.error
+import urllib.request
 
 BASE_URL = "http://127.0.0.1:8000"
 
@@ -63,7 +63,7 @@ def run_verification():
     print(f"Response: {json.dumps(res, indent=2)}")
     assert status == 201, f"Expected 201 Created for register, got {status}"
     assert "access_token" in res, "No access_token returned in registration response"
-    token = res["access_token"]
+    res["access_token"]
     print("✓ POST /auth/register PASSED (201 Created)\n")
 
     # 2. POST /auth/login

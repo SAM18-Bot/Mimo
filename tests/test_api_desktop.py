@@ -9,9 +9,7 @@ API integration tests for desktop-specific routes:
   POST /monitoring/resume  → resume background modules
 """
 
-import os
 import pytest
-
 
 # ── Shared fixture: redirect .env writes to tmp file ─────────────────────
 

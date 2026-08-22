@@ -7,7 +7,6 @@ Other modules (presence.py) read from the slot — they always get the latest fr
 import logging
 import threading
 import time
-from typing import Optional
 
 import cv2
 import numpy as np
@@ -20,7 +19,7 @@ log = logging.getLogger(__name__)
 class FrameSlot:
     """Thread-safe single-frame buffer. Readers always get the latest."""
     def __init__(self):
-        self._frame: Optional[np.ndarray] = None
+        self._frame: np.ndarray | None = None
         self._lock  = threading.Lock()
         self._event = threading.Event()
 
@@ -29,7 +28,7 @@ class FrameSlot:
             self._frame = frame
         self._event.set()
 
-    def get(self, timeout: float = 2.0) -> Optional[np.ndarray]:
+    def get(self, timeout: float = 2.0) -> np.ndarray | None:
         self._event.wait(timeout)
         self._event.clear()
         with self._lock:
@@ -45,7 +44,7 @@ frame_slot = FrameSlot()
 
 
 class StreamClient:
-    def __init__(self, url: str = None):
+    def __init__(self, url: str | None = None):
         self._url     = url or config.ESP32_STREAM_URL
         self._running = False
         self._thread  = None

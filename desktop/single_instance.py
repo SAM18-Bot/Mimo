@@ -18,7 +18,6 @@ Usage:
 
 import logging
 import os
-import sys
 import platform
 
 log = logging.getLogger(__name__)
@@ -104,7 +103,7 @@ def _acquire_unix() -> bool:
         log.debug("Single-instance lock acquired: %s", _PID_FILE)
         return True
 
-    except IOError:
+    except OSError:
         # Lock is held by another process
         log.info("Another Mimo instance is already running (lock file).")
         if _pid_fd:

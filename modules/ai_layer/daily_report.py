@@ -5,21 +5,21 @@ saves result to DB, speaks via TTS, broadcasts to dashboard.
 """
 
 import logging
+from collections.abc import Callable
 from datetime import date
-from typing import Optional, Callable
 
 from db.database import get_db_ctx
 from db.models import AccountabilityLog, DailySummary
-from modules.behavior_engine.aggregator import get_daily_stats, save_daily_summary
 from modules.ai_layer.client import generate_eod_report
+from modules.behavior_engine.aggregator import get_daily_stats, save_daily_summary
 
 log = logging.getLogger(__name__)
 
 
 def run_eod_report(
     user_id:      int = 1,
-    speak_fn:     Optional[Callable] = None,
-    broadcast_fn: Optional[Callable] = None,
+    speak_fn:     Callable | None = None,
+    broadcast_fn: Callable | None = None,
 ):
     """
     Full EOD pipeline:
@@ -134,7 +134,7 @@ def _format_spoken_report(report: dict, stats: dict) -> str:
 
 def _fallback_report(stats: dict) -> dict:
     prod_h = stats["productive_min"] // 60
-    dist_h = stats["distracting_min"] // 60
+    stats["distracting_min"] // 60
     grade  = stats.get("letter_grade", "?")
     return {
         "summary":              f"You studied for {prod_h} hours. Grade: {grade}.",

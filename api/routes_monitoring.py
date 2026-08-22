@@ -8,6 +8,7 @@ GET  /monitoring/status  — returns current state
 """
 
 from fastapi import APIRouter, Depends
+
 from api.routes_auth import current_user
 from db.models import User
 
@@ -23,7 +24,7 @@ def pause_monitoring(user: User = Depends(current_user)):
     _paused = True
 
     try:
-        from schedulers.background_tasks import screen_tracker, presence_monitor
+        from schedulers.background_tasks import presence_monitor, screen_tracker
         if screen_tracker and hasattr(screen_tracker, "stop"):
             screen_tracker.stop()
         if presence_monitor and hasattr(presence_monitor, "stop"):
@@ -43,8 +44,11 @@ def resume_monitoring(user: User = Depends(current_user)):
     _paused = False
 
     try:
-        from schedulers.background_tasks import screen_tracker, presence_monitor, roast_engine
         from api.websocket import push_event
+        from schedulers.background_tasks import (
+            presence_monitor,
+            screen_tracker,
+        )
 
         # Restart screen tracker
         if screen_tracker:
@@ -71,8 +75,13 @@ def resume_monitoring(user: User = Depends(current_user)):
 @router.get("/status")
 def monitoring_status(user: User = Depends(current_user)):
     """Returns current monitoring state."""
-    from schedulers.background_tasks import screen_tracker, presence_monitor, stream_client
     import os
+
+    from schedulers.background_tasks import (
+        presence_monitor,
+        screen_tracker,
+        stream_client,
+    )
 
     screen_running = (
         screen_tracker is not None

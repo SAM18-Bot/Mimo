@@ -13,9 +13,10 @@ Endpoints:
   GET  /voice/intents   → list of all supported intent patterns
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Optional
+
 from api.routes_auth import current_user
 from db.models import User
 
@@ -85,8 +86,9 @@ def speak_text(payload: SpeakRequest, user: User = Depends(current_user)):
 @router.get("/status")
 def voice_status(user: User = Depends(current_user)):
     """Returns the current state of the voice subsystem."""
-    from schedulers.background_tasks import voice_listener
     import os
+
+    from schedulers.background_tasks import voice_listener
 
     no_voice  = os.getenv("NO_VOICE", "1") == "1"
 

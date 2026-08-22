@@ -1,13 +1,12 @@
 from datetime import date
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
+from api.routes_auth import current_user
 from db.database import get_db
 from db.models import ScreenSession, User
-from api.routes_auth import current_user
 
 router = APIRouter(prefix="/screen", tags=["screen"])
 
@@ -17,10 +16,10 @@ router = APIRouter(prefix="/screen", tags=["screen"])
 class SessionOut(BaseModel):
     id:           int
     app_name:     str
-    window_title: Optional[str]
-    category:     Optional[str]
-    duration_s:   Optional[int]
-    session_date: Optional[date]
+    window_title: str | None
+    category:     str | None
+    duration_s:   int | None
+    session_date: date | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -30,8 +29,8 @@ class DailyBreakdown(BaseModel):
     distracting_min: int
     neutral_min:     int
     total_min:       int
-    top_productive:  List[dict]
-    top_distracting: List[dict]
+    top_productive:  list[dict]
+    top_distracting: list[dict]
 
 
 class MockWindowEvent(BaseModel):
@@ -42,10 +41,10 @@ class MockWindowEvent(BaseModel):
 
 # ── endpoints ─────────────────────────────────────────────────────────────
 
-@router.get("/sessions", response_model=List[SessionOut])
+@router.get("/sessions", response_model=list[SessionOut])
 def get_sessions(
-    target_date: Optional[date] = Query(default=None),
-    category:    Optional[str]  = Query(default=None),
+    target_date: date | None = Query(default=None),
+    category:    str | None  = Query(default=None),
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -59,7 +58,7 @@ def get_sessions(
 
 @router.get("/breakdown", response_model=DailyBreakdown)
 def daily_breakdown(
-    target_date: Optional[date] = Query(default=None),
+    target_date: date | None = Query(default=None),
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -97,8 +96,8 @@ def daily_breakdown(
 @router.get("/live")
 def live_status(user: User = Depends(current_user)):
     """Returns the most recently tracked app (REST fallback for dashboard)."""
-    from modules.screen_tracker.tracker import get_active_window
     from modules.screen_tracker.categorizer import categorize_app
+    from modules.screen_tracker.tracker import get_active_window
     app, title = get_active_window()
     cat = categorize_app(app, title)
     return {"app": app, "title": title[:80], "category": cat}
@@ -111,8 +110,9 @@ def mock_window_change(payload: MockWindowEvent, user: User = Depends(current_us
     Called by mock_screen.py or /docs.
     """
     from datetime import datetime
-    from modules.screen_tracker.categorizer import categorize_app
+
     from api.websocket import push_event
+    from modules.screen_tracker.categorizer import categorize_app
 
     cat = payload.category or categorize_app(payload.app, payload.title)
     now = datetime.now()
@@ -149,7 +149,7 @@ class StitchedSession(BaseModel):
 
 @router.post("/session")
 def save_session(payload: StitchedSession, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    from datetime import datetime, date
+    from datetime import date, datetime
     db.add(ScreenSession(
         user_id      = user.id,
         app_name     = payload.app_name,

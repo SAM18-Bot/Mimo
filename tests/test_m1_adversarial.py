@@ -1,8 +1,9 @@
-import pytest
 from datetime import date, timedelta
 from unittest.mock import patch
 
-from db.models import RoastLog, DailySummary, User, Assignment
+import pytest
+
+from db.models import Assignment, DailySummary, RoastLog, User
 from modules.ai_layer.roast_engine import RoastEngine
 from modules.voice.intent_router import IntentRouter
 
@@ -42,7 +43,7 @@ def test_save_roast_valid_user_id(client, db_session):
 
 def test_save_roast_missing_user_id_defaults(client, db_session):
     """Verify default parameter user_id=1 in _save_roast."""
-    user1 = _create_test_user(db_session, "user1@example.com", user_id=1)
+    _create_test_user(db_session, "user1@example.com", user_id=1)
     engine = RoastEngine()
     engine._save_roast(trigger="default_trigger", message="default msg")
 

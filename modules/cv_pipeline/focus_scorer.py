@@ -4,14 +4,13 @@ Used by routes/cv.py and the behavior engine.
 """
 
 from datetime import date
-from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from db.models import CVEvent, ScreenSession
 
 
-def compute_live_focus_score(db: Session, target_date: Optional[date] = None) -> float:
+def compute_live_focus_score(db: Session, target_date: date | None = None) -> float:
     """
     Returns 0–100 live focus score for the given date.
     Formula:

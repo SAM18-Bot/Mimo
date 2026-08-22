@@ -1,17 +1,17 @@
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy.orm import Session
 
-from db.database import get_db, init_db, engine, Base
+from db.database import get_db
 from db.models import Device, User
 from modules.auth.manager import (
     consume_parent_invite,
     create_parent_invite,
-    login_user,
     google_login_user,
+    login_user,
     mark_device_seen,
     parent_can_access_student,
     register_device,
@@ -34,7 +34,7 @@ class UserOut(BaseModel):
     id: int
     email: str
     role: str
-    display_name: Optional[str]
+    display_name: str | None
     onboarding_completed: bool = False
 
     model_config = ConfigDict(from_attributes=True)
@@ -50,7 +50,7 @@ class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8)
     role: Literal["student", "parent"] = "student"
-    display_name: Optional[str] = None
+    display_name: str | None = None
 
 
 class LoginIn(BaseModel):
@@ -64,17 +64,17 @@ class GoogleLoginIn(BaseModel):
 class DeviceRegisterIn(BaseModel):
     device_name: str = Field(..., min_length=1, max_length=120)
     device_type: Literal["desktop", "android", "hardware", "other"]
-    platform: Optional[str] = None
+    platform: str | None = None
 
 
 class DeviceOut(BaseModel):
     id: int
     device_name: str
     device_type: str
-    platform: Optional[str]
+    platform: str | None
     status: str
-    linked_at: Optional[datetime]
-    last_seen_at: Optional[datetime]
+    linked_at: datetime | None
+    last_seen_at: datetime | None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -94,7 +94,7 @@ class LinkOut(BaseModel):
 
 
 def current_user(
-    authorization: Optional[str] = Header(default=None),
+    authorization: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> User:
     if not authorization or not authorization.lower().startswith("bearer "):
@@ -128,7 +128,7 @@ def register(payload: RegisterIn, db: Session = Depends(get_db)):
 
 @router.post("/auth/logout", status_code=200)
 def logout(
-    authorization: Optional[str] = Header(default=None),
+    authorization: str | None = Header(default=None),
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
@@ -144,8 +144,9 @@ def logout(
 
 
 
-from fastapi import Request
 import time
+
+from fastapi import Request
 
 _login_attempts = {}
 

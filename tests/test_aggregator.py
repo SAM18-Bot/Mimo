@@ -10,13 +10,14 @@ Tests:
   - Assignment status in stats
 """
 
-import pytest
 from datetime import date, datetime, timedelta
+
+from db.models import DailySummary
 from modules.behavior_engine.aggregator import (
-    get_daily_stats, save_daily_summary, _compute_focus_score,
-    _top_apps, _longest_consecutive_productive,
+    _compute_focus_score,
+    get_daily_stats,
+    save_daily_summary,
 )
-from db.models import ScreenSession, DailySummary
 
 
 class TestDailyStats:

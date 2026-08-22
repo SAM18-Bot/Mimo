@@ -7,20 +7,18 @@ Empirical verification test suite for Challenger M1-2:
 5. Edge case and error handling tests.
 """
 
+from datetime import date, timedelta
+
 import pytest
-import time
-from datetime import date, datetime, timedelta
 
-from db.models import User, DailySummary, Assignment, TokenBlocklist, RoastLog
-import config
-
+from db.models import Assignment, DailySummary, User
 
 # ── Fixtures & Helpers ──────────────────────────────────────────────────
 
 @pytest.fixture
 def test_users(db_session):
     """Create two distinct users in the database."""
-    from modules.auth.security import hash_password, create_access_token
+    from modules.auth.security import create_access_token, hash_password
 
     u1 = User(
         email="alice@mimo.test",
@@ -140,7 +138,7 @@ def test_nonexistent_user_token_returns_401(client):
 
 def test_revoked_token_returns_401(client, test_users):
     """Verify token in TokenBlocklist is rejected with 401 Token revoked."""
-    token = test_users["token1"]
+    test_users["token1"]
     headers = test_users["headers1"]
 
     # Verify token works first

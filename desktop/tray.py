@@ -12,7 +12,6 @@ import logging
 import threading
 import time
 import webbrowser
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +52,7 @@ class MimoTray:
         """Start the system tray (blocking). Call from a daemon thread."""
         try:
             import pystray
+
             from desktop.icon_generator import generate_tray_icon
 
             self._pystray = pystray   # keep reference
@@ -181,6 +181,7 @@ class MimoTray:
     def _on_toggle_pause(self, icon=None, item=None):
         try:
             import httpx
+
             from desktop.session import auth_headers
             if self._paused:
                 httpx.post(f"{self._base_url}/monitoring/resume", timeout=3, headers=auth_headers())
@@ -207,7 +208,7 @@ class MimoTray:
                 log.error("Error during tray shutdown callback: %s", e)
         else:
             try:
-                from desktop.main_desktop import _shutdown, _release_lock
+                from desktop.main_desktop import _release_lock, _shutdown
                 _shutdown()
                 _release_lock()
             except Exception as e:
@@ -236,6 +237,7 @@ class MimoTray:
         while True:
             try:
                 import httpx
+
                 from desktop.session import auth_headers
                 headers = auth_headers()
                 # Not logged in yet (no token reported from the dashboard

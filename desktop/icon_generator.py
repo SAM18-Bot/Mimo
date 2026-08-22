@@ -8,8 +8,9 @@ States:
   alert   — bright red pulse   (roast firing)
 """
 
-from PIL import Image, ImageDraw
 import os
+
+from PIL import Image, ImageDraw
 
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
 os.makedirs(ASSETS_DIR, exist_ok=True)

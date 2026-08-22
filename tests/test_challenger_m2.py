@@ -3,25 +3,25 @@ Adversarial Stress Test Suite for Milestone M2: Multi-Tenancy & Data Leak Fixes.
 Author: Challenger M2_1
 """
 
-import pytest
 from datetime import date, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
-from db.models import User, Assignment, ScheduleProfile, ScheduleBlock
-from modules.schedule.manager import (
-    build_onboarding_schedule,
-    get_weekly_schedule,
-    update_block_status,
-    boost_subject_priority,
-    smart_suggestions,
-)
-from modules.auth.security import create_access_token
-from api.websocket import ConnectionManager, manager
+import pytest
+
+from api.websocket import ConnectionManager
+from db.models import Assignment, ScheduleBlock, User
 from modules.ai_layer.roast_engine import RoastEngine
 from modules.assignments.reminder import ReminderLoop
+from modules.auth.security import create_access_token
 from modules.cv_pipeline.presence import PresenceMonitor
+from modules.schedule.manager import (
+    boost_subject_priority,
+    build_onboarding_schedule,
+    get_weekly_schedule,
+    smart_suggestions,
+    update_block_status,
+)
 from schedulers.daily_trigger import _push_live_stats
-
 
 # ============================================================================
 # 1. Update Block Status Security Tests
@@ -96,7 +96,7 @@ def test_update_block_status_api_cross_tenant_404(client, db_engine):
     session.add_all([user_a, user_b])
     session.commit()
 
-    profile_a = build_onboarding_schedule(
+    build_onboarding_schedule(
         session, user_id=user_a.id, wake_time="07:00", sleep_time="23:00", study_goal_minutes=60
     )
     blocks_a = get_weekly_schedule(session, user_id=user_a.id)
@@ -336,9 +336,11 @@ def test_presence_monitor_broadcast_includes_user_id():
 
 def test_daily_trigger_stats_push_includes_user_id(db_session, db_engine):
     """Verify _push_live_stats only pushes to connected users and attaches user_id."""
-    import db.database as db_mod
+    from unittest.mock import MagicMock, patch
+
     from sqlalchemy.orm import sessionmaker as SM
-    from unittest.mock import patch, MagicMock
+
+    import db.database as db_mod
 
     # Patch global engine so get_db_ctx() reads from test DB
     original_engine = db_mod.engine

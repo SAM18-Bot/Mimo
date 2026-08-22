@@ -1,6 +1,6 @@
 import subprocess
-import time
 import sys
+import time
 
 print("Launching dist/Mimo/Mimo.exe...")
 proc = subprocess.Popen(['dist/Mimo/Mimo.exe'])

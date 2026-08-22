@@ -14,9 +14,7 @@ Coverage:
   /health       — server health
 """
 
-import pytest
 from datetime import date, timedelta
-
 
 # ── helpers ───────────────────────────────────────────────────────────────
 

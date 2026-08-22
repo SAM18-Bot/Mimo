@@ -6,16 +6,19 @@ Unit tests for assignment management:
   - Status transitions
 """
 
-import pytest
 from datetime import date, timedelta
 
+from db.models import Reminder
 from modules.assignments.manager import (
-    create_assignment, get_all_assignments, get_upcoming,
-    get_overdue, mark_done, update_status, delete_assignment,
+    create_assignment,
+    delete_assignment,
+    get_all_assignments,
+    get_overdue,
     get_pending_reminders,
+    get_upcoming,
+    mark_done,
+    update_status,
 )
-from modules.assignments.reminder import schedule_reminders_for, ReminderLoop
-from db.models import Assignment, Reminder
 
 
 class TestAssignmentCRUD:
@@ -160,8 +163,9 @@ class TestReminders:
 
     def test_get_pending_reminders(self, db_session):
         """Only reminders with remind_at in the past and not delivered."""
-        from db.models import Reminder
         from datetime import datetime, timedelta
+
+        from db.models import Reminder
 
         # Past undelivered
         r1 = Reminder(

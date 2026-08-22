@@ -6,12 +6,11 @@ Now uses ProductivityScorer from scorer.py for consistent scoring.
 
 import logging
 from collections import defaultdict
-from datetime import date, datetime, timedelta
-from typing import Optional
+from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
-from db.models import ScreenSession, CVEvent, Assignment, DailySummary
+from db.models import Assignment, CVEvent, DailySummary, ScreenSession
 from modules.behavior_engine.scorer import ProductivityScorer
 
 log = logging.getLogger(__name__)
@@ -19,11 +18,12 @@ log = logging.getLogger(__name__)
 _scorer = ProductivityScorer()
 
 
-def get_daily_stats(db: Session, target_date: Optional[date] = None, user_id: int = 1) -> dict:
+def get_daily_stats(db: Session, target_date: date | None = None, user_id: int = 1) -> dict:
     if target_date is None:
-        from db.models import ScheduleProfile
         import zoneinfo
         from datetime import datetime
+
+        from db.models import ScheduleProfile
         profile = db.query(ScheduleProfile).filter(ScheduleProfile.active == True, ScheduleProfile.user_id == user_id).first()
         if profile and profile.timezone:
             try:

@@ -8,7 +8,6 @@ Tests app categorization with:
   - Edge cases (empty strings, mixed case)
 """
 
-import pytest
 from modules.screen_tracker.categorizer import categorize_app, is_browser
 
 

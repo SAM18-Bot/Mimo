@@ -13,13 +13,13 @@ Rules:
 import logging
 import threading
 import time
-from datetime import datetime, date
-from typing import Optional, Callable
+from collections.abc import Callable
+from datetime import date, datetime
 
+import config
 from db.database import get_db_ctx
 from db.models import Assignment, RoastLog
 from modules.ai_layer.client import generate_roast
-import config
 
 log = logging.getLogger(__name__)
 
@@ -27,9 +27,9 @@ log = logging.getLogger(__name__)
 class RoastEngine:
     def __init__(
         self,
-        speak_fn:     Optional[Callable] = None,
-        broadcast_fn: Optional[Callable] = None,
-        notify_fn:    Optional[Callable] = None,
+        speak_fn:     Callable | None = None,
+        broadcast_fn: Callable | None = None,
+        notify_fn:    Callable | None = None,
     ):
         """
         speak_fn(text)     — TTS callback (from voice module)
@@ -131,7 +131,6 @@ class RoastEngine:
     def _get_context(self, user_id: int = 1) -> dict:
         try:
             with get_db_ctx() as db:
-                from datetime import timedelta
                 upcoming = (
                     db.query(Assignment)
                     .filter(Assignment.user_id == user_id)

@@ -1,9 +1,9 @@
-import pytest
-from unittest.mock import patch, MagicMock
-from modules.ai_layer.daily_report import run_eod_report
-from db.models import DailySummary, AccountabilityLog
-
 from datetime import date
+from unittest.mock import MagicMock, patch
+
+from db.models import AccountabilityLog, DailySummary
+from modules.ai_layer.daily_report import run_eod_report
+
 
 def test_run_eod_report(client, db_session):
     # Seed accountability answers
@@ -30,5 +30,5 @@ def test_run_eod_report(client, db_session):
     speak_mock.assert_called()
     broadcast_mock.assert_called()
     
-    args, kwargs = broadcast_mock.call_args
+    args, _kwargs = broadcast_mock.call_args
     assert args[0]["type"] == "eod_report"

@@ -12,7 +12,6 @@ Example outputs:
 import logging
 from collections import defaultdict
 from datetime import date, timedelta
-from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -95,7 +94,7 @@ def get_weekly_patterns(db: Session, user_id: int = 1) -> dict:
 def _build_insights(
     avg_focus, avg_prod_min, avg_dist_min, avg_done_rate,
     peak_hour, worst_day, summaries,
-) -> List[str]:
+) -> list[str]:
     insights = []
 
     # Focus trend

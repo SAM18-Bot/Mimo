@@ -13,9 +13,9 @@ Usage:
     splash.close()              # close and destroy
 """
 
+import logging
 import threading
 import time
-import logging
 
 log = logging.getLogger(__name__)
 

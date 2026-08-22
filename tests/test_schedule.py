@@ -134,7 +134,11 @@ def test_same_wake_sleep_raises_value_error(db_session):
 
 
 def test_update_block_status(db_session):
-    from modules.schedule.manager import build_onboarding_schedule, get_weekly_schedule, update_block_status
+    from modules.schedule.manager import (
+        build_onboarding_schedule,
+        get_weekly_schedule,
+        update_block_status,
+    )
 
     build_onboarding_schedule(
         db_session,
@@ -294,7 +298,10 @@ def test_reschedule_missed_blocks_creates_new_blocks(db_session):
 
 
 def test_reschedule_returns_empty_when_no_missed(db_session):
-    from modules.schedule.manager import build_onboarding_schedule, reschedule_missed_blocks
+    from modules.schedule.manager import (
+        build_onboarding_schedule,
+        reschedule_missed_blocks,
+    )
 
     build_onboarding_schedule(
         db_session,
@@ -323,7 +330,10 @@ def test_reschedule_returns_empty_when_no_profile(db_session):
 
 def test_boost_creates_blocks_for_urgent_assignments(db_session):
     from db.models import Assignment
-    from modules.schedule.manager import boost_subject_priority, build_onboarding_schedule
+    from modules.schedule.manager import (
+        boost_subject_priority,
+        build_onboarding_schedule,
+    )
 
     build_onboarding_schedule(
         db_session,
@@ -357,7 +367,10 @@ def test_boost_creates_blocks_for_urgent_assignments(db_session):
 
 
 def test_boost_returns_empty_when_no_urgent_assignments(db_session):
-    from modules.schedule.manager import boost_subject_priority, build_onboarding_schedule
+    from modules.schedule.manager import (
+        boost_subject_priority,
+        build_onboarding_schedule,
+    )
 
     build_onboarding_schedule(
         db_session,
@@ -375,7 +388,10 @@ def test_boost_returns_empty_when_no_urgent_assignments(db_session):
 
 def test_boost_ignores_done_assignments(db_session):
     from db.models import Assignment
-    from modules.schedule.manager import boost_subject_priority, build_onboarding_schedule
+    from modules.schedule.manager import (
+        boost_subject_priority,
+        build_onboarding_schedule,
+    )
 
     build_onboarding_schedule(
         db_session,
@@ -542,8 +558,12 @@ def test_missed_status_accepted_in_block_update(client, auth_headers):
 
 def test_boost_subject_priority_user_isolation(db_session):
     from datetime import date, timedelta
+
     from db.models import Assignment, User
-    from modules.schedule.manager import build_onboarding_schedule, boost_subject_priority
+    from modules.schedule.manager import (
+        boost_subject_priority,
+        build_onboarding_schedule,
+    )
 
     u1 = User(email="u1_boost@test.com", password_hash="pw")
     u2 = User(email="u2_boost@test.com", password_hash="pw")
@@ -579,6 +599,7 @@ def test_boost_subject_priority_user_isolation(db_session):
 
 def test_smart_suggestions_user_isolation(db_session):
     from datetime import date, timedelta
+
     from db.models import Assignment, User
     from modules.schedule.manager import build_onboarding_schedule, smart_suggestions
 
@@ -607,14 +628,18 @@ def test_smart_suggestions_user_isolation(db_session):
 
 def test_update_block_status_ownership(db_session):
     from db.models import User
-    from modules.schedule.manager import build_onboarding_schedule, get_weekly_schedule, update_block_status
+    from modules.schedule.manager import (
+        build_onboarding_schedule,
+        get_weekly_schedule,
+        update_block_status,
+    )
 
     u1 = User(email="u1_block@test.com", password_hash="pw")
     u2 = User(email="u2_block@test.com", password_hash="pw")
     db_session.add_all([u1, u2])
     db_session.commit()
 
-    p1 = build_onboarding_schedule(
+    build_onboarding_schedule(
         db_session, user_id=u1.id, wake_time="06:00", sleep_time="22:00", study_goal_minutes=60
     )
     blocks_u1 = get_weekly_schedule(db_session, user_id=u1.id)

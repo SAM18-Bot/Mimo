@@ -2,9 +2,11 @@
 Unit tests for modules/screen_tracker/session.py (SessionStitcher + analyze_sessions).
 """
 
-import pytest
 from datetime import datetime, timedelta
-from modules.screen_tracker.session import SessionStitcher, Session, analyze_sessions
+
+import pytest
+
+from modules.screen_tracker.session import Session, SessionStitcher, analyze_sessions
 
 
 @pytest.fixture

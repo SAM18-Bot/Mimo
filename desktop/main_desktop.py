@@ -196,6 +196,7 @@ def _start_server():
     def _run():
         try:
             import uvicorn
+
             from main import app
             uvicorn.run(
                 app,
@@ -354,7 +355,7 @@ def main():
     atexit.register(_shutdown, wm)
 
     # ── system tray ───────────────────────────────────────────────────────
-    tray, tray_thread = _start_tray(wm)
+    _tray, tray_thread = _start_tray(wm)
     
     # ── decoupled background tracker ──────────────────────────────────────
     try:

@@ -1,12 +1,12 @@
-import os
 import sys
 
 # Load environment first
 from dotenv import load_dotenv
+
 load_dotenv()
 
-from db.database import Base, engine, SessionLocal
-from db import models
+from db.database import Base, engine
+
 
 def reset_database():
     print(f"Connecting to database at {engine.url}...")

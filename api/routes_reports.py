@@ -1,15 +1,14 @@
 from datetime import date
-from typing import Optional, List
 
-from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from db.database import get_db
-from db.models import DailySummary, AccountabilityLog, RoastLog, User
-from modules.behavior_engine.aggregator import get_daily_stats
-from api.websocket import push_event
 from api.routes_auth import current_user
+from api.websocket import push_event
+from db.database import get_db
+from db.models import AccountabilityLog, DailySummary, RoastLog, User
+from modules.behavior_engine.aggregator import get_daily_stats
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -21,7 +20,7 @@ class AccountabilityAnswer(BaseModel):
 
 # ── stats ─────────────────────────────────────────────────────────────────
 @router.get("/stats")
-def today_stats(target_date: Optional[date] = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def today_stats(target_date: date | None = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Live aggregated stats for the dashboard. Called on page load + periodically."""
     stats = get_daily_stats(db, target_date, user_id=user.id)
     return stats
@@ -131,14 +130,13 @@ def weekly_patterns(user: User = Depends(current_user), db: Session = Depends(ge
 
 
 @router.get("/score/breakdown")
-def score_breakdown(target_date: Optional[date] = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def score_breakdown(target_date: date | None = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """
     Detailed focus score breakdown:
     productive_pts, presence_pts, penalty, bonus, letter_grade, verdict.
     """
-    from modules.behavior_engine.aggregator import get_daily_stats
-    from modules.behavior_engine.scorer import ProductivityScorer
     from db.models import CVEvent, ScreenSession
+    from modules.behavior_engine.scorer import ProductivityScorer
 
     target_date = target_date or date.today()
 

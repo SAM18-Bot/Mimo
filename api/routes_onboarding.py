@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from typing import Optional
 from sqlalchemy.orm import Session
-from db.database import get_db
-from db.models import User, ScheduleProfile, ScheduleBlock
-from datetime import date
+
 from api.routes_auth import current_user
+from db.database import get_db
+from db.models import ScheduleBlock, ScheduleProfile, User
 
 router = APIRouter(prefix="/onboarding", tags=["Onboarding"])
 
@@ -14,7 +14,7 @@ class OnboardingRequest(BaseModel):
     age: int
     education_level: str
     ai_engine: str
-    api_key: Optional[str] = None
+    api_key: str | None = None
     wake_time: str = "07:00"
     sleep_time: str = "23:00"
     study_goal_minutes: int = 120

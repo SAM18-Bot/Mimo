@@ -43,12 +43,12 @@ def notify(title: str, message: str, timeout: int = 5) -> bool:
 
     try:
         from plyer import notification
-        kwargs = dict(
-            title       = f"{_APP_NAME} — {title}",
-            message     = message,
-            app_name    = _APP_NAME,
-            timeout     = timeout,
-        )
+        kwargs = {
+            "title": f"{_APP_NAME} — {title}",
+            "message": message,
+            "app_name": _APP_NAME,
+            "timeout": timeout,
+        }
         icon = _notification_icon()
         if icon:
             kwargs["app_icon"] = icon

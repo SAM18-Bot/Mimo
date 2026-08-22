@@ -1,15 +1,16 @@
 import sys
-import os
 from datetime import date, timedelta
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 # Add project root to sys.path
 sys.path.insert(0, r"c:\Users\samee\projects\Mimo")
 
-from db.database import get_db_ctx, init_db
-from db.models import User, Assignment, DailySummary, RoastLog
-from modules.voice.intent_router import IntentRouter
 from sqlalchemy.orm.exc import DetachedInstanceError
+
+from db.database import get_db_ctx, init_db
+from db.models import Assignment, User
+from modules.voice.intent_router import IntentRouter
+
 
 def run_empirical_stress_tests():
     print("=== STARTING EMPIRICAL STRESS TESTS FOR INTENT_ROUTER HANDLERS ===")

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 import bcrypt
 from jose import JWTError, jwt
@@ -20,7 +19,7 @@ def verify_password(password: str, password_hash: str) -> bool:
         return False
 
 
-def create_access_token(user_id: int, role: str, expires_minutes: Optional[int] = None) -> str:
+def create_access_token(user_id: int, role: str, expires_minutes: int | None = None) -> str:
     expires = datetime.now(timezone.utc) + timedelta(
         minutes=expires_minutes or config.JWT_EXPIRE_MINUTES
     )

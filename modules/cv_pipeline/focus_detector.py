@@ -20,7 +20,6 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass
-from typing import Optional, Tuple
 
 import numpy as np
 
@@ -97,7 +96,7 @@ class GazeDetector:
         except ImportError:
             log.warning("mediapipe not installed — GazeDetector disabled")
 
-    def detect(self, frame_rgb: np.ndarray) -> Optional[GazeResult]:
+    def detect(self, frame_rgb: np.ndarray) -> GazeResult | None:
         """
         Analyse one RGB frame. Returns GazeResult or None if no face found.
         frame_rgb must be np.ndarray shape (H, W, 3) dtype uint8.
@@ -130,7 +129,7 @@ class GazeDetector:
 
     def _head_pose(
         self, pts: list, img_w: int, img_h: int
-    ) -> Optional[GazeResult]:
+    ) -> GazeResult | None:
         try:
             image_pts = np.array(
                 [pts[i] for i in _POSE_POINTS_IDX], dtype=np.float64
@@ -142,7 +141,7 @@ class GazeDetector:
             )
             dist    = np.zeros((4, 1))
 
-            ok, rvec, tvec = cv_solvePnP(
+            ok, rvec, _tvec = cv_solvePnP(
                 _MODEL_3D, image_pts, cam_mat, dist
             )
             if not ok:
@@ -171,7 +170,7 @@ class GazeDetector:
 
     # ── iris position check ────────────────────────────────────────────────
 
-    def _iris_check(self, pts: list) -> Optional[GazeResult]:
+    def _iris_check(self, pts: list) -> GazeResult | None:
         """
         Estimate gaze direction from iris position within eye socket.
         If iris is centered within the eye → looking forward.
@@ -213,8 +212,8 @@ class GazeDetector:
 
     def _fuse(
         self,
-        pose: Optional[GazeResult],
-        iris: Optional[GazeResult],
+        pose: GazeResult | None,
+        iris: GazeResult | None,
     ) -> GazeResult:
         if pose is None and iris is None:
             return GazeResult(
@@ -250,7 +249,7 @@ class GazeDetector:
 
 # ── math helpers ─────────────────────────────────────────────────────────
 
-def _rotation_to_euler(R: np.ndarray) -> Tuple[float, float, float]:
+def _rotation_to_euler(R: np.ndarray) -> tuple[float, float, float]:
     """Convert 3×3 rotation matrix to (yaw, pitch, roll) degrees."""
     sy = math.sqrt(R[0, 0] ** 2 + R[1, 0] ** 2)
     singular = sy < 1e-6

@@ -10,8 +10,8 @@ Coverage:
 """
 
 import os
-import pytest
 
+import pytest
 
 # ── icon generator ────────────────────────────────────────────────────────
 
@@ -96,8 +96,9 @@ class TestIconGenerator:
         assert set(icons.keys()) == {"active", "paused", "alert"}
 
     def test_get_all_icons_are_pil_images(self):
-        from desktop.icon_generator import get_all_icons
         from PIL import Image
+
+        from desktop.icon_generator import get_all_icons
         icons = get_all_icons()
         for state, img in icons.items():
             assert isinstance(img, Image.Image), f"{state} is not a PIL Image"
@@ -132,7 +133,7 @@ class TestSettingsManager:
         return env_file
 
     def test_load_returns_all_default_keys(self, env_path):
-        from desktop.settings_manager import load_settings, DEFAULTS
+        from desktop.settings_manager import DEFAULTS, load_settings
         settings = load_settings(mask_sensitive=False)
         for key in DEFAULTS:
             assert key in settings, f"Missing key: {key}"
@@ -167,7 +168,7 @@ class TestSettingsManager:
         assert result is False
 
     def test_save_masked_value_is_skipped(self, env_path):
-        from desktop.settings_manager import save_setting, load_settings
+        from desktop.settings_manager import load_settings, save_setting
         # Save a masked value
         result = save_setting("OPENAI_API_KEY", "sk-••••••••")
         assert result is True
@@ -195,7 +196,7 @@ class TestSettingsManager:
         assert results["INVALID_KEY_999"] is False
 
     def test_get_settings_for_ui_has_sections(self, env_path):
-        from desktop.settings_manager import get_settings_for_ui, SECTIONS
+        from desktop.settings_manager import SECTIONS, get_settings_for_ui
         data = get_settings_for_ui()
         assert "sections" in data
         section_names = [s["name"] for s in data["sections"]]
@@ -235,7 +236,7 @@ class TestSettingsManager:
         assert _infer_input_type("DATABASE_URL")     == "text"
 
     def test_every_default_key_has_a_label(self):
-        from desktop.settings_manager import LABELS, DEFAULTS
+        from desktop.settings_manager import DEFAULTS, LABELS
         for key in DEFAULTS:
             assert key in LABELS, f"Missing label for: {key}"
 

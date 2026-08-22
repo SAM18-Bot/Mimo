@@ -6,13 +6,14 @@ POST /settings          → save one or more settings
 POST /settings/restart  → restart background services after settings change
 """
 
-from fastapi import APIRouter, HTTPException, Depends
-from fastapi.responses import HTMLResponse, FileResponse
+import os
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
-from typing import Optional
+
 from api.routes_auth import current_user
 from db.models import User
-import os
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -80,10 +81,11 @@ def restart_services(user: User = Depends(current_user)):
     API key changes require a full restart.
     """
     try:
-        from schedulers.background_tasks import stop_all, start_all
-        from api.websocket import push_event
-        import config
         import importlib
+
+        import config
+        from api.websocket import push_event
+        from schedulers.background_tasks import start_all, stop_all
         importlib.reload(config)
 
         stop_all()

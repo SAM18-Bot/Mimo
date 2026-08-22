@@ -1,12 +1,10 @@
-import pytest
 from datetime import date, timedelta
-from fastapi.testclient import TestClient
-from db.models import User, DailySummary, RoastLog, Assignment
-from db.database import get_db_ctx
+
+from db.models import DailySummary, RoastLog, User
 from modules.ai_layer.roast_engine import RoastEngine
-from modules.voice.intent_router import IntentRouter
 from modules.assignments.manager import create_assignment
-from main import app
+from modules.voice.intent_router import IntentRouter
+
 
 def test_push_sync_stress_column_names_and_dates(client, auth_headers, db_session):
     """Stress test push_sync with various date formats and initial DailySummary states."""
@@ -71,9 +69,9 @@ def test_pull_sync_user_isolation(client, auth_headers, db_session):
     db_session.refresh(u2)
 
     # Create assignment for User 1
-    a1 = create_assignment(db_session, title="User1 Sync Task", due_date=date.today() + timedelta(days=2), user_id=1)
+    create_assignment(db_session, title="User1 Sync Task", due_date=date.today() + timedelta(days=2), user_id=1)
     # Create assignment for User 2
-    a2 = create_assignment(db_session, title="User2 Sync Task", due_date=date.today() + timedelta(days=2), user_id=u2.id)
+    create_assignment(db_session, title="User2 Sync Task", due_date=date.today() + timedelta(days=2), user_id=u2.id)
 
     # Call pull_sync authenticated as User 1
     resp = client.get("/sync/pull", headers=auth_headers)

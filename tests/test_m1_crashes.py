@@ -1,6 +1,6 @@
-import pytest
 from datetime import date
-from db.models import RoastLog, DailySummary, User, Assignment
+
+from db.models import Assignment, DailySummary, RoastLog, User
 from modules.ai_layer.roast_engine import RoastEngine
 from modules.voice.intent_router import IntentRouter
 

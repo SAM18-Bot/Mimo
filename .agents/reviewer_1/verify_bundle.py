@@ -1,6 +1,7 @@
-import os
 import hashlib
+import os
 from datetime import datetime
+
 
 def hash_file(filepath):
     h = hashlib.sha256()

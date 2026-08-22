@@ -18,9 +18,8 @@ import json
 import logging
 import queue
 from collections import defaultdict
-from typing import Dict, Optional, Set, Union
 
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
 
 log = logging.getLogger(__name__)
 
@@ -30,9 +29,9 @@ event_bus: queue.Queue = queue.Queue()
 
 class ConnectionManager:
     def __init__(self):
-        self._active: Set[WebSocket] = set()
-        self._user_sockets: Dict[int, Set[WebSocket]] = defaultdict(set)
-        self._socket_users: Dict[WebSocket, int] = {}
+        self._active: set[WebSocket] = set()
+        self._user_sockets: dict[int, set[WebSocket]] = defaultdict(set)
+        self._socket_users: dict[WebSocket, int] = {}
 
     async def connect(self, ws: WebSocket, user_id: int = 1):
         await ws.accept()
@@ -41,7 +40,7 @@ class ConnectionManager:
         self._socket_users[ws] = user_id
         log.info(f"Dashboard connected for user {user_id}. Total clients: {len(self._active)}")
 
-    def disconnect(self, ws: WebSocket, user_id: Optional[int] = None):
+    def disconnect(self, ws: WebSocket, user_id: int | None = None):
         if user_id is None:
             user_id = self._socket_users.get(ws)
 
@@ -56,7 +55,7 @@ class ConnectionManager:
 
         log.info(f"Dashboard disconnected. Remaining: {len(self._active)}")
 
-    async def unicast(self, user_id: int, message: Union[dict, str]):
+    async def unicast(self, user_id: int, message: dict | str):
         sockets = self._user_sockets.get(user_id)
         if not sockets:
             return
@@ -70,7 +69,7 @@ class ConnectionManager:
         for ws in dead:
             self.disconnect(ws, user_id)
 
-    async def broadcast(self, message: Union[dict, str], user_id: Optional[int] = None):
+    async def broadcast(self, message: dict | str, user_id: int | None = None):
         target_user = user_id
         if target_user is None and isinstance(message, dict):
             target_user = message.get("user_id")
@@ -95,7 +94,7 @@ class ConnectionManager:
     def client_count(self) -> int:
         return len(self._active)
     @property
-    def connected_user_ids(self) -> Set[int]:
+    def connected_user_ids(self) -> set[int]:
         return set(self._user_sockets.keys())
 
 
@@ -107,7 +106,7 @@ manager = ConnectionManager()
 
 async def drain_event_bus():
     """Reads from the sync queue and broadcasts to WebSocket clients."""
-    loop = asyncio.get_event_loop()
+    asyncio.get_event_loop()
     while True:
         try:
             # Non-blocking check so we don't block the event loop

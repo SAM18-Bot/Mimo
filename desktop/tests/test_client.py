@@ -1,13 +1,15 @@
-import pytest
-from unittest.mock import patch, MagicMock
-import sys
 import os
+import sys
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Add parent directory to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 # Mock heavy dependencies completely to avoid installing them
 import sys
+
 sys.modules['cv2'] = MagicMock()
 sys.modules['mediapipe'] = MagicMock()
 sys.modules['mediapipe.solutions'] = MagicMock()
@@ -20,7 +22,7 @@ sys.modules['tkinter'] = MagicMock()
 
 def test_main_desktop_initialization():
     try:
-        from desktop.main_desktop import _get_log_dir, _check_single_instance
+        from desktop.main_desktop import _check_single_instance, _get_log_dir
         
         # Test log dir creation
         log_dir = _get_log_dir()
@@ -36,7 +38,7 @@ def test_main_desktop_initialization():
 
 def test_settings_manager():
     try:
-        from desktop.settings_manager import load_settings, get_setting
+        from desktop.settings_manager import get_setting, load_settings
         settings = load_settings()
         assert isinstance(settings, dict)
         assert get_setting('NO_HARDWARE') is not None

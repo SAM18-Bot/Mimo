@@ -13,8 +13,6 @@ Supported intents:
 """
 
 import logging
-import re
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -75,9 +73,9 @@ class IntentRouter:
 
     # ── handlers ─────────────────────────────────────────────────────────
     def _handle_add_assignment(self, text: str):
-        from modules.assignments.parser import parse_assignment_command
         from db.database import get_db_ctx
         from modules.assignments.manager import create_assignment
+        from modules.assignments.parser import parse_assignment_command
 
         result = parse_assignment_command(text)
         if not result:
@@ -222,8 +220,8 @@ class IntentRouter:
     def _handle_ask_coach(self, text: str):
         from db.database import get_db_ctx
         from modules.ai_layer.client import generate_coach_response
-        from modules.behavior_engine.aggregator import get_daily_stats
         from modules.ai_layer.roast_engine import RoastEngine
+        from modules.behavior_engine.aggregator import get_daily_stats
 
         # Get stats
         with get_db_ctx() as db:

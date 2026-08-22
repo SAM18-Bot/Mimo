@@ -22,8 +22,8 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections.abc import Callable
 from datetime import date, datetime, timedelta
-from typing import Callable, List, Optional
 
 from db.database import get_db_ctx
 from db.models import Assignment, Reminder
@@ -40,15 +40,15 @@ class ReminderLoop:
 
     def __init__(
         self,
-        speak_fn:     Optional[Callable[[str], None]] = None,
-        broadcast_fn: Optional[Callable[[dict], None]] = None,
+        speak_fn:     Callable[[str], None] | None = None,
+        broadcast_fn: Callable[[dict], None] | None = None,
         poll_minutes: int = POLL_INTERVAL_MIN,
     ):
         self._speak      = speak_fn
         self._broadcast  = broadcast_fn
         self._poll_s     = poll_minutes * 60
         self._running    = False
-        self._thread:    Optional[threading.Thread] = None
+        self._thread:    threading.Thread | None = None
 
     # ── lifecycle ─────────────────────────────────────────────────────────
 
@@ -107,15 +107,15 @@ class ReminderLoop:
 
     # ── helpers ───────────────────────────────────────────────────────────
 
-    def _get_pending(self, db) -> List[Reminder]:
+    def _get_pending(self, db) -> list[Reminder]:
         return (
             db.query(Reminder)
             .filter(Reminder.remind_at <= datetime.now())
-            .filter(Reminder.delivered == False)  # noqa: E712
+            .filter(Reminder.delivered == False)
             .all()
         )
 
-    def _get_silently_overdue(self, db) -> List[Assignment]:
+    def _get_silently_overdue(self, db) -> list[Assignment]:
         """Overdue assignments that haven't been reminded in the last 24h."""
         cutoff = datetime.now() - timedelta(hours=24)
         return (
@@ -123,7 +123,7 @@ class ReminderLoop:
             .filter(Assignment.due_date < date.today())
             .filter(Assignment.status != "done")
             .filter(
-                (Assignment.reminded_at == None) |   # noqa: E711
+                (Assignment.reminded_at == None) |
                 (Assignment.reminded_at < cutoff)
             )
             .all()
@@ -166,7 +166,7 @@ class ReminderLoop:
                 f"Plan your time accordingly."
             )
 
-    def _deliver(self, message: str, assignment_id: Optional[int] = None, user_id: Optional[int] = None):
+    def _deliver(self, message: str, assignment_id: int | None = None, user_id: int | None = None):
         log.info("Reminder: %s", message)
 
         if user_id is None:

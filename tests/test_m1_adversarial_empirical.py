@@ -12,41 +12,30 @@ Tests:
 7. Route Authentication Enforcement Across All Sensitive Endpoints
 """
 
-import asyncio
 import json
-import random
 import threading
-import time
-from datetime import date, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import date, datetime
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from sqlalchemy.orm import sessionmaker
 
-from api.websocket import ConnectionManager, drain_event_bus, event_bus, push_event
+from api.websocket import ConnectionManager
 from db.models import (
-    Assignment,
     CVEvent,
     DailySummary,
-    RoastLog,
     ScheduleBlock,
-    ScheduleProfile,
     User,
 )
 from modules.ai_layer.roast_engine import RoastEngine
 from modules.auth.security import create_access_token
 from modules.cv_pipeline.presence import PresenceMonitor
 from modules.schedule.manager import (
-    boost_subject_priority,
     build_onboarding_schedule,
-    get_day_schedule,
     get_weekly_schedule,
     reschedule_missed_blocks,
-    smart_suggestions,
     update_block_status,
 )
-from modules.voice.intent_router import IntentRouter
-
 
 # ============================================================================
 # 1. RoastEngine Per-User Cooldown Isolation & Concurrency
@@ -156,7 +145,7 @@ def test_schedule_overnight_boundary_edge_cases(db_session):
     db.add(u)
     db.commit()
 
-    profile = build_onboarding_schedule(
+    build_onboarding_schedule(
         db,
         user_id=u.id,
         wake_time="14:00",

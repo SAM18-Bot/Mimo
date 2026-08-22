@@ -6,15 +6,16 @@ fault tolerance, and multi-tenant schedule data leak isolation.
 
 import asyncio
 import random
-from unittest.mock import AsyncMock, MagicMock
-import pytest
 from datetime import date, timedelta
+from unittest.mock import AsyncMock
 
-from api.websocket import ConnectionManager, drain_event_bus, event_bus
-from db.models import User, Assignment, ScheduleProfile, ScheduleBlock
+import pytest
+
+from api.websocket import ConnectionManager
+from db.models import Assignment, ScheduleBlock, User
 from modules.schedule.manager import (
-    build_onboarding_schedule,
     boost_subject_priority,
+    build_onboarding_schedule,
     smart_suggestions,
     update_block_status,
 )
@@ -55,7 +56,7 @@ async def test_empirical_multi_user_concurrent_unicast():
             assert cm._socket_users[ws] == uid
 
     # Track message delivery counts per socket
-    received_by_socket = {ws: [] for ws in socket_to_user_map.keys()}
+    {ws: [] for ws in socket_to_user_map}
 
     async def send_random_unicast(msg_id: int):
         target_uid = random.randint(1, num_users)
@@ -134,7 +135,7 @@ def test_empirical_schedule_manager_multi_tenant_isolation(db_session):
     db.add_all([u1, u2])
     db.commit()
 
-    p1 = build_onboarding_schedule(
+    build_onboarding_schedule(
         db, user_id=u1.id, wake_time="07:00", sleep_time="23:00",
         subjects=[{"name": "Math", "priority": "high"}]
     )

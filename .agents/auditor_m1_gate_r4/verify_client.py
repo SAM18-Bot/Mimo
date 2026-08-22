@@ -1,12 +1,13 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.abspath("."))
 
-import unittest.mock as mock
-import json
 import time
-import modules.ai_layer.client as c
+from unittest import mock
+
 import config
+import modules.ai_layer.client as c
 
 print("=== Running Forensic Verification of modules/ai_layer/client.py ===")
 

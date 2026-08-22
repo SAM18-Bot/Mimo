@@ -10,7 +10,7 @@ Swap recognize_google → recognize_whisper() for fully offline later.
 import logging
 import threading
 import time
-from typing import Callable, Optional
+from collections.abc import Callable
 
 log = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ HOTWORD = "hey coach"
 
 
 class VoiceListener:
-    def __init__(self, on_command: Optional[Callable] = None):
+    def __init__(self, on_command: Callable | None = None):
         """on_command(text: str) called when a command is recognized."""
         self._on_command = on_command
         self._running    = False

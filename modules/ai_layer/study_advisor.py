@@ -20,11 +20,10 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from datetime import date, timedelta
-from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from db.models import ScreenSession, Assignment, DailySummary
+from db.models import Assignment, ScreenSession
 from modules.behavior_engine.pattern_detector import get_weekly_patterns
 
 log = logging.getLogger(__name__)
@@ -115,7 +114,7 @@ class StudyAdvisor:
 
     # ── analysis helpers ─────────────────────────────────────────────────
 
-    def _subject_time(self, user_id: int, days: int) -> Dict[str, int]:
+    def _subject_time(self, user_id: int, days: int) -> dict[str, int]:
         """Minutes spent per subject over the past N days."""
         cutoff   = date.today() - timedelta(days=days)
         sessions = (
@@ -126,7 +125,7 @@ class StudyAdvisor:
             .all()
         )
 
-        totals: Dict[str, int] = defaultdict(int)
+        totals: dict[str, int] = defaultdict(int)
         for s in sessions:
             subj = _extract_subject_from_title(s.window_title or s.app_name)
             if subj:
@@ -145,10 +144,10 @@ class StudyAdvisor:
 
         return dict(totals)
 
-    def _completion_rates(self, user_id: int) -> Dict[str, float]:
+    def _completion_rates(self, user_id: int) -> dict[str, float]:
         """Assignment completion % per subject (0–100)."""
         assignments = self._db.query(Assignment).filter(Assignment.user_id == user_id).all()
-        by_subject: Dict[str, list] = defaultdict(list)
+        by_subject: dict[str, list] = defaultdict(list)
         for a in assignments:
             if a.subject:
                 by_subject[a.subject].append(a.status == "done")
@@ -159,7 +158,7 @@ class StudyAdvisor:
             if done_list
         }
 
-    def _last_studied(self, user_id: int) -> Dict[str, date]:
+    def _last_studied(self, user_id: int) -> dict[str, date]:
         """Date each subject was last seen in productive screen sessions."""
         sessions = (
             self._db.query(ScreenSession)
@@ -169,14 +168,14 @@ class StudyAdvisor:
             .limit(500)
             .all()
         )
-        last: Dict[str, date] = {}
+        last: dict[str, date] = {}
         for s in sessions:
             subj = _extract_subject_from_title(s.window_title or "")
             if subj and subj not in last and s.session_date:
                 last[subj] = s.session_date
         return last
 
-    def _overdue_subjects(self, user_id: int) -> List[str]:
+    def _overdue_subjects(self, user_id: int) -> list[str]:
         overdue = (
             self._db.query(Assignment)
             .filter(Assignment.user_id == user_id)
@@ -197,11 +196,11 @@ class StudyAdvisor:
 
     def _rank_subjects(
         self,
-        time_map:   Dict[str, int],
-        completion: Dict[str, float],
-        last_seen:  Dict[str, date],
-        overdue:    List[str],
-    ) -> List[Tuple[str, float]]:
+        time_map:   dict[str, int],
+        completion: dict[str, float],
+        last_seen:  dict[str, date],
+        overdue:    list[str],
+    ) -> list[tuple[str, float]]:
         """
         Returns subjects sorted by "need score" descending (most needed first).
         Need score = 100 - normalized_time - completion_rate + staleness_days
@@ -226,9 +225,9 @@ class StudyAdvisor:
 
     def _build_study_plan(
         self,
-        ranked:    List[Tuple[str, float]],
-        peak_hour: Optional[int],
-    ) -> List[dict]:
+        ranked:    list[tuple[str, float]],
+        peak_hour: int | None,
+    ) -> list[dict]:
         """Build a simple time-blocked daily plan for the top 3 subjects."""
         top3 = [s for s, _ in ranked[:3]]
         if not top3:
@@ -245,7 +244,7 @@ class StudyAdvisor:
                 "start_time": f"{slot_start:02d}:00",
                 "end_time":   f"{slot_end:02d}:00",
                 "duration_min": 120,
-                "reason":     f"Lowest study time this week among your subjects.",
+                "reason":     "Lowest study time this week among your subjects.",
             })
 
         return plan
@@ -254,10 +253,10 @@ class StudyAdvisor:
 
     def _ai_recommendations(
         self,
-        time_map:  Dict[str, int],
-        completion: Dict[str, float],
+        time_map:  dict[str, int],
+        completion: dict[str, float],
         patterns:  dict,
-        weak:      List[str],
+        weak:      list[str],
         profile_notes: str,
     ) -> dict:
         """
@@ -303,7 +302,7 @@ _SUBJECT_KEYWORDS = {
 }
 
 
-def _extract_subject_from_title(text: str) -> Optional[str]:
+def _extract_subject_from_title(text: str) -> str | None:
     text_low = (text or "").lower()
     for subject, keywords in _SUBJECT_KEYWORDS.items():
         if any(kw in text_low for kw in keywords):
@@ -311,7 +310,7 @@ def _extract_subject_from_title(text: str) -> Optional[str]:
     return None
 
 
-def _fmt_peak(hour: Optional[int]) -> str:
+def _fmt_peak(hour: int | None) -> str:
     if hour is None:
         return "unknown"
     suffix = "AM" if hour < 12 else "PM"
@@ -320,10 +319,10 @@ def _fmt_peak(hour: Optional[int]) -> str:
 
 
 def _rule_based_recommendations(
-    time_map: Dict[str, int],
-    completion: Dict[str, float],
-    weak: List[str],
-) -> List[dict]:
+    time_map: dict[str, int],
+    completion: dict[str, float],
+    weak: list[str],
+) -> list[dict]:
     recs = []
     if weak:
         recs.append({
@@ -365,8 +364,9 @@ def _rule_based_recommendations(
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session as DbSession
-from db.database import get_db
+
 from api.routes_auth import current_user
+from db.database import get_db
 from db.models import User
 
 router = APIRouter(prefix="/study", tags=["study"])

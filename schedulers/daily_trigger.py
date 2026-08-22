@@ -7,6 +7,7 @@ APScheduler jobs:
 """
 
 import logging
+
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
@@ -98,9 +99,9 @@ def stop_scheduler():
 def _run_eod(speak_fn=None, broadcast_fn=None):
     log.info("Running scheduled EOD report...")
     try:
-        from modules.ai_layer.daily_report import run_eod_report
         from db.database import get_db_ctx
         from db.models import User
+        from modules.ai_layer.daily_report import run_eod_report
         with get_db_ctx() as db:
             users = db.query(User).all()
             for user in users:

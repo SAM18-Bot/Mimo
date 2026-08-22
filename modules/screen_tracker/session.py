@@ -17,9 +17,8 @@ Also provides session analytics:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from typing import List, Optional, Dict
+from dataclasses import dataclass
+from datetime import datetime
 
 import config
 
@@ -44,7 +43,7 @@ class Session:
     title:      str
     category:   str
     started_at: datetime
-    ended_at:   Optional[datetime] = None
+    ended_at:   datetime | None = None
     duration_s: int = 0
     gap_events: int = 0   # times user briefly left and came back within gap threshold
 
@@ -80,16 +79,16 @@ class SessionStitcher:
     the gap is absorbed rather than starting a new session.
     """
 
-    def __init__(self, gap_threshold_s: Optional[int] = None):
+    def __init__(self, gap_threshold_s: int | None = None):
         self._gap        = gap_threshold_s or config.SESSION_GAP_THRESHOLD
-        self._pending:    Optional[Session] = None
-        self._completed:  List[Session] = []
+        self._pending:    Session | None = None
+        self._completed:  list[Session] = []
 
         # Interruption tracking
-        self._int_app:      Optional[str] = None
-        self._int_title:    Optional[str] = None
-        self._int_category: Optional[str] = None
-        self._int_start:    Optional[datetime] = None
+        self._int_app:      str | None = None
+        self._int_title:    str | None = None
+        self._int_category: str | None = None
+        self._int_start:    datetime | None = None
 
     # ── public API ────────────────────────────────────────────────────────
 
@@ -99,7 +98,7 @@ class SessionStitcher:
         title: str,
         category: str,
         ts: datetime,
-    ) -> List[Session]:
+    ) -> list[Session]:
         """
         Call every time the active window changes.
         Returns a list of completed Sessions.
@@ -190,7 +189,7 @@ class SessionStitcher:
                         self._int_app = None
                         return [c1, c2]
 
-    def flush(self, ts: Optional[datetime] = None) -> List[Session]:
+    def flush(self, ts: datetime | None = None) -> list[Session]:
         """Close the pending session. Call on stop() or at end of day."""
         ts = ts or datetime.now()
         closed = []
@@ -221,10 +220,10 @@ class SessionStitcher:
         self._int_app = None
         return closed
 
-    def get_completed(self) -> List[Session]:
+    def get_completed(self) -> list[Session]:
         return list(self._completed)
 
-    def get_pending(self) -> Optional[Session]:
+    def get_pending(self) -> Session | None:
         return self._pending
 
     def reset(self) -> None:
@@ -236,7 +235,7 @@ class SessionStitcher:
 
 # ── analytics ─────────────────────────────────────────────────────────────
 
-def analyze_sessions(sessions: List[Session]) -> Dict:
+def analyze_sessions(sessions: list[Session]) -> dict:
     """
     Compute session analytics from a list of completed sessions.
     Called by the behavior engine aggregator.
@@ -258,9 +257,9 @@ def analyze_sessions(sessions: List[Session]) -> Dict:
     longest_s = max((s.duration_s for s in prod_sessions), default=0)
 
     # Productive streaks: consecutive productive sessions with < STREAK_GAP_S between them
-    streaks: List[int] = []
+    streaks: list[int] = []
     current_s          = 0
-    prev_end: Optional[datetime] = None
+    prev_end: datetime | None = None
 
     for s in sorted(prod_sessions, key=lambda x: x.started_at):
         if prev_end is None:

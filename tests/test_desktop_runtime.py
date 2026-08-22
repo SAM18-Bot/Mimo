@@ -9,10 +9,10 @@ rather than crashing.
 """
 
 import os
-import time
 import threading
-import pytest
+import time
 
+import pytest
 
 # ── WindowManager ──────────────────────────────────────────────────────────
 
@@ -75,7 +75,7 @@ class TestWindowManager:
         assert wm._url == "http://localhost:9999"
 
     def test_default_url(self):
-        from desktop.window_manager import WindowManager, _URL
+        from desktop.window_manager import _URL, WindowManager
         wm = WindowManager()
         assert wm._url == _URL
 
@@ -204,7 +204,10 @@ class TestSingleInstance:
         must use a real subprocess to test contention correctly — locking
         twice within the same process always succeeds (self-lock merge).
         """
-        import platform, subprocess, sys, textwrap
+        import platform
+        import subprocess
+        import sys
+        import textwrap
         if platform.system() == "Windows":
             pytest.skip("Unix-only test (uses fcntl)")
 
@@ -217,7 +220,7 @@ class TestSingleInstance:
         # Spawn a real second process that tries to acquire the same lock
         child_code = textwrap.dedent(f"""
             import sys
-            sys.path.insert(0, {repr(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))})
+            sys.path.insert(0, {os.path.dirname(os.path.dirname(os.path.abspath(__file__)))!r})
             from desktop.single_instance import acquire
             result = acquire()
             print("LOCKED" if result else "BLOCKED")
@@ -238,7 +241,7 @@ class TestSingleInstance:
         if platform.system() == "Windows":
             pytest.skip("Unix-only test")
 
-        from desktop.single_instance import acquire, release, is_already_running
+        from desktop.single_instance import acquire, is_already_running, release
 
         acquire()
         result = is_already_running()
@@ -251,8 +254,9 @@ class TestSingleInstance:
 class TestWaitForServer:
 
     def test_wait_for_server_succeeds_when_healthy(self, monkeypatch):
-        from desktop import main_desktop as md
         import httpx
+
+        from desktop import main_desktop as md
 
         class FakeResponse:
             status_code = 200
@@ -266,8 +270,9 @@ class TestWaitForServer:
         assert result is True
 
     def test_wait_for_server_times_out_when_unreachable(self, monkeypatch):
-        from desktop import main_desktop as md
         import httpx
+
+        from desktop import main_desktop as md
 
         def fake_get(url, timeout=2):
             raise ConnectionError("refused")
@@ -282,8 +287,9 @@ class TestWaitForServer:
         assert elapsed < 3   # should not hang way past the timeout
 
     def test_wait_for_server_updates_splash_message(self, monkeypatch):
-        from desktop import main_desktop as md
         import httpx
+
+        from desktop import main_desktop as md
 
         def fake_get(url, timeout=2):
             raise ConnectionError("refused")

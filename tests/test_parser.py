@@ -6,10 +6,9 @@ Tests every supported date format:
 Also tests subject extraction, title cleaning, priority detection.
 """
 
-import pytest
 from datetime import date, timedelta
-from modules.assignments.parser import parse_assignment_command
 
+from modules.assignments.parser import parse_assignment_command
 
 # ── date parsing ──────────────────────────────────────────────────────────
 

@@ -1,24 +1,25 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from typing import List, Optional
-from db.database import get_db
 from sqlalchemy.orm import Session
-from datetime import date
-from db.models import Assignment, DailySummary, User
+
 from api.routes_auth import current_user
-from modules.behavior_engine.aggregator import get_daily_stats
+from db.database import get_db
+from db.models import DailySummary, User
 from modules.assignments.manager import get_upcoming
+from modules.behavior_engine.aggregator import get_daily_stats
 
 router = APIRouter(prefix="/sync", tags=["Sync"])
 
 class AssignmentModel(BaseModel):
     id: int
     title: str
-    subject: Optional[str] = None
+    subject: str | None = None
     due_date: str
     priority: str = "medium"
     status: str = "pending"
-    notes: Optional[str] = None
+    notes: str | None = None
 
 class DailyStatsModel(BaseModel):
     date: str
@@ -32,8 +33,8 @@ class SyncPayload(BaseModel):
     mobileProductiveMin: int
     mobileDistractingMin: int
     mobileNeutralMin: int
-    assignments: List[AssignmentModel] = []
-    mergedStats: Optional[DailyStatsModel] = None
+    assignments: list[AssignmentModel] = []
+    mergedStats: DailyStatsModel | None = None
 
 @router.post("/push")
 def push_sync(

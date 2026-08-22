@@ -1,18 +1,17 @@
 from datetime import date
-from typing import Optional
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from api.routes_auth import current_user
 from db.database import get_db
 from db.models import CVEvent, User
-from api.routes_auth import current_user
 
 router = APIRouter(prefix="/cv", tags=["cv"])
 
 
 @router.get("/events")
-def get_cv_events(target_date: Optional[date] = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
+def get_cv_events(target_date: date | None = None, user: User = Depends(current_user), db: Session = Depends(get_db)):
     target_date = target_date or date.today()
     events = (
         db.query(CVEvent)
@@ -56,6 +55,7 @@ def focus_today(user: User = Depends(current_user), db: Session = Depends(get_db
 # ── MOCK endpoint (no hardware needed for testing) ────────────────────────
 from pydantic import BaseModel as _BM
 
+
 class MockCVEvent(_BM):
     event: str   # present | absent | distracted | returned
 
@@ -65,10 +65,11 @@ def mock_cv_event(payload: MockCVEvent, user: User = Depends(current_user)):
     Inject a fake CV event for testing without ESP32-CAM.
     Called by mock_cv.py or manually via /docs.
     """
-    from datetime import datetime, date as _date
+    from datetime import datetime
+
+    from api.websocket import push_event
     from db.database import get_db_ctx
     from db.models import CVEvent
-    from api.websocket import push_event
 
     valid = {"present", "absent", "distracted", "returned"}
     if payload.event not in valid:

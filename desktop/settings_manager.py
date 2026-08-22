@@ -9,10 +9,9 @@ All sensitive keys (API keys) are masked when returned for display.
 
 import logging
 import os
-import re
-from typing import Any, Optional
+from typing import Any
 
-from dotenv import dotenv_values, set_key, load_dotenv
+from dotenv import dotenv_values, load_dotenv, set_key
 
 log = logging.getLogger(__name__)
 
@@ -90,7 +89,7 @@ def load_settings(mask_sensitive: bool = True) -> dict:
     return result
 
 
-def get_setting(key: str) -> Optional[str]:
+def get_setting(key: str) -> str | None:
     """Get a single raw setting value."""
     raw = dotenv_values(_ENV_PATH) if os.path.exists(_ENV_PATH) else {}
     return raw.get(key, DEFAULTS.get(key, ""))
@@ -144,7 +143,9 @@ def save_many(settings: dict) -> dict:
 def _reload_config():
     """Reload the project config module so new .env values take effect."""
     try:
-        import importlib, config
+        import importlib
+
+        import config
         load_dotenv(_ENV_PATH, override=True)
         importlib.reload(config)
         log.info("Config reloaded successfully.")
