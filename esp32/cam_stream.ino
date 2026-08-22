@@ -17,6 +17,8 @@
 #include "esp_camera.h"
 #include <WiFi.h>
 #include "esp_http_server.h"
+#include "soc/soc.h"           // Disable brownout problems
+#include "soc/rtc_cntl_reg.h"  // Disable brownout problems
 
 // ─── CONFIGURE THESE ─────────────────────────────────────────
 const char* WIFI_SSID     = "YOUR_WIFI_SSID";
@@ -220,8 +222,10 @@ void connectWiFi() {
     WiFi.localIP().toString().c_str(), WiFi.RSSI());
 }
 
-// ── setup ──────────────────────────────────────────────────────
+// ── setup ─────────────────────────────────────────────────────────────
 void setup() {
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // Disable brownout detector
+
   Serial.begin(115200);
   Serial.println("\n\n[INFO] ESP32-CAM Accountability System Node");
 

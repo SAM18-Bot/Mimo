@@ -85,9 +85,9 @@ class StreamClient:
                     if not ret or frame is None:
                         log.warning("Frame read failed — reconnecting...")
                         break
-
+                    # We read frames continuously so the MJPEG buffer doesn't lag.
+                    # The FrameSlot always just holds the most recent one.
                     frame_slot.put(frame)
-                    time.sleep(config.CV_FRAME_INTERVAL)
 
             except Exception as e:
                 log.warning(f"Stream error: {e}. Retrying in {retry_delay}s...")
