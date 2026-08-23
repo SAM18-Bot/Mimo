@@ -220,9 +220,9 @@ class IntentRouter:
 
         if self._speak:
             self._speak(msg)
-        return msg
         if self._broadcast:
             self._broadcast({"type": "study_advice", "message": msg})
+        return msg
 
     def _handle_eod_report(self):
         from modules.ai_layer.daily_report import run_eod_report

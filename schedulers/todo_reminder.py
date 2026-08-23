@@ -56,7 +56,7 @@ class TodoReminderService:
                     "todo_id": t.id,
                     "message": msg,
                     "ts": datetime.now().isoformat()
-                }, user_id=t.user_id)
+                })
 
                 t.delivered = True
             

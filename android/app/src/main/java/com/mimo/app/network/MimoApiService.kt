@@ -50,16 +50,16 @@ interface MimoApiService {
     @POST("/sync/push")
     suspend fun pushSync(@Body payload: SyncPayload): Map<String, Any>
 
-    @GET("sync/pull")
+    @GET("/sync/pull")
     suspend fun pullSync(): SyncPayload
 
-    @GET("todos")
+    @GET("/todos")
     suspend fun getTodos(): List<Todo>
 
-    @POST("todos")
+    @POST("/todos")
     suspend fun createTodo(@Body payload: TodoCreate): Todo
 
-    @PATCH("todos/{id}")
+    @PATCH("/todos/{id}")
     suspend fun markTodoDone(@Path("id") id: Int, @Body payload: TodoUpdate): Todo
 
     @POST("/voice/command")

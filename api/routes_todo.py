@@ -1,4 +1,4 @@
-﻿from datetime import date, datetime
+from datetime import date, datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from api.websocket import push_event
 from db.database import get_db
 from db.models import User, Todo
-from modules.auth.security import current_user
+from api.routes_auth import current_user
 
 router = APIRouter(prefix="/todos", tags=["todos"])
 
@@ -55,7 +55,7 @@ def create_todo(payload: TodoCreate, user: User = Depends(current_user), db: Ses
             "due_date": str(todo.due_date) if todo.due_date else None,
             "remind_at": str(todo.remind_at) if todo.remind_at else None,
         }
-    }, user_id=user.id)
+    })
     return todo
 
 @router.patch("/{todo_id}", response_model=TodoOut)
@@ -86,7 +86,7 @@ def update_todo(todo_id: int, payload: TodoUpdate, user: User = Depends(current_
             "due_date": str(todo.due_date) if todo.due_date else None,
             "remind_at": str(todo.remind_at) if todo.remind_at else None,
         }
-    }, user_id=user.id)
+    })
     return todo
 
 @router.delete("/{todo_id}", status_code=204)
@@ -100,5 +100,5 @@ def delete_todo(todo_id: int, user: User = Depends(current_user), db: Session = 
     push_event({
         "type": "todo_deleted",
         "todo_id": todo_id
-    }, user_id=user.id)
+    })
     return None
