@@ -133,6 +133,10 @@ def start_all(speak_fn=None, broadcast_fn=None):
             log.warning(f"Voice listener failed: {e}")
 
     log.info("Background tasks ready.")
+
+    from schedulers.todo_reminder import start_todo_reminders
+    start_todo_reminders()
+
     return {
         "screen_tracker":   screen_tracker,
         "stream_client":    stream_client,
@@ -162,3 +166,6 @@ def stop_all():
             stop_tts()
         except Exception:
             pass
+
+    from schedulers.todo_reminder import stop_todo_reminders
+    stop_todo_reminders()

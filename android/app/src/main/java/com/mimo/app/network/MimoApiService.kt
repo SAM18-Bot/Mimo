@@ -3,6 +3,7 @@ package com.mimo.app.network
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PATCH
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -49,8 +50,17 @@ interface MimoApiService {
     @POST("/sync/push")
     suspend fun pushSync(@Body payload: SyncPayload): Map<String, Any>
 
-    @GET("/sync/pull")
+    @GET("sync/pull")
     suspend fun pullSync(): SyncPayload
+
+    @GET("todos")
+    suspend fun getTodos(): List<Todo>
+
+    @POST("todos")
+    suspend fun createTodo(@Body payload: TodoCreate): Todo
+
+    @PATCH("todos/{id}")
+    suspend fun markTodoDone(@Path("id") id: Int, @Body payload: TodoUpdate): Todo
 
     @POST("/voice/command")
     suspend fun sendVoiceCommand(@Body body: VoiceCommandRequest): Map<String, Any>

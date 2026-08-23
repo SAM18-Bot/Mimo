@@ -79,6 +79,9 @@ class DashboardViewModel @JvmOverloads constructor(
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+    private val _todos = MutableStateFlow<List<Todo>>(emptyList())
+    val todos: StateFlow<List<Todo>> = _todos.asStateFlow()
+
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
@@ -169,6 +172,7 @@ class DashboardViewModel @JvmOverloads constructor(
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 // Top-level network exception handler for offline resilience
             } finally {
+                fetchTodos()
                 _isLoading.value = false
             }
         }
@@ -208,6 +212,40 @@ class DashboardViewModel @JvmOverloads constructor(
                 refresh()
             } catch (e: Exception) {
                 _error.value = "Failed to create assignment: ${e.localizedMessage}"
+            }
+        }
+    }
+
+    
+    fun addTodo(title: String, dueDate: String?, remindAt: String?) {
+        viewModelScope.launch {
+            try {
+                apiService.createTodo(TodoCreate(title, dueDate, remindAt))
+                fetchTodos()
+            } catch (e: Exception) {
+                _error.value = "Failed to add todo: ${e.message}"
+            }
+        }
+    }
+
+    fun markTodoDone(id: Int) {
+        viewModelScope.launch {
+            try {
+                apiService.markTodoDone(id, TodoUpdate(status = "done"))
+                fetchTodos()
+            } catch (e: Exception) {
+                _error.value = "Failed to mark todo done: ${e.message}"
+            }
+        }
+    }
+
+    
+    fun fetchTodos() {
+        viewModelScope.launch {
+            try {
+                _todos.value = apiService.getTodos()
+            } catch (e: Exception) {
+                // Ignore
             }
         }
     }

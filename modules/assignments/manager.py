@@ -18,6 +18,7 @@ def create_assignment(
     user_id: int,
     title: str,
     due_date: date,
+    due_time: str | None = None,
     subject: str | None = None,
     priority: str = "medium",
     notes: str | None = None,
@@ -27,8 +28,10 @@ def create_assignment(
         title    = title,
         subject  = subject,
         due_date = due_date,
+        due_time = due_time,
         priority = priority,
         notes    = notes,
+        status   = "pending",
     )
     db.add(a)
     db.flush()   # get the id before commit

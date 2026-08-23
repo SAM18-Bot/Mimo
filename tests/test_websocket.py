@@ -53,3 +53,9 @@ async def test_connection_manager_unicast_and_broadcast():
     assert cm.client_count == 1
     assert 101 not in cm._user_sockets
 
+
+def test_websocket_valid_token(client, auth_headers):
+    token = auth_headers['Authorization'].replace('Bearer ', '')
+    with client.websocket_connect(f'/ws?token={token}'):
+        # If it doesn\'t raise an exception, connection is successful
+        pass

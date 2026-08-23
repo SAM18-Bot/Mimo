@@ -51,6 +51,7 @@ class Assignment(Base):
     title      = Column(String(300), nullable=False)
     subject    = Column(String(100))
     due_date   = Column(Date, nullable=False)
+    due_time   = Column(String(20), nullable=True)
     priority   = Column(String(20), default="medium")   # low | medium | high
     status     = Column(String(20), default="pending")  # pending | in_progress | done
     notes      = Column(Text)
@@ -286,3 +287,18 @@ class TokenBlocklist(Base):
     token      = Column(String(500), unique=True, nullable=False, index=True)
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=func.now())
+
+
+class Todo(Base):
+    __tablename__ = "todos"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    title      = Column(String(300), nullable=False)
+    due_date   = Column(Date, nullable=True)
+    remind_at  = Column(DateTime, nullable=True)
+    status     = Column(String(20), default="pending")  # pending | done
+    created_at = Column(DateTime, default=func.now())
+    delivered  = Column(Boolean, default=False)
+
+    user = relationship("User", backref="todos")

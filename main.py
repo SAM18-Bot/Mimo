@@ -101,6 +101,7 @@ from api.routes_schedule import router as schedule_router  # NEW
 from api.routes_screen import router as screen_router
 from api.routes_settings import router as settings_router  # NEW
 from api.routes_sync import router as sync_router  # NEW
+from api.routes_todo import router as todo_router
 from api.routes_voice import router as voice_router  # NEW
 from modules.ai_layer.study_advisor import router as study_router  # NEW
 
@@ -113,6 +114,7 @@ app.include_router(study_router)
 app.include_router(settings_router)
 app.include_router(monitoring_router)
 app.include_router(schedule_router)
+app.include_router(todo_router)
 app.include_router(auth_router)
 app.include_router(sync_router)
 app.include_router(onboarding_router)

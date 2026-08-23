@@ -27,6 +27,7 @@ class AssignmentCreate(BaseModel):
     title:    str
     subject:  str | None = None
     due_date: date
+    due_time: str | None = None
     priority: str | None = "medium"
     notes:    str | None = None
 
@@ -36,6 +37,7 @@ class AssignmentOut(BaseModel):
     title:    str
     subject:  str | None
     due_date: date
+    due_time: str | None
     priority: str
     status:   str
     notes:    str | None
@@ -61,6 +63,7 @@ def add_assignment(payload: AssignmentCreate, user: User = Depends(current_user)
         title    = payload.title,
         subject  = payload.subject,
         due_date = payload.due_date,
+        due_time = payload.due_time,
         priority = payload.priority or "medium",
         notes    = payload.notes,
     )

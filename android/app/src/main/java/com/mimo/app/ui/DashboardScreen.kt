@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Chat
 import com.mimo.app.network.WebSocketManager
 import com.mimo.app.ui.components.AssignmentList
+import com.mimo.app.ui.components.TodoList
 import com.mimo.app.ui.components.FocusScoreGauge
 import com.mimo.app.ui.components.ScheduleList
 import com.mimo.app.ui.components.ScreenTimeBar
@@ -32,6 +33,7 @@ import com.mimo.app.ui.theme.MimoTheme
 fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
     val stats by viewModel.stats.collectAsState()
     val assignments by viewModel.assignments.collectAsState()
+    val todos by viewModel.todos.collectAsState()
     val schedule by viewModel.schedule.collectAsState()
     val screenBreakdown by viewModel.screenBreakdown.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -159,6 +161,46 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
                             assignments = assignments,
                             onMarkDone = { id -> viewModel.markAssignmentDone(id) }
                         )
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "To-Do List",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold
+                        )
+                        TodoList(
+                            todos = todos,
+                            onMarkDone = { id -> viewModel.markTodoDone(id) }
+                        )
+                        
+                        var newTodoTitle by remember { mutableStateOf("") }
+                        var newTodoTime by remember { mutableStateOf("") }
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                            OutlinedTextField(
+                                value = newTodoTitle,
+                                onValueChange = { newTodoTitle = it },
+                                label = { Text("Task") },
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            OutlinedTextField(
+                                value = newTodoTime,
+                                onValueChange = { newTodoTime = it },
+                                label = { Text("Time (HH:mm)") },
+                                modifier = Modifier.width(100.dp)
+                            )
+                            IconButton(onClick = {
+                                if (newTodoTitle.isNotBlank()) {
+                                    val remindAt = if (newTodoTime.isNotBlank()) "2024-01-01T$newTodoTime:00Z" else null
+                                    viewModel.addTodo(newTodoTitle, null, remindAt)
+                                    newTodoTitle = ""
+                                    newTodoTime = ""
+                                }
+                            }) {
+                                Icon(Icons.Default.Add, contentDescription = "Add Todo")
+                            }
+                        }
                     }
                 }
 

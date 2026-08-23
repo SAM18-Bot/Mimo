@@ -1021,6 +1021,25 @@
           </ul>
         </div>
 
+        <!-- To-Do List Card -->
+        <div class="card" id="todo-card">
+          <div class="card-header">
+            <div class="card-label">
+              <i data-lucide="list-todo" class="w-4 h-4 icon-sm"></i>
+              <span>To-Do List</span>
+            </div>
+          </div>
+          <form class="quick-row" onsubmit="handleTodoAdd(event)">
+            <input type="text" class="quick-input" id="todo-input" placeholder="Add a task..." required>
+            <input type="time" class="quick-input" id="todo-time" style="max-width: 90px; padding: 4px; font-size: 11px;">
+            <button type="submit" class="quick-btn" id="todo-btn">+</button>
+          </form>
+          <ul class="asgn-list mt-3" id="todo-list">
+            <li class="text-xs text-muted text-center py-3">Loading tasks…</li>
+          </ul>
+        </div>
+
+
         <!-- AI Study Recommendations -->
         <div class="card" id="study-card">
           <div class="card-label mb-3">
@@ -1620,11 +1639,20 @@
         case 'assignment_done':
           fetchAssignments();
           break;
+        case 'todo_added':
+        case 'todo_updated':
+        case 'todo_deleted':
+          fetchTodos();
+          break;
+
         case 'tasks_list':
           renderAssignments(msg.tasks || []);
           break;
         case 'reminder':
           showToast('🔔 ' + (msg.message || msg.text || 'Reminder'));
+          break;
+        case 'todo_reminder':
+          showToast('🔔 ' + (msg.message || msg.text || 'To-Do Reminder'));
           break;
         case 'morning_qa':
           startQA(msg.questions || []);

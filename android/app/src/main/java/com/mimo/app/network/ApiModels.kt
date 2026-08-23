@@ -154,3 +154,22 @@ data class OnboardingRequest(
     val sleep_time: String,
     val daily_study_goal_min: Int
 )
+
+data class Todo(
+    val id: Int,
+    val title: String,
+    val status: String,
+    val due_date: String?,
+    val remind_at: String?,
+    val delivered: Boolean
+)
+
+data class TodoCreate(
+    val title: String,
+    val due_date: String? = null,
+    val remind_at: String? = null
+)
+
+data class TodoUpdate(
+    val status: String
+)

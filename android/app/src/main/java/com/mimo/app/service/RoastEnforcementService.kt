@@ -56,6 +56,12 @@ class RoastEnforcementService : Service() {
                 else if (event.type == "voice_response" && event.message != null) {
                     showCoachNotification(event.message)
                 }
+                else if (event.type == "reminder" && event.message != null) {
+                    showReminderNotification(event.message)
+                }
+                else if (event.type == "todo_reminder" && event.message != null) {
+                    showReminderNotification(event.message)
+                }
             }
         }
 
@@ -64,7 +70,7 @@ class RoastEnforcementService : Service() {
 
     private fun showRoastNotification(message: String) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val notification = NotificationCompat.Builder(this, MimoApplication.CHANNEL_ID_ROASTS)
+        val notification = NotificationCompat.Builder(this, MimoApplication."mimo_roasts"_ROASTS)
             .setContentTitle("Mimo is watching \ud83d\udc40")
             .setContentText(message)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
@@ -74,9 +80,22 @@ class RoastEnforcementService : Service() {
         notificationManager.notify(System.currentTimeMillis().toInt(), notification)
     }
 
+    private fun showReminderNotification(message: String) {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val builder = NotificationCompat.Builder(this, "mimo_roasts")
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle("Mimo Reminder")
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+
+        notificationManager.notify(System.currentTimeMillis().toInt(), builder.build())
+    }
+
     private fun showCoachNotification(message: String) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val notification = NotificationCompat.Builder(this, MimoApplication.CHANNEL_ID_ROASTS)
+        val notification = NotificationCompat.Builder(this, MimoApplication."mimo_roasts"_ROASTS)
             .setContentTitle("Coach \ud83e\uddd1\u200d\ud83c\udfeb")
             .setContentText(message)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
