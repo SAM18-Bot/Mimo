@@ -35,22 +35,24 @@ class IntentRouter:
         intent = self._detect_intent(text)
 
         if intent == "add_assignment":
-            self._handle_add_assignment(text)
+            return self._handle_add_assignment(text)
         elif intent == "show_tasks":
-            self._handle_show_tasks()
+            return self._handle_show_tasks()
         elif intent == "mark_done":
-            self._handle_mark_done(text)
+            return self._handle_mark_done(text)
         elif intent == "productivity":
-            self._handle_productivity()
+            return self._handle_productivity()
         elif intent == "what_to_study":
-            self._handle_what_to_study()
+            return self._handle_what_to_study()
         elif intent == "eod_report":
-            self._handle_eod_report()
+            return self._handle_eod_report()
         elif intent == "ask_coach":
             return self._handle_ask_coach(text)
         else:
+            msg = "I didn't catch that. Try: add assignment, show tasks, or how productive was I."
             if self._speak:
-                self._speak("I didn't catch that. Try: add assignment, show tasks, or how productive was I.")
+                self._speak(msg)
+            return msg
 
     # ── intent detection ──────────────────────────────────────────────────
     def _detect_intent(self, text: str) -> str:
@@ -79,9 +81,10 @@ class IntentRouter:
 
         result = parse_assignment_command(text)
         if not result:
+            msg = "I couldn't parse that assignment. Try: add Math assignment due Friday."
             if self._speak:
-                self._speak("I couldn't parse that assignment. Try: add Math assignment due Friday.")
-            return
+                self._speak(msg)
+            return msg
 
         with get_db_ctx() as db:
             a = create_assignment(
@@ -100,6 +103,7 @@ class IntentRouter:
         msg = f"Added: {a_title}, due {a_due}."
         if self._speak:
             self._speak(msg)
+        return msg
         if self._broadcast:
             self._broadcast({"type": "assignment_added", "assignment": {
                 "id":       a_id,
@@ -109,6 +113,7 @@ class IntentRouter:
                 "priority": a_priority,
                 "status":   a_status,
             }})
+        return msg
 
     def _handle_show_tasks(self):
         from db.database import get_db_ctx
@@ -122,9 +127,10 @@ class IntentRouter:
             ]
 
         if not task_list:
+            msg = "No upcoming assignments in the next 7 days. Either you're ahead, or you've given up."
             if self._speak:
-                self._speak("No upcoming assignments in the next 7 days. Either you're ahead, or you've given up.")
-            return
+                self._speak(msg)
+            return msg
 
         summary = f"You have {len(task_list)} upcoming assignments. "
         lines = [f"{t['title']}, due {t['due_date']}" for t in task_list[:3]]
@@ -136,6 +142,7 @@ class IntentRouter:
             self._speak(summary)
         if self._broadcast:
             self._broadcast({"type": "tasks_list", "tasks": task_list})
+        return summary
 
     def _handle_mark_done(self, text: str):
         from db.database import get_db_ctx
@@ -154,14 +161,18 @@ class IntentRouter:
                 Assignment.title.ilike(f"%{keyword}%")
             ).all()
             if not candidates:
+                msg = f"I couldn't find a pending assignment matching '{keyword}'."
                 if self._speak:
-                    self._speak(f"I couldn't find a pending assignment matching '{keyword}'.")
-                return
+                    self._speak(msg)
+                return msg
             a = mark_done(db, candidates[0].id, user_id=self._user_id)
             a_title = a.title
 
+        msg = f"Marked '{a_title}' as done. Good. Now do the next one."
         if self._speak:
-            self._speak(f"Marked '{a_title}' as done. Good. Now do the next one.")
+            self._speak(msg)
+        return msg
+        return msg
 
     def _handle_productivity(self):
         from db.database import get_db_ctx
@@ -187,6 +198,7 @@ class IntentRouter:
 
         if self._speak:
             self._speak(msg)
+        return msg
 
     def _handle_what_to_study(self):
         from db.database import get_db_ctx
@@ -208,14 +220,17 @@ class IntentRouter:
 
         if self._speak:
             self._speak(msg)
+        return msg
         if self._broadcast:
             self._broadcast({"type": "study_advice", "message": msg})
 
     def _handle_eod_report(self):
         from modules.ai_layer.daily_report import run_eod_report
+        msg = "Generating your end of day report. Give me a moment."
         if self._speak:
-            self._speak("Generating your end of day report. Give me a moment.")
+            self._speak(msg)
         run_eod_report(speak_fn=self._speak, broadcast_fn=self._broadcast)
+        return msg
 
     def _handle_ask_coach(self, text: str):
         from db.database import get_db_ctx
