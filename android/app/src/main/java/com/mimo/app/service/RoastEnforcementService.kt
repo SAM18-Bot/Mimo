@@ -70,7 +70,7 @@ class RoastEnforcementService : Service() {
 
     private fun showRoastNotification(message: String) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val notification = NotificationCompat.Builder(this, MimoApplication."mimo_roasts"_ROASTS)
+        val notification = NotificationCompat.Builder(this, MimoApplication.CHANNEL_ID_ROASTS)
             .setContentTitle("Mimo is watching \ud83d\udc40")
             .setContentText(message)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
@@ -82,7 +82,7 @@ class RoastEnforcementService : Service() {
 
     private fun showReminderNotification(message: String) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val builder = NotificationCompat.Builder(this, "mimo_roasts")
+        val builder = NotificationCompat.Builder(this, MimoApplication.CHANNEL_ID_ROASTS)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle("Mimo Reminder")
             .setContentText(message)
@@ -95,7 +95,7 @@ class RoastEnforcementService : Service() {
 
     private fun showCoachNotification(message: String) {
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val notification = NotificationCompat.Builder(this, MimoApplication."mimo_roasts"_ROASTS)
+        val notification = NotificationCompat.Builder(this, MimoApplication.CHANNEL_ID_ROASTS)
             .setContentTitle("Coach \ud83e\uddd1\u200d\ud83c\udfeb")
             .setContentText(message)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
