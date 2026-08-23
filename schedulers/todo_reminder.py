@@ -44,15 +44,11 @@ class TodoReminderService:
             for t in pending:
                 msg = f"Time to do: {t.title}"
                 
-                # trigger desktop native popups if available
-                try:
-                    from desktop.notifications import notify
-                    notify("To-Do Reminder", msg)
-                except Exception:
-                    pass
+
 
                 push_event({
                     "type": "todo_reminder",
+                    "user_id": t.user_id,
                     "todo_id": t.id,
                     "message": msg,
                     "ts": datetime.now().isoformat()

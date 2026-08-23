@@ -48,6 +48,7 @@ def create_todo(payload: TodoCreate, user: User = Depends(current_user), db: Ses
     db.refresh(todo)
     push_event({
         "type": "todo_added",
+        "user_id": user.id,
         "todo": {
             "id": todo.id,
             "title": todo.title,
@@ -79,6 +80,7 @@ def update_todo(todo_id: int, payload: TodoUpdate, user: User = Depends(current_
     
     push_event({
         "type": "todo_updated",
+        "user_id": user.id,
         "todo": {
             "id": todo.id,
             "title": todo.title,
@@ -99,6 +101,7 @@ def delete_todo(todo_id: int, user: User = Depends(current_user), db: Session = 
     
     push_event({
         "type": "todo_deleted",
+        "user_id": user.id,
         "todo_id": todo_id
     })
     return None

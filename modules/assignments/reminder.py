@@ -173,12 +173,7 @@ class ReminderLoop:
             log.warning("Skipping broadcast for reminder (assignment_id=%s): no user_id resolved", assignment_id)
             return
 
-        # Trigger desktop notification
-        try:
-            from desktop.notifications import notify
-            notify("Reminder", message)
-        except Exception:
-            pass
+
 
         if self._speak:
             self._speak(message)

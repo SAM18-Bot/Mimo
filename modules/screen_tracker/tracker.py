@@ -141,7 +141,7 @@ class ScreenTracker:
                 # Check if we should block the app
                 if category == "distracting":
                     self._distracting_buffer_s += config.SCREEN_POLL_INTERVAL
-                    if self._distracting_buffer_s > 600:  # 10 minutes
+                    if self._distracting_buffer_s > 120:  # 2 minutes
                         # Are we in a study block?
                         if self._is_study_block_active():
                             self._kill_process(app)

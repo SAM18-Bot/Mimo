@@ -1650,9 +1650,11 @@
           break;
         case 'reminder':
           showToast('🔔 ' + (msg.message || msg.text || 'Reminder'));
+          if (window.pywebview && window.pywebview.api) { window.pywebview.api.show_notification('Reminder', msg.message || msg.text || 'Reminder'); }
           break;
         case 'todo_reminder':
           showToast('🔔 ' + (msg.message || msg.text || 'To-Do Reminder'));
+          if (window.pywebview && window.pywebview.api) { window.pywebview.api.show_notification('To-Do Reminder', msg.message || msg.text || 'To-Do Reminder'); }
           break;
         case 'morning_qa':
           startQA(msg.questions || []);
