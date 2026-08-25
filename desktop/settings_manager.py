@@ -20,11 +20,11 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _ENV_PATH = os.path.join(_ROOT, ".env")
 
 # Keys that should be masked in the UI (show ••••)
-_SENSITIVE_KEYS = {"OPENAI_API_KEY"}
+_SENSITIVE_KEYS = {"GEMINI_API_KEY"}
 
 # Default values for each setting
 DEFAULTS: dict[str, Any] = {
-    "OPENAI_API_KEY":                    "",
+    "GEMINI_API_KEY":                    "",
     "DATABASE_URL":                      "sqlite:///./accountability.db",
     "ESP32_STREAM_URL":                  "http://192.168.1.100:81/stream",
     "NO_HARDWARE":                       "1",
@@ -39,7 +39,7 @@ DEFAULTS: dict[str, Any] = {
 
 # Human-readable labels for the settings UI
 LABELS: dict[str, str] = {
-    "OPENAI_API_KEY":                    "OpenAI API Key",
+    "GEMINI_API_KEY":                    "Gemini API Key",
     "DATABASE_URL":                      "Database URL",
     "ESP32_STREAM_URL":                  "ESP32-CAM Stream URL",
     "NO_HARDWARE":                       "Disable Camera (NO_HARDWARE)",
@@ -53,7 +53,7 @@ LABELS: dict[str, str] = {
 }
 
 SECTIONS: dict[str, list[str]] = {
-    "AI": ["OPENAI_API_KEY", "LIVE_ROAST_USE_AI"],
+    "AI": ["GEMINI_API_KEY", "LIVE_ROAST_USE_AI"],
     "Hardware": ["NO_HARDWARE", "ESP32_STREAM_URL"],
     "Voice": ["NO_VOICE"],
     "Behavior Thresholds": [

@@ -61,8 +61,7 @@ class SplashScreen:
     def _run_tk(self):
         try:
             import tkinter as tk
-            from tkinter import font as tkfont
-
+            
             root = tk.Tk()
             self._root = root
 
