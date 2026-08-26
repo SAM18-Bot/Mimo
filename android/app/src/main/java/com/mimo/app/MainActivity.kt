@@ -13,7 +13,7 @@ import androidx.core.content.ContextCompat
 import com.mimo.app.data.TokenManager
 import com.mimo.app.service.RoastEnforcementService
 import com.mimo.app.tracker.MobileTrackerService
-import com.mimo.app.ui.DashboardScreen
+import com.mimo.app.ui.MainScreen
 import com.mimo.app.ui.LoginScreen
 
 enum class AppScreen { Login, Onboarding, Permissions, Dashboard }
@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
                 AppScreen.Dashboard -> {
-                    DashboardScreen()
+                    MainScreen()
                 }
             }
         }
