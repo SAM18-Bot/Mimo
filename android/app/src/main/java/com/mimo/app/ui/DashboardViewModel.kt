@@ -182,6 +182,7 @@ class DashboardViewModel @JvmOverloads constructor(
         title: String,
         subject: String? = null,
         dueDate: String = getTodayDateString(),
+        dueTime: String? = null,
         priority: String = "medium",
         notes: String? = null
     ) {

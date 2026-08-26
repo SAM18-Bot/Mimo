@@ -28,6 +28,68 @@ import com.mimo.app.ui.components.ScreenTimeBar
 import com.mimo.app.ui.components.StatsRow
 import com.mimo.app.ui.theme.MimoTheme
 
+import android.app.TimePickerDialog
+import androidx.compose.ui.platform.LocalContext
+import java.util.Calendar
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.time.ZoneOffset
+import androidx.compose.foundation.clickable
+
+@Composable
+fun TimePickerField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    OutlinedTextField(
+        value = value,
+        onValueChange = {},
+        label = { Text(label) },
+        readOnly = true,
+        modifier = modifier.clickable {
+            val calendar = Calendar.getInstance()
+            TimePickerDialog(
+                context,
+                { _, hourOfDay, minute ->
+                    val isPM = hourOfDay >= 12
+                    val displayHour = if (hourOfDay % 12 == 0) 12 else hourOfDay % 12
+                    val amPm = if (isPM) "PM" else "AM"
+                    val minStr = minute.toString().padStart(2, '0')
+                    onValueChange("$displayHour:$minStr $amPm")
+                },
+                calendar.get(Calendar.HOUR_OF_DAY),
+                calendar.get(Calendar.MINUTE),
+                false // 12-hour format
+            ).show()
+        },
+        enabled = false,
+        colors = OutlinedTextFieldDefaults.colors(
+            disabledTextColor = MaterialTheme.colorScheme.onSurface,
+            disabledBorderColor = MaterialTheme.colorScheme.outline,
+            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    )
+}
+
+fun parse12HourToIso(timeStr: String): String? {
+    if (timeStr.isBlank()) return null
+    try {
+        val formatter = DateTimeFormatter.ofPattern("h:mm a")
+        val parsedTime = java.time.LocalTime.parse(timeStr.uppercase(), formatter)
+        var dateTime = LocalDateTime.now().withHour(parsedTime.hour).withMinute(parsedTime.minute).withSecond(0).withNano(0)
+        if (dateTime.isBefore(LocalDateTime.now())) {
+            dateTime = dateTime.plusDays(1)
+        }
+        return dateTime.atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT)
+    } catch (e: Exception) {
+        return null
+    }
+}
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
@@ -184,15 +246,15 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
                                 modifier = Modifier.weight(1f)
                             )
                             Spacer(Modifier.width(8.dp))
-                            OutlinedTextField(
+                            TimePickerField(
                                 value = newTodoTime,
                                 onValueChange = { newTodoTime = it },
-                                label = { Text("Time (HH:mm)") },
+                                label = "Time",
                                 modifier = Modifier.width(100.dp)
                             )
                             IconButton(onClick = {
                                 if (newTodoTitle.isNotBlank()) {
-                                    val remindAt = if (newTodoTime.isNotBlank()) "2024-01-01T$newTodoTime:00Z" else null
+                                    val remindAt = parse12HourToIso(newTodoTime)
                                     viewModel.addTodo(newTodoTitle, null, remindAt)
                                     newTodoTitle = ""
                                     newTodoTime = ""
@@ -213,6 +275,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
                 var newTitle by remember { mutableStateOf("") }
                 var newSubject by remember { mutableStateOf("") }
                 var newDueDate by remember { mutableStateOf("") }
+                var newDueTime by remember { mutableStateOf("") }
                 var newPriority by remember { mutableStateOf("medium") }
 
                 AlertDialog(
@@ -230,11 +293,20 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
                                 onValueChange = { newSubject = it },
                                 label = { Text("Subject (Optional)") }
                             )
-                            OutlinedTextField(
-                                value = newDueDate,
-                                onValueChange = { newDueDate = it },
-                                label = { Text("Due Date (YYYY-MM-DD)") }
-                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    value = newDueDate,
+                                    onValueChange = { newDueDate = it },
+                                    label = { Text("Date (YYYY-MM-DD)") },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                TimePickerField(
+                                    value = newDueTime,
+                                    onValueChange = { newDueTime = it },
+                                    label = "Time",
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                             OutlinedTextField(
                                 value = newPriority,
                                 onValueChange = { newPriority = it },
@@ -248,7 +320,8 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
                                 viewModel.addAssignment(
                                     title = newTitle,
                                     subject = newSubject.ifBlank { null },
-                                    dueDate = newDueDate.ifBlank { "2024-01-01" }, // Need a better default but fine for now
+                                    dueDate = newDueDate.ifBlank { "2024-01-01" }, // Need better default
+                                    dueTime = newDueTime.ifBlank { null },
                                     priority = newPriority.ifBlank { "medium" }
                                 )
                                 showAddDialog = false

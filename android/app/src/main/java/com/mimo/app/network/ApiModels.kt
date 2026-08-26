@@ -104,6 +104,7 @@ data class AssignmentCreate(
     val title: String,
     val subject: String? = null,
     val due_date: String,
+    val due_time: String? = null,
     val priority: String = "medium",
     val notes: String? = null
 )

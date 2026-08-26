@@ -12,6 +12,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.mimo.app.network.Todo
+import java.time.format.DateTimeFormatter
+import java.time.ZonedDateTime
+import java.time.ZoneId
 
 @Composable
 fun TodoList(
@@ -52,8 +55,14 @@ fun TodoList(
                         color = if (isDone) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
                     )
                     if (todo.remind_at != null) {
+                        val formattedTime = try {
+                            val parsed = ZonedDateTime.parse(todo.remind_at)
+                            parsed.withZoneSameInstant(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d, h:mm a"))
+                        } catch (e: Exception) {
+                            todo.remind_at.take(16)
+                        }
                         Text(
-                            text = "Reminder: ${todo.remind_at.take(16)}",
+                            text = "Reminder: $formattedTime",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

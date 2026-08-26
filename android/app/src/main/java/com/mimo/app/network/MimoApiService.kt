@@ -17,9 +17,6 @@ interface MimoApiService {
     @POST("/onboarding/complete")
     suspend fun completeOnboarding(@Body body: OnboardingRequest): UserOut
 
-    @POST("/auth/google")
-    suspend fun authenticateGoogle(@Body body: Map<String, String>): Map<String, Any>
-
     @GET("/reports/stats")
     suspend fun getStats(@Query("target_date") targetDate: String? = null): DailyStats
 

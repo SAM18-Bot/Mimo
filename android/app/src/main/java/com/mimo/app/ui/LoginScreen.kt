@@ -13,11 +13,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.credentials.CredentialManager
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.exceptions.GetCredentialException
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.mimo.app.data.TokenManager
 import com.mimo.app.network.ApiClient
 import com.mimo.app.network.LoginRequest
@@ -168,58 +163,7 @@ fun LoginScreen(onLoginSuccess: (Boolean) -> Unit) {
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            // Optional Google Sign-In
-            OutlinedButton(
-                onClick = {
-                    coroutineScope.launch {
-                        isLoading = true
-                        errorMessage = null
-                        val credentialManager = CredentialManager.create(context)
-                        val googleIdOption = GetGoogleIdOption.Builder()
-                            .setFilterByAuthorizedAccounts(false)
-                            .setServerClientId("321308954784-dopanj969qp2ja5hvsnke5pm9af1bf5e.apps.googleusercontent.com")
-                            .setAutoSelectEnabled(true)
-                            .build()
-
-                        val request = GetCredentialRequest.Builder()
-                            .addCredentialOption(googleIdOption)
-                            .build()
-
-                        try {
-                            val result = credentialManager.getCredential(
-                                request = request,
-                                context = context as Activity
-                            )
-                            val credential = result.credential
-                            if (credential is GoogleIdTokenCredential) {
-                                val idToken = credential.idToken
-                                val res = ApiClient.api.authenticateGoogle(mapOf("token" to idToken))
-                                val token = res["access_token"] as? String
-                                val userMap = res["user"] as? Map<*, *>
-                                val onboardingCompleted = userMap?.get("onboarding_completed") as? Boolean ?: false
-                                if (!token.isNullOrBlank()) {
-                                    TokenManager.saveToken(context, token)
-                                    TokenManager.setOnboardingCompleted(context, onboardingCompleted)
-                                }
-                                onLoginSuccess(onboardingCompleted)
-                            } else {
-                                errorMessage = "Unexpected credential type"
-                            }
-                        } catch (e: GetCredentialException) {
-                            errorMessage = "Google sign-in failed: ${e.message}"
-                        } catch (e: Exception) {
-                            errorMessage = "Backend auth failed: ${e.message}"
-                        } finally {
-                            isLoading = false
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().height(50.dp)
-            ) {
-                Text("Sign in with Google")
-            }
+            
         }
 
         errorMessage?.let {
