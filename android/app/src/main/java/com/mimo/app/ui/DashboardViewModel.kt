@@ -77,6 +77,10 @@ class DashboardViewModel @JvmOverloads constructor(
     private val _screenBreakdown = MutableStateFlow(ScreenBreakdown())
     val screenBreakdown: StateFlow<ScreenBreakdown> = _screenBreakdown.asStateFlow()
 
+
+    private val _studyRecommendations = MutableStateFlow<StudyRecommendationsResponse?>(null)
+    val studyRecommendations: StateFlow<StudyRecommendationsResponse?> = _studyRecommendations.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
     private val _todos = MutableStateFlow<List<Todo>>(emptyList())
@@ -205,7 +209,7 @@ class DashboardViewModel @JvmOverloads constructor(
                     AssignmentCreate(
                         title = title,
                         subject = subject,
-                        due_date = dueDate,
+                        due_date = dueDate, due_time = dueTime,
                         priority = priority,
                         notes = notes
                     )

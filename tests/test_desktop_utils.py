@@ -127,7 +127,7 @@ class TestSettingsManager:
             "EOD_REPORT_HOUR=22\n"
             "NO_HARDWARE=1\n"
             "NO_VOICE=1\n"
-            "OPENAI_API_KEY=sk-test-1234567890\n"
+            "GEMINI_API_KEY=sk-test-1234567890\n"
         )
         monkeypatch.setattr(sm, "_ENV_PATH", str(env_file))
         return env_file
@@ -147,12 +147,12 @@ class TestSettingsManager:
     def test_sensitive_key_masked_by_default(self, env_path):
         from desktop.settings_manager import load_settings
         settings = load_settings(mask_sensitive=True)
-        assert "••••" in settings["OPENAI_API_KEY"]
+        assert "••••" in settings["GEMINI_API_KEY"]
 
     def test_sensitive_key_not_masked_when_disabled(self, env_path):
         from desktop.settings_manager import load_settings
         settings = load_settings(mask_sensitive=False)
-        assert settings["OPENAI_API_KEY"] == "sk-test-1234567890"
+        assert settings["GEMINI_API_KEY"] == "sk-test-1234567890"
 
     def test_save_valid_key(self, env_path):
         from desktop.settings_manager import save_setting
@@ -170,12 +170,12 @@ class TestSettingsManager:
     def test_save_masked_value_is_skipped(self, env_path):
         from desktop.settings_manager import load_settings, save_setting
         # Save a masked value
-        result = save_setting("OPENAI_API_KEY", "sk-••••••••")
+        result = save_setting("GEMINI_API_KEY", "sk-••••••••")
         assert result is True
         # Real value should be unchanged
         settings = load_settings(mask_sensitive=False)
-        assert "••••" not in settings["OPENAI_API_KEY"]
-        assert settings["OPENAI_API_KEY"] == "sk-test-1234567890"
+        assert "••••" not in settings["GEMINI_API_KEY"]
+        assert settings["GEMINI_API_KEY"] == "sk-test-1234567890"
 
     def test_save_all_keys(self, env_path):
         from desktop.settings_manager import save_many
@@ -216,7 +216,7 @@ class TestSettingsManager:
 
     def test_input_type_password_for_api_key(self):
         from desktop.settings_manager import _infer_input_type
-        assert _infer_input_type("OPENAI_API_KEY") == "password"
+        assert _infer_input_type("GEMINI_API_KEY") == "password"
 
     def test_input_type_toggle_for_bool_flags(self):
         from desktop.settings_manager import _infer_input_type

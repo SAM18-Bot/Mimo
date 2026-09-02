@@ -174,3 +174,11 @@ data class TodoCreate(
 data class TodoUpdate(
     val status: String
 )
+
+
+
+data class StudyRecommendationsResponse(
+    val analysis_date: String?,
+    val recommendations: List<String>?,
+    val daily_study_plan: List<String>?
+)

@@ -14,6 +14,7 @@ import com.mimo.app.ui.DashboardViewModel
 import android.content.Intent
 import com.mimo.app.MainActivity
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun SettingsScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier) {
     val context = LocalContext.current

@@ -3,7 +3,7 @@ package com.mimo.app.ui
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -31,7 +31,7 @@ fun MainScreen(viewModel: DashboardViewModel = viewModel()) {
                     onClick = { currentTab = TabScreen.Home }
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.List, contentDescription = "Schedule") },
+                    icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Schedule") },
                     label = { Text("Schedule") },
                     selected = currentTab == TabScreen.Schedule,
                     onClick = { currentTab = TabScreen.Schedule }

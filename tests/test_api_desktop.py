@@ -107,15 +107,15 @@ class TestSettingsData:
         """The API key should come back masked with ••••."""
         # First write a real-looking key
         client.post("/settings/save", json={
-            "key": "OPENAI_API_KEY", "value": "sk-test-key-12345678"
+            "key": "GEMINI_API_KEY", "value": "sk-test-key-12345678"
         }, headers=auth_headers)
         r    = client.get("/settings/data", headers=auth_headers)
         data = r.json()
-        # Find the OPENAI_API_KEY item
+        # Find the GEMINI_API_KEY item
         api_item = None
         for sec in data["sections"]:
             for item in sec["items"]:
-                if item["key"] == "OPENAI_API_KEY":
+                if item["key"] == "GEMINI_API_KEY":
                     api_item = item
         assert api_item is not None
         assert api_item["sensitive"] is True
@@ -164,14 +164,14 @@ class TestSettingsSave:
     def test_save_masked_value_is_accepted_not_written(self, client, mock_env, auth_headers):
         """A value containing •••• should be accepted (200) but not written."""
         r = client.post("/settings/save", json={
-            "key": "OPENAI_API_KEY", "value": "sk-test••••••••"
+            "key": "GEMINI_API_KEY", "value": "sk-test••••••••"
         }, headers=auth_headers)
         assert r.status_code == 200
         assert r.json()["ok"] is True
 
     def test_save_api_key_clean_value(self, client, mock_env, auth_headers):
         r = client.post("/settings/save", json={
-            "key": "OPENAI_API_KEY",
+            "key": "GEMINI_API_KEY",
             "value": "sk-proj-testkey123"
         }, headers=auth_headers)
         assert r.status_code == 200

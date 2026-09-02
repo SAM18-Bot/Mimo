@@ -12,9 +12,9 @@ import com.mimo.app.ui.DashboardViewModel
 
 @Composable
 fun InsightsScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier) {
-    // In a real app, we'd fetch this from viewModel, but for now we mock the UI 
-    // to achieve parity quickly.
-    
+    val history by viewModel.history.collectAsState()
+    val recommendations by viewModel.studyRecommendations.collectAsState()
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -28,12 +28,13 @@ fun InsightsScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier)
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Weekly Focus Trend", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(16.dp))
-                // Mock chart
-                Text("Monday: 4h 20m", style = MaterialTheme.typography.bodyMedium)
-                Text("Tuesday: 3h 15m", style = MaterialTheme.typography.bodyMedium)
-                Text("Wednesday: 5h 00m", style = MaterialTheme.typography.bodyMedium)
-                Text("Thursday: 2h 45m", style = MaterialTheme.typography.bodyMedium)
-                Text("Friday: 4h 10m", style = MaterialTheme.typography.bodyMedium)
+                if (history.isEmpty()) {
+                    Text("No history data available yet.", style = MaterialTheme.typography.bodyMedium)
+                } else {
+                    history.forEach { day ->
+                        Text("${day.date}: ${day.productive_min}m focus", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
             }
         }
 
@@ -41,8 +42,15 @@ fun InsightsScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier)
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("AI Study Recommendations", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("• You should focus more on Calculus.", style = MaterialTheme.typography.bodyMedium)
-                Text("• Try studying earlier in the day.", style = MaterialTheme.typography.bodyMedium)
+                val recList = recommendations?.recommendations
+                if (recList.isNullOrEmpty()) {
+                    Text("No recommendations available yet. Keep studying!", style = MaterialTheme.typography.bodyMedium)
+                } else {
+                    recList.forEach { rec ->
+                        Text("• $rec", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                }
             }
         }
     }
