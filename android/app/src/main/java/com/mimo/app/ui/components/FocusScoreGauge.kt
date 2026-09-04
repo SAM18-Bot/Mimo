@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -42,7 +43,7 @@ fun FocusScoreGauge(
     }
 
     val gaugeGradient = Brush.sweepGradient(
-        0.0f to MimoColors.Error,
+        0.0f to MaterialTheme.colorScheme.error,
         0.4f to MimoColors.Warning,
         0.7f to MimoColors.Success,
         1.0f to MimoColors.Success,
@@ -53,6 +54,7 @@ fun FocusScoreGauge(
         modifier = modifier.size(200.dp),
         contentAlignment = Alignment.Center
     ) {
+        val bgArcColor = MaterialTheme.colorScheme.surfaceVariant
         Canvas(modifier = Modifier.size(180.dp)) {
             val strokeWidth = 16.dp.toPx()
             val arcSize = Size(size.width - strokeWidth, size.height - strokeWidth)
@@ -60,7 +62,7 @@ fun FocusScoreGauge(
 
             // Background arc
             drawArc(
-                color = MimoColors.SurfaceVariant,
+                color = bgArcColor,
                 startAngle = 135f,
                 sweepAngle = 270f,
                 useCenter = false,
@@ -84,13 +86,13 @@ fun FocusScoreGauge(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 text = score.toInt().toString(),
-                color = MimoColors.TextPrimary,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 48.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = "Grade $letterGrade",
-                color = MimoColors.TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
             )

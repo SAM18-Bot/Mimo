@@ -5,43 +5,70 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// Mimo color palette (matching web dashboard dark theme)
+// Mimo color palette - Orange Theme
 object MimoColors {
-    val Background = Color(0xFF0F0F1A)
-    val Surface = Color(0xFF1A1A2E)
-    val SurfaceVariant = Color(0xFF232340)
-    val Primary = Color(0xFF6C63FF)      // Purple accent
-    val PrimaryVariant = Color(0xFF5A52D5)
+    val Primary = Color(0xFFF97316)      // Orange 500
+    val PrimaryVariant = Color(0xFFEA580C)
+    
+    // Dark mode
+    val DarkBackground = Color(0xFF000000)
+    val DarkSurface = Color(0xFF0A0A0A)
+    val DarkSurfaceVariant = Color(0xFF141414)
+    val DarkTextPrimary = Color(0xFFFFFFFF)
+    val DarkTextSecondary = Color(0xFFA0A0C0)
+    
+    // Light mode
+    val LightBackground = Color(0xFFFFFFFF)
+    val LightSurface = Color(0xFFFAFAFA)
+    val LightSurfaceVariant = Color(0xFFF4F4F5)
+    val LightTextPrimary = Color(0xFF000000)
+    val LightTextSecondary = Color(0xFF475569)
+    
     val Secondary = Color(0xFF00D9FF)     // Cyan accent
-    val Accent = Color(0xFFFF6B6B)        // Coral/red accent
-    val Success = Color(0xFF4ADE80)       // Green
-    val Warning = Color(0xFFFBBF24)       // Yellow
-    val Error = Color(0xFFFF4757)         // Red
-    val TextPrimary = Color(0xFFFFFFFF)
-    val TextSecondary = Color(0xFFB0B0C8)
-    val TextMuted = Color(0xFF6B6B8D)
-    val CardBorder = Color(0xFF2A2A4A)
+    val Error = Color(0xFFFF4757)
+    val Success = Color(0xFF4ADE80)
+    val Warning = Color(0xFFFBBF24)
 }
 
 private val MimoDarkColorScheme = darkColorScheme(
     primary = MimoColors.Primary,
-    onPrimary = MimoColors.TextPrimary,
+    onPrimary = MimoColors.DarkTextPrimary,
     secondary = MimoColors.Secondary,
-    onSecondary = MimoColors.TextPrimary,
-    background = MimoColors.Background,
-    onBackground = MimoColors.TextPrimary,
-    surface = MimoColors.Surface,
-    onSurface = MimoColors.TextPrimary,
-    surfaceVariant = MimoColors.SurfaceVariant,
-    onSurfaceVariant = MimoColors.TextSecondary,
+    onSecondary = MimoColors.DarkTextPrimary,
+    background = MimoColors.DarkBackground,
+    onBackground = MimoColors.DarkTextPrimary,
+    surface = MimoColors.DarkSurface,
+    onSurface = MimoColors.DarkTextPrimary,
+    surfaceVariant = MimoColors.DarkSurfaceVariant,
+    onSurfaceVariant = MimoColors.DarkTextSecondary,
     error = MimoColors.Error,
-    onError = MimoColors.TextPrimary
+    onError = MimoColors.DarkTextPrimary
+)
+
+private val MimoLightColorScheme = lightColorScheme(
+    primary = MimoColors.Primary,
+    onPrimary = MimoColors.LightTextPrimary,
+    secondary = MimoColors.Secondary,
+    onSecondary = MimoColors.LightTextPrimary,
+    background = MimoColors.LightBackground,
+    onBackground = MimoColors.LightTextPrimary,
+    surface = MimoColors.LightSurface,
+    onSurface = MimoColors.LightTextPrimary,
+    surfaceVariant = MimoColors.LightSurfaceVariant,
+    onSurfaceVariant = MimoColors.LightTextSecondary,
+    error = MimoColors.Error,
+    onError = MimoColors.LightTextPrimary
 )
 
 @Composable
-fun MimoTheme(content: @Composable () -> Unit) {
+fun MimoTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit
+) {
+    val colors = if (darkTheme) MimoDarkColorScheme else MimoLightColorScheme
+    
     MaterialTheme(
-        colorScheme = MimoDarkColorScheme,
+        colorScheme = colors,
         content = content
     )
 }

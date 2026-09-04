@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,8 +68,8 @@ fun StatCard(
 ) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MimoColors.Surface),
-        border = BorderStroke(1.dp, MimoColors.CardBorder),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha=0.1f)),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(
@@ -81,14 +82,14 @@ fun StatCard(
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = value,
-                color = MimoColors.TextPrimary,
+                color = MaterialTheme.colorScheme.onBackground,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = label,
-                color = MimoColors.TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp
             )
         }
@@ -108,7 +109,7 @@ fun ScreenTimeBar(
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         Text(
             text = "Screen Time Usage",
-            color = MimoColors.TextPrimary,
+            color = MaterialTheme.colorScheme.onBackground,
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(bottom = 8.dp)
@@ -118,7 +119,7 @@ fun ScreenTimeBar(
                 .fillMaxWidth()
                 .height(24.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(MimoColors.SurfaceVariant)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         ) {
             if (productiveWeight > 0f) {
                 Box(
@@ -141,7 +142,7 @@ fun ScreenTimeBar(
                     modifier = Modifier
                         .weight(distractingWeight)
                         .fillMaxHeight()
-                        .background(MimoColors.Error)
+                        .background(MaterialTheme.colorScheme.error)
                 )
             }
         }
@@ -153,7 +154,7 @@ fun ScreenTimeBar(
         ) {
             LegendItem(color = MimoColors.Success, label = "Productive")
             LegendItem(color = MimoColors.Secondary, label = "Neutral")
-            LegendItem(color = MimoColors.Error, label = "Distracting")
+            LegendItem(color = MaterialTheme.colorScheme.error, label = "Distracting")
         }
     }
 }
@@ -168,6 +169,6 @@ private fun LegendItem(color: Color, label: String) {
                 .background(color)
         )
         Spacer(modifier = Modifier.width(4.dp))
-        Text(text = label, color = MimoColors.TextSecondary, fontSize = 12.sp)
+        Text(text = label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
     }
 }

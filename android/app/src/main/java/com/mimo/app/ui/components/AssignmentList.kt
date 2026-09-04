@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,20 +52,20 @@ fun AssignmentCard(
     val (statusColor, statusText) = if (dueDate != null) {
         val daysUntilDue = ChronoUnit.DAYS.between(today, dueDate)
         when {
-            daysUntilDue < 0 -> MimoColors.Error to "Overdue"
+            daysUntilDue < 0 -> MaterialTheme.colorScheme.error to "Overdue"
             daysUntilDue == 0L -> MimoColors.Warning to "Due Today"
             else -> MimoColors.Success to "In ${daysUntilDue} days"
         }
     } else {
-        MimoColors.TextSecondary to (if (assignment.due_date.isBlank()) "No due date" else assignment.due_date)
+        MaterialTheme.colorScheme.onSurfaceVariant to (if (assignment.due_date.isBlank()) "No due date" else assignment.due_date)
     }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onMarkDone),
-        colors = CardDefaults.cardColors(containerColor = MimoColors.Surface),
-        border = BorderStroke(1.dp, MimoColors.CardBorder),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha=0.1f)),
         shape = RoundedCornerShape(12.dp)
     ) {
         Row(
@@ -77,7 +78,7 @@ fun AssignmentCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = assignment.title,
-                    color = MimoColors.TextPrimary,
+                    color = MaterialTheme.colorScheme.onBackground,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -85,12 +86,12 @@ fun AssignmentCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (assignment.subject != null) {
                         Surface(
-                            color = MimoColors.Primary.copy(alpha = 0.2f),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
                             shape = RoundedCornerShape(4.dp)
                         ) {
                             Text(
                                 text = assignment.subject,
-                                color = MimoColors.Primary,
+                                color = MaterialTheme.colorScheme.primary,
                                 fontSize = 12.sp,
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                             )
@@ -110,7 +111,7 @@ fun AssignmentCard(
                 onCheckedChange = { onMarkDone() },
                 colors = CheckboxDefaults.colors(
                     checkedColor = MimoColors.Success,
-                    uncheckedColor = MimoColors.TextSecondary
+                    uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             )
         }
