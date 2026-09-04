@@ -16,7 +16,8 @@ services:
       - NO_VOICE=1
       - NO_TRACKER=1
     depends_on:
-      - mimo-db
+      mimo-db:
+        condition: service_healthy
     restart: unless-stopped
 
   mimo-db:
@@ -29,6 +30,11 @@ services:
       - "5432:5432"
     volumes:
       - mimo_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mimo_user -d mimo_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
 volumes:

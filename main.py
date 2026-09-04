@@ -31,8 +31,23 @@ log = logging.getLogger(__name__)
 
 # ── DB init ───────────────────────────────────────────────────────────────
 from db.database import init_db
+import time
 
-init_db()
+def safe_init_db():
+    max_retries = 10
+    for i in range(max_retries):
+        try:
+            init_db()
+            log.info("Database initialized successfully.")
+            break
+        except Exception as e:
+            if i == max_retries - 1:
+                log.error(f"Failed to initialize database: {e}")
+                raise e
+            log.warning(f"Database not ready, retrying in 2s... ({e})")
+            time.sleep(2)
+
+safe_init_db()
 
 # ── WebSocket ──────────────────────────────────────────────────────────────
 from api.websocket import drain_event_bus, manager, push_event
