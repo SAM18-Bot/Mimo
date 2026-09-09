@@ -160,30 +160,44 @@ def test_revoked_token_returns_401(client, test_users):
 def test_settings_routes_with_valid_token(client, test_users):
     """Verify /settings/* routes with valid auth token."""
     headers = test_users["headers1"]
-
-    # /settings/data
-    r_data = client.get("/settings/data", headers=headers)
-    assert r_data.status_code == 200
-    assert "sections" in r_data.json()
-
-    # /settings/save
-    r_save = client.post("/settings/save", json={"key": "EOD_REPORT_HOUR", "value": "21"}, headers=headers)
-    assert r_save.status_code == 200
-    assert r_save.json().get("ok") is True
-
-    # /settings/save invalid key
-    r_save_inv = client.post("/settings/save", json={"key": "NON_EXISTENT_KEY", "value": "xyz"}, headers=headers)
-    assert r_save_inv.status_code == 400
-
-    # /settings/save-all
-    r_saveall = client.post("/settings/save-all", json={"settings": {"EOD_REPORT_HOUR": "22"}}, headers=headers)
-    assert r_saveall.status_code == 200
-    assert r_saveall.json().get("ok") is True
-
-    # /settings/restart
-    r_restart = client.post("/settings/restart", headers=headers)
-    assert r_restart.status_code == 200
-    assert r_restart.json().get("ok") is True
+    import os
+    import shutil
+    # Backup .env
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+    backup_path = env_path + ".backup"
+    if os.path.exists(env_path):
+        shutil.copy(env_path, backup_path)
+    try:
+        # /settings/data
+        r_data = client.get("/settings/data", headers=headers)
+        assert r_data.status_code == 200
+        assert "sections" in r_data.json()
+        
+        # /settings/save
+        r_save = client.post("/settings/save", json={"key": "EOD_REPORT_HOUR", "value": "21"}, headers=headers)
+        assert r_save.status_code == 200
+        assert r_save.json().get("ok") is True
+        
+        # /settings/save invalid key
+        r_save_inv = client.post("/settings/save", json={"key": "NON_EXISTENT_KEY", "value": "xyz"}, headers=headers)
+        assert r_save_inv.status_code == 400
+        
+        # /settings/save-all
+        r_saveall = client.post("/settings/save-all", json={"settings": {"EOD_REPORT_HOUR": "22"}}, headers=headers)
+        assert r_saveall.status_code == 200
+        assert r_saveall.json().get("ok") is True
+        
+        # /settings/restart
+        r_restart = client.post("/settings/restart", headers=headers)
+        assert r_restart.status_code == 200
+        assert r_restart.json().get("ok") is True
+    finally:
+        if os.path.exists(backup_path):
+            shutil.copy(backup_path, env_path)
+            os.remove(backup_path)
+            import config
+            import importlib
+            importlib.reload(config)
 
 
 def test_monitoring_routes_with_valid_token(client, test_users):
