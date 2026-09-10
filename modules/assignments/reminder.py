@@ -47,15 +47,16 @@ class ReminderLoop:
         self._speak      = speak_fn
         self._broadcast  = broadcast_fn
         self._poll_s     = poll_minutes * 60
-        self._running    = False
+        self._stop_event = threading.Event()
+        self._stop_event.set()
         self._thread:    threading.Thread | None = None
 
     # ── lifecycle ─────────────────────────────────────────────────────────
 
     def start(self):
-        if self._running:
+        if self._stop_event and not self._stop_event.is_set() and self._thread and self._thread.is_alive():
             return
-        self._running = True
+        self._stop_event.clear()
         self._thread  = threading.Thread(
             target=self._loop, daemon=True, name="reminder-loop"
         )
@@ -63,19 +64,21 @@ class ReminderLoop:
         log.info("Reminder loop started (poll every %dm).", self._poll_s // 60)
 
     def stop(self):
-        self._running = False
+        self._stop_event.set()
+        if self._thread:
+            self._thread.join(timeout=2.0)
         log.info("Reminder loop stopped.")
 
     # ── main loop ─────────────────────────────────────────────────────────
 
     def _loop(self):
         # Fire immediately on start, then every POLL_INTERVAL_MIN
-        while self._running:
+        while not self._stop_event.is_set():
             try:
                 self.check_and_deliver()
             except Exception as e:
                 log.error("Reminder loop error: %s", e)
-            time.sleep(self._poll_s)
+            self._stop_event.wait(self._poll_s)
 
     # ── public: single pass (also called by APScheduler) ─────────────────
 

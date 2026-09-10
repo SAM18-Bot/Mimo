@@ -34,6 +34,8 @@ class VoiceListener:
 
     def stop(self):
         self._running = False
+        if self._thread:
+            self._thread.join(timeout=3.0)
         log.info("Voice listener stopped.")
 
     def _loop(self):

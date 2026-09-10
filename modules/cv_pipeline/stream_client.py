@@ -61,6 +61,8 @@ class StreamClient:
 
     def stop(self):
         self._running = False
+        if self._thread:
+            self._thread.join(timeout=3.0)
         if self._cap:
             self._cap.release()
         log.info("ESP32 stream client stopped.")
