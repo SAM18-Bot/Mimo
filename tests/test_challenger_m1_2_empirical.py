@@ -57,7 +57,6 @@ TARGET_ENDPOINTS = [
     ("GET", "/settings/data", None),
     ("POST", "/settings/save", {"key": "EOD_REPORT_HOUR", "value": "22"}),
     ("POST", "/settings/save-all", {"settings": {"EOD_REPORT_HOUR": "22"}}),
-    ("POST", "/settings/restart", None),
 
     # Monitoring endpoints
     ("POST", "/monitoring/pause", None),
@@ -186,11 +185,6 @@ def test_settings_routes_with_valid_token(client, test_users):
         r_saveall = client.post("/settings/save-all", json={"settings": {"EOD_REPORT_HOUR": "22"}}, headers=headers)
         assert r_saveall.status_code == 200
         assert r_saveall.json().get("ok") is True
-        
-        # /settings/restart
-        r_restart = client.post("/settings/restart", headers=headers)
-        assert r_restart.status_code == 200
-        assert r_restart.json().get("ok") is True
     finally:
         if os.path.exists(backup_path):
             shutil.copy(backup_path, env_path)

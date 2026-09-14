@@ -359,8 +359,8 @@ def main():
     
     # ── decoupled background tracker ──────────────────────────────────────
     try:
-        from modules.screen_tracker.tracker import ScreenTracker
-        _desktop_tracker = ScreenTracker()
+        from desktop.tracker import DesktopTracker
+        _desktop_tracker = DesktopTracker()
         _desktop_tracker.start()
         atexit.register(_desktop_tracker.stop)
         log.info("Decoupled ScreenTracker started.")

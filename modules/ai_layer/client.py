@@ -57,7 +57,8 @@ def _chat(system: str, user: str, model: str | None = None, json_mode: bool = Fa
         if response and response.text:
             return response.text.strip()
     except Exception as e:
-        log.error(f"Gemini call failed (limit reached or unresponsive): {e}")
+        log.error(f"Gemini API Error (model={gemini_model}): {type(e).__name__} - {str(e)}")
+        # You can add log.exception("Full traceback:") if you need deeper stack traces in Render
         return None
 
 def generate_roast(
