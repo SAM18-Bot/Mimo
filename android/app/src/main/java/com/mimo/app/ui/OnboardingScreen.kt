@@ -165,13 +165,13 @@ fun OnboardingScreen(onOnboardingFinished: () -> Unit) {
                     try {
                         ApiClient.api.completeOnboarding(
                             OnboardingRequest(
-                                course_major = courseMajor,
+                                course = courseMajor.trim(),
                                 age = age.toIntOrNull() ?: 18,
                                 education_level = educationLevel,
                                 ai_engine = aiEngine,
                                 wake_time = wakeTime,
                                 sleep_time = sleepTime,
-                                daily_study_goal_min = dailyStudyGoal.toIntOrNull() ?: 120
+                                study_goal_minutes = dailyStudyGoal.toIntOrNull() ?: 120
                             )
                         )
                         onOnboardingFinished()

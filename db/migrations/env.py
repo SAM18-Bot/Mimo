@@ -16,6 +16,7 @@ from sqlalchemy import engine_from_config, pool
 # ── make project root importable ─────────────────────────────────────────
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
+import config as app_config
 import db.models  # noqa: F401 — registers all models with Base.metadata
 from db.database import Base
 
@@ -29,11 +30,7 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # ── override URL from environment if set ──────────────────────────────────
-from dotenv import load_dotenv
-
-load_dotenv()
-
-db_url = os.getenv("DATABASE_URL", "sqlite:///./accountability.db")
+db_url = os.getenv("DATABASE_URL", app_config.DATABASE_URL)
 config.set_main_option("sqlalchemy.url", db_url)
 
 

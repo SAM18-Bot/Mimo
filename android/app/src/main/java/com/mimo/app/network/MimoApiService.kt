@@ -15,7 +15,10 @@ interface MimoApiService {
     suspend fun register(@Body body: RegisterRequest): AuthResponse
 
     @POST("/onboarding/complete")
-    suspend fun completeOnboarding(@Body body: OnboardingRequest): UserOut
+    suspend fun completeOnboarding(@Body body: OnboardingRequest): OnboardingResponse
+
+    @POST("/parent/invites")
+    suspend fun createParentInvite(): ParentInvite
 
     @GET("/reports/stats")
     suspend fun getStats(@Query("target_date") targetDate: String? = null): DailyStats

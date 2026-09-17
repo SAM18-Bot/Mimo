@@ -11,14 +11,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mimo.app.data.TokenManager
 import com.mimo.app.ui.DashboardViewModel
+import com.mimo.app.network.ApiClient
 import android.content.Intent
 import com.mimo.app.MainActivity
+import kotlinx.coroutines.launch
 
 @Suppress("UNUSED_PARAMETER")
 @Composable
 fun SettingsScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    var isParentPortalEnabled by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    var inviteCode by remember { mutableStateOf<String?>(null) }
+    var inviteError by remember { mutableStateOf<String?>(null) }
+    var isGeneratingInvite by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -32,16 +37,34 @@ fun SettingsScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier)
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("Parent Portal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                Text("Generate a one-time code for a parent to link this account.")
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            isGeneratingInvite = true
+                            inviteError = null
+                            try {
+                                inviteCode = ApiClient.api.createParentInvite().code
+                            } catch (e: Exception) {
+                                inviteError = e.localizedMessage ?: "Could not generate an invite code"
+                            } finally {
+                                isGeneratingInvite = false
+                            }
+                        }
+                    },
+                    enabled = !isGeneratingInvite,
                 ) {
-                    Text("Enable Parent Portal")
-                    Switch(checked = isParentPortalEnabled, onCheckedChange = { isParentPortalEnabled = it })
+                    if (isGeneratingInvite) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    } else {
+                        Text("Generate Invite Code")
+                    }
                 }
-                if (isParentPortalEnabled) {
-                    Text("Invite Code: ABC-123 (Mock)", color = MaterialTheme.colorScheme.primary)
-                }
+                inviteCode?.let { Text("Invite Code: $it", color = MaterialTheme.colorScheme.primary) }
+                inviteError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         }
 

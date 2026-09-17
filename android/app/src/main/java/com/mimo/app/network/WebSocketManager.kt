@@ -5,6 +5,7 @@ import com.google.gson.Gson
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import okhttp3.*
+import okhttp3.HttpUrl.Companion.toHttpUrl
 
 class WebSocketManager {
     companion object {
@@ -26,19 +27,31 @@ class WebSocketManager {
     private var shouldReconnect = true
     private var reconnectAttempts = 0
     private val maxReconnectAttempts = 10
-    private var baseUrl: String = "wss://mimo-e8u2.onrender.com/ws"
-    private var wsUrl: String = baseUrl
+    private var reconnectScheduled = false
+    private var authToken: String? = null
 
     fun connect(token: String? = null) {
-        wsUrl = if (token != null) "$baseUrl?token=$token" else baseUrl
+        shouldReconnect = false
+        webSocket?.cancel()
+        authToken = token
         shouldReconnect = true
         reconnectAttempts = 0
         doConnect()
     }
 
+    private fun websocketUrl(): String {
+        val httpUrl = ApiClient.baseUrl.toHttpUrl()
+        val builder = httpUrl.newBuilder()
+            .scheme(if (httpUrl.isHttps) "wss" else "ws")
+            .encodedPath("/ws")
+            .query(null)
+        authToken?.takeIf { it.isNotBlank() }?.let { builder.addQueryParameter("token", it) }
+        return builder.build().toString()
+    }
+
     private fun doConnect() {
         _connectionState.tryEmit(ConnectionState.CONNECTING)
-        val request = Request.Builder().url(wsUrl).build()
+        val request = Request.Builder().url(websocketUrl()).build()
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.d(TAG, "WebSocket connected")
@@ -70,17 +83,24 @@ class WebSocketManager {
     }
 
     private fun attemptReconnect() {
-        if (!shouldReconnect || reconnectAttempts >= maxReconnectAttempts) return
-        reconnectAttempts++
+        synchronized(this) {
+            if (!shouldReconnect || reconnectScheduled || reconnectAttempts >= maxReconnectAttempts) return
+            reconnectAttempts++
+            reconnectScheduled = true
+        }
         _connectionState.tryEmit(ConnectionState.RECONNECTING)
         Thread {
             Thread.sleep(minOf(reconnectAttempts * 2000L, 30000L))
+            synchronized(this@WebSocketManager) {
+                reconnectScheduled = false
+            }
             if (shouldReconnect) doConnect()
         }.start()
     }
 
     fun disconnect() {
         shouldReconnect = false
+        reconnectScheduled = false
         webSocket?.close(1000, "Client disconnect")
         webSocket = null
         _connectionState.tryEmit(ConnectionState.DISCONNECTED)

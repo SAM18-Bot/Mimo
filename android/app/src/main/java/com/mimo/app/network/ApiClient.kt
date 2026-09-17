@@ -1,5 +1,6 @@
 package com.mimo.app.network
 
+import com.mimo.app.BuildConfig
 import com.mimo.app.MimoApplication
 import com.mimo.app.data.TokenManager
 import okhttp3.Interceptor
@@ -10,12 +11,15 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
-    // Set to the live Render cloud URL
-    var baseUrl: String = "https://mimo-e8u2.onrender.com/"
+    private const val DEFAULT_BASE_URL = "https://mimo-e8u2.onrender.com/"
+
+    @Volatile
+    var baseUrl: String = DEFAULT_BASE_URL
         private set
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
+        level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
+        redactHeader("Authorization")
     }
 
     private val authInterceptor = Interceptor { chain ->
@@ -39,15 +43,27 @@ object ApiClient {
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    val retrofit: Retrofit = Retrofit.Builder()
-        .baseUrl(baseUrl)
+    private fun createRetrofit(url: String): Retrofit = Retrofit.Builder()
+        .baseUrl(url)
         .client(okHttpClient)
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 
-    val api: MimoApiService = retrofit.create(MimoApiService::class.java)
+    @Volatile
+    private var apiService: MimoApiService = createRetrofit(baseUrl).create(MimoApiService::class.java)
+
+    val api: MimoApiService
+        get() = apiService
 
     fun updateBaseUrl(newUrl: String) {
-        baseUrl = newUrl
+        val normalized = newUrl.trim().let { if (it.endsWith('/')) it else "$it/" }
+        require(normalized.startsWith("https://") || normalized.startsWith("http://")) {
+            "Server URL must start with http:// or https://"
+        }
+        synchronized(this) {
+            if (normalized == baseUrl) return
+            baseUrl = normalized
+            apiService = createRetrofit(baseUrl).create(MimoApiService::class.java)
+        }
     }
 }

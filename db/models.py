@@ -295,6 +295,17 @@ class TokenBlocklist(Base):
     created_at = Column(DateTime, default=func.now())
 
 
+class SyncReceipt(Base):
+    __tablename__ = "sync_receipts"
+    __table_args__ = (UniqueConstraint("user_id", "sync_id", name="uq_sync_receipts_user_sync"),)
+
+    id           = Column(Integer, primary_key=True)
+    user_id      = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    sync_id      = Column(String(64), nullable=False)
+    summary_date = Column(Date, nullable=False)
+    created_at   = Column(DateTime, default=func.now())
+
+
 class Todo(Base):
     __tablename__ = "todos"
 

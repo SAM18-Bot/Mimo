@@ -147,13 +147,25 @@ data class SyncPayload(
 
 // POST /onboarding/complete request
 data class OnboardingRequest(
-    val course_major: String,
+    val course: String,
     val age: Int,
     val education_level: String,
     val ai_engine: String,
-    val wake_time: String,
-    val sleep_time: String,
-    val daily_study_goal_min: Int
+    val api_key: String? = null,
+    val wake_time: String = "07:00",
+    val sleep_time: String = "23:00",
+    val study_goal_minutes: Int = 120
+)
+
+data class OnboardingResponse(
+    val status: String = "",
+    val message: String = "",
+    val onboarding_completed: Boolean = false
+)
+
+data class ParentInvite(
+    val code: String = "",
+    val expires_at: String = ""
 )
 
 data class Todo(

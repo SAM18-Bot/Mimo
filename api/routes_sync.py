@@ -1,12 +1,13 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from api.routes_auth import current_user
 from db.database import get_db
-from db.models import DailySummary, User
+from db.models import DailySummary, SyncReceipt, User
 from modules.assignments.manager import get_upcoming
 from modules.behavior_engine.aggregator import get_daily_stats
 
@@ -33,6 +34,7 @@ class SyncPayload(BaseModel):
     mobileProductiveMin: int
     mobileDistractingMin: int
     mobileNeutralMin: int
+    sync_id: str | None = Field(default=None, min_length=8, max_length=64)
     assignments: list[AssignmentModel] = []
     mergedStats: DailyStatsModel | None = None
 
@@ -54,6 +56,14 @@ def push_sync(
     else:
         summary_date = payload.date
 
+    if payload.sync_id:
+        receipt = db.query(SyncReceipt).filter(
+            SyncReceipt.user_id == user.id,
+            SyncReceipt.sync_id == payload.sync_id,
+        ).first()
+        if receipt:
+            return {"status": "ok", "duplicate": True}
+
     # 1. Update Daily Stats with mobile usage
     stats_record = db.query(DailySummary).filter(
         DailySummary.user_id == user.id,
@@ -70,13 +80,30 @@ def push_sync(
         )
         db.add(stats_record)
     else:
-        stats_record.productive_time_s += payload.mobileProductiveMin * 60
-        stats_record.distracted_time_s += payload.mobileDistractingMin * 60
-        stats_record.neutral_time_s += payload.mobileNeutralMin * 60
-        stats_record.desk_time_s += (payload.mobileProductiveMin + payload.mobileDistractingMin + payload.mobileNeutralMin) * 60
-    
-    db.commit()
-    return {"status": "ok"}
+        stats_record.productive_time_s = (stats_record.productive_time_s or 0) + payload.mobileProductiveMin * 60
+        stats_record.distracted_time_s = (stats_record.distracted_time_s or 0) + payload.mobileDistractingMin * 60
+        stats_record.neutral_time_s = (stats_record.neutral_time_s or 0) + payload.mobileNeutralMin * 60
+        stats_record.desk_time_s = (stats_record.desk_time_s or 0) + (
+            payload.mobileProductiveMin + payload.mobileDistractingMin + payload.mobileNeutralMin
+        ) * 60
+
+    if payload.sync_id:
+        db.add(SyncReceipt(
+            user_id=user.id,
+            sync_id=payload.sync_id,
+            summary_date=summary_date,
+        ))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        if payload.sync_id and db.query(SyncReceipt).filter(
+            SyncReceipt.user_id == user.id,
+            SyncReceipt.sync_id == payload.sync_id,
+        ).first():
+            return {"status": "ok", "duplicate": True}
+        raise
+    return {"status": "ok", "duplicate": False}
 
 @router.get("/pull", response_model=SyncPayload)
 def pull_sync(
