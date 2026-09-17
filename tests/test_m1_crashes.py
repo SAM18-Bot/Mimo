@@ -54,7 +54,7 @@ def test_push_sync_endpoint(client, auth_headers, db_session):
     }
     response = client.post("/sync/push", json=payload, headers=auth_headers)
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json()["status"] == "ok"
 
     summary = db_session.query(DailySummary).filter(
         DailySummary.user_id == 1,

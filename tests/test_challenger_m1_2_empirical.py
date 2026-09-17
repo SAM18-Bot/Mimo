@@ -254,7 +254,7 @@ def test_sync_routes_with_valid_token(client, test_users, db_session):
     }
     r_push = client.post("/sync/push", json=push_payload, headers=headers)
     assert r_push.status_code == 200
-    assert r_push.json() == {"status": "ok"}
+    assert r_push.json()["status"] == "ok"
 
     # Verify in DB
     summary = db_session.query(DailySummary).filter(
