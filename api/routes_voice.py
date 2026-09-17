@@ -62,6 +62,15 @@ def send_command(payload: CommandRequest, user: User = Depends(current_user)):
             pass
 
     try:
+        from db.database import get_db_ctx
+        from db.models import ChatMessage
+        
+        # Log user message
+        with get_db_ctx() as db:
+            user_msg = ChatMessage(user_id=user.id, sender="user", text=payload.text)
+            db.add(user_msg)
+            db.commit()
+
         from modules.voice.intent_router import IntentRouter
         router_inst = IntentRouter(
             speak_fn     = _speak if payload.speak_response else None,
@@ -69,9 +78,26 @@ def send_command(payload: CommandRequest, user: User = Depends(current_user)):
             user_id      = user.id,
         )
         res = router_inst.route(payload.text)
+        
+        # Log AI response
+        with get_db_ctx() as db:
+            ai_msg = ChatMessage(user_id=user.id, sender="ai", text=res)
+            db.add(ai_msg)
+            db.commit()
+            
         return {"ok": True, "routed_text": payload.text, "ai_response": res}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/history")
+def get_chat_history(limit: int = 10, user: User = Depends(current_user)):
+    """Fetch recent chat history."""
+    from db.database import get_db_ctx
+    from db.models import ChatMessage
+    with get_db_ctx() as db:
+        messages = db.query(ChatMessage).filter(ChatMessage.user_id == user.id).order_by(ChatMessage.created_at.desc()).limit(limit).all()
+        # Return in chronological order
+        return {"messages": [{"sender": m.sender, "text": m.text, "created_at": m.created_at} for m in reversed(messages)]}
 
 
 @router.post("/speak")

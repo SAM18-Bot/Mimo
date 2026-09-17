@@ -1469,8 +1469,25 @@
         fetchHistory(),
         fetchAssignments(),
         fetchScreenBreakdown(),
-        fetchStudyRecommendations()
+        fetchStudyRecommendations(),
+        fetchChatHistory()
       ]);
+    }
+
+    async function fetchChatHistory() {
+      try {
+        const res = await fetch('/voice/history?limit=10');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.messages && data.messages.length > 0) {
+          coachMessages.innerHTML = ''; // clear initial placeholder if any
+          data.messages.forEach(msg => {
+            appendCoachMessage(msg.text, msg.sender);
+          });
+        }
+      } catch (e) {
+        console.warn('Failed to fetch chat history', e);
+      }
     }
 
     async function fetchStats() {
@@ -1665,7 +1682,9 @@
         case 'study_advice':
           showToast('🎯 ' + (msg.message || 'Study advice received'));
           break;
-        case 'voice_response': showToast('🎙️ ' + (msg.message || 'Voice update')); if (typeof appendCoachMessage === 'function') appendCoachMessage(msg.message, 'ai'); break;
+        case 'voice_response': 
+          if (typeof appendCoachMessage === 'function') appendCoachMessage(msg.message, 'ai'); 
+          break;
       }
     }
 

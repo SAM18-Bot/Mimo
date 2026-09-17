@@ -177,6 +177,16 @@ data class Todo(
     val delivered: Boolean
 )
 
+
+data class Todo(
+    val id: Int,
+    val title: String,
+    val status: String,
+    val due_date: String?,
+    val remind_at: String?,
+    val delivered: Boolean
+)
+
 data class TodoCreate(
     val title: String,
     val due_date: String? = null,
@@ -193,4 +203,14 @@ data class StudyRecommendationsResponse(
     val analysis_date: String?,
     val recommendations: List<String>?,
     val daily_study_plan: List<String>?
+)
+
+data class ChatMessage(
+    val sender: String,
+    val text: String,
+    val created_at: String
+)
+
+data class ChatHistoryResponse(
+    val messages: List<ChatMessage>
 )

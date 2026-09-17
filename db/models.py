@@ -319,3 +319,15 @@ class Todo(Base):
     delivered  = Column(Boolean, default=False)
 
     user = relationship("User", backref="todos")
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id         = Column(Integer, primary_key=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    sender     = Column(String(20), nullable=False)  # user | ai
+    text       = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=func.now())
+
+    user = relationship("User", backref="chat_messages")

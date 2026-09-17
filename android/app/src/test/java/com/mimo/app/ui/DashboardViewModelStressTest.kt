@@ -230,7 +230,13 @@ class DashboardViewModelStressTest {
             }
 
             override suspend fun sendVoiceCommand(body: VoiceCommandRequest): Map<String, Any> {
-                throw UnsupportedOperationException()
+                simulateDelay()
+                return mapOf("status" to "ok")
+            }
+            
+            override suspend fun getChatHistory(limit: Int): ChatHistoryResponse {
+                simulateDelay()
+                return ChatHistoryResponse(emptyList())
             }
         }
 

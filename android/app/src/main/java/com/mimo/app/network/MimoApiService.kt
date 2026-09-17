@@ -64,6 +64,9 @@ interface MimoApiService {
 
     @POST("/voice/command")
     suspend fun sendVoiceCommand(@Body body: VoiceCommandRequest): Map<String, Any>
+
+    @GET("/voice/history")
+    suspend fun getChatHistory(@Query("limit") limit: Int = 10): ChatHistoryResponse
 }
 
 data class VoiceCommandRequest(

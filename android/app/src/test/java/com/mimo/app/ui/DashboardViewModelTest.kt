@@ -119,6 +119,10 @@ class FakeMimoApiService(
         if (shouldThrowError) throw IOException("Network connection offline")
         return mapOf("status" to "ok")
     }
+
+    override suspend fun getChatHistory(limit: Int): ChatHistoryResponse {
+        return ChatHistoryResponse(emptyList())
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)

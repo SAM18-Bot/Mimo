@@ -74,6 +74,9 @@ class DashboardViewModel @JvmOverloads constructor(
     private val _history = MutableStateFlow<List<DailyHistoryItem>>(emptyList())
     val history: StateFlow<List<DailyHistoryItem>> = _history.asStateFlow()
 
+    private val _chatHistory = MutableStateFlow<List<ChatMessage>>(emptyList())
+    val chatHistory: StateFlow<List<ChatMessage>> = _chatHistory.asStateFlow()
+
     private val _screenBreakdown = MutableStateFlow(ScreenBreakdown())
     val screenBreakdown: StateFlow<ScreenBreakdown> = _screenBreakdown.asStateFlow()
 
@@ -116,7 +119,8 @@ class DashboardViewModel @JvmOverloads constructor(
                         }
                         "assignment_done", "assignment_added", "assignment_updated", "schedule_updated" -> refresh()
                         "voice_response", "study_advice" -> event.message?.let {
-                            _coachMessage.emit(it)
+                            val newMsg = ChatMessage(sender = "ai", text = it, created_at = "")
+                            _chatHistory.value = _chatHistory.value + newMsg
                         }
                     }
                 }
@@ -163,6 +167,14 @@ class DashboardViewModel @JvmOverloads constructor(
 
                 try {
                     _history.value = apiService.getHistory()
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    _history.value = emptyList()
+                }
+
+                try {
+                    val chatRes = apiService.getChatHistory(20)
+                    _chatHistory.value = chatRes.messages
                 } catch (e: Exception) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
                 }
@@ -291,6 +303,9 @@ class DashboardViewModel @JvmOverloads constructor(
     fun sendVoiceCommand(text: String, onResponse: (String?) -> Unit) {
         viewModelScope.launch(ioDispatcher) {
             try {
+                val newMsg = ChatMessage(sender = "user", text = text, created_at = "")
+                _chatHistory.value = _chatHistory.value + newMsg
+                
                 // Hitting the endpoint with speak_response=false since Android has no TTS integrated yet
                 apiService.sendVoiceCommand(VoiceCommandRequest(text = text, speak_response = false))
                 // Note: The actual AI response comes back via WebSocket `voice_response` event!

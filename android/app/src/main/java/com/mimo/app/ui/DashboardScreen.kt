@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
@@ -98,6 +99,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
     val todos by viewModel.todos.collectAsState()
     val schedule by viewModel.schedule.collectAsState()
     val screenBreakdown by viewModel.screenBreakdown.collectAsState()
+    val chatHistory by viewModel.chatHistory.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val wsConnectionState by viewModel.wsConnectionState.collectAsState()
@@ -156,24 +158,50 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
                         var commandText by remember { mutableStateOf("") }
                         AlertDialog(
                             onDismissRequest = { showCoachDialog = false },
-                            title = { Text("Ask Coach") },
+                            title = { Text("Coach Chat") },
                             text = {
-                                OutlinedTextField(
-                                    value = commandText,
-                                    onValueChange = { commandText = it },
-                                    label = { Text("e.g. What should I study?") }
-                                )
+                                Column(modifier = Modifier.fillMaxHeight(0.6f)) {
+                                    LazyColumn(
+                                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                                        reverseLayout = false
+                                    ) {
+                                        items(chatHistory) { msg ->
+                                            val isUser = msg.sender == "user"
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                                horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+                                            ) {
+                                                Surface(
+                                                    color = if (isUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.secondaryContainer,
+                                                    shape = MaterialTheme.shapes.medium
+                                                ) {
+                                                    Text(
+                                                        text = msg.text,
+                                                        modifier = Modifier.padding(8.dp),
+                                                        color = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                    OutlinedTextField(
+                                        value = commandText,
+                                        onValueChange = { commandText = it },
+                                        label = { Text("e.g. What should I study?") },
+                                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                                    )
+                                }
                             },
                             confirmButton = {
                                 TextButton(onClick = {
                                     if (commandText.isNotBlank()) {
                                         viewModel.sendVoiceCommand(commandText) { }
+                                        commandText = ""
                                     }
-                                    showCoachDialog = false
-                                }) { Text("Ask") }
+                                }) { Text("Send") }
                             },
                             dismissButton = {
-                                TextButton(onClick = { showCoachDialog = false }) { Text("Cancel") }
+                                TextButton(onClick = { showCoachDialog = false }) { Text("Close") }
                             }
                         )
                     }
