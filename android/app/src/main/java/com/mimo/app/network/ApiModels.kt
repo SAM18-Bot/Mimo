@@ -177,16 +177,6 @@ data class Todo(
     val delivered: Boolean
 )
 
-
-data class Todo(
-    val id: Int,
-    val title: String,
-    val status: String,
-    val due_date: String?,
-    val remind_at: String?,
-    val delivered: Boolean
-)
-
 data class TodoCreate(
     val title: String,
     val due_date: String? = null,

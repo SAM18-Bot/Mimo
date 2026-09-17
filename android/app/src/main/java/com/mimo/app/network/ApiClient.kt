@@ -1,6 +1,5 @@
 package com.mimo.app.network
 
-import com.mimo.app.BuildConfig
 import com.mimo.app.MimoApplication
 import com.mimo.app.data.TokenManager
 import okhttp3.Interceptor
@@ -18,7 +17,7 @@ object ApiClient {
         private set
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
+        level = HttpLoggingInterceptor.Level.BODY
         redactHeader("Authorization")
     }
 
