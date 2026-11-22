@@ -31,3 +31,17 @@ jobs:
     - name: Run tests
       run: |
         pytest tests/ desktop/tests/
+
+    - name: Verify dashboard at phone, tablet and desktop widths
+      env:
+        NO_HARDWARE: "1"
+        NO_VOICE: "1"
+        DATABASE_URL: sqlite:///./browser-check.db
+      run: |
+        python -m pip install playwright
+        python -m playwright install --with-deps chromium
+        python -m uvicorn main:app --host 127.0.0.1 --port 8080 > "$RUNNER_TEMP/mimo-browser.log" 2>&1 &
+        server_pid=$!
+        trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+        curl --fail --silent --retry 30 --retry-connrefused --retry-delay 1 http://127.0.0.1:8080/health
+        python scripts/check_dashboard.py http://127.0.0.1:8080

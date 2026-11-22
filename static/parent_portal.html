@@ -140,6 +140,14 @@
       width: calc(100% - 280px);
     }
 
+    #dash-student-name, .child-nav-item { overflow-wrap: anywhere; }
+    @media (max-width: 768px) {
+      #app-view { flex-direction: column; }
+      .sidebar { position: static; width: 100%; padding: 16px; gap: 16px; border-right: none; border-bottom: 1px solid var(--border-subtle); }
+      .main-content { margin-left: 0; width: 100%; min-width: 0; padding: 20px 16px; }
+      #empty-state { height: auto; padding-block: 24px; }
+    }
+
     .child-nav-item {
       display: flex;
       align-items: center;
@@ -176,6 +184,7 @@
     .hidden { display: none !important; }
     
     #toast-container {
+      max-width: calc(100% - 40px);
       position: fixed;
       bottom: 20px;
       right: 20px;
