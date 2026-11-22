@@ -42,7 +42,7 @@ if [ "$OS" = "Linux" ]; then
     if command -v apt-get &>/dev/null; then
         echo "Installing GTK + AppIndicator (Ubuntu/Debian)..."
         sudo apt-get install -y -q \
-            python3-gi \
+            libgles2 python3-gi \
             python3-gi-cairo \
             gir1.2-gtk-3.0 \
             gir1.2-appindicator3-0.1 \
@@ -52,7 +52,7 @@ if [ "$OS" = "Linux" ]; then
         ok "GTK + AppIndicator installed"
     elif command -v dnf &>/dev/null; then
         sudo dnf install -y -q \
-            python3-gobject \
+            libglvnd-gles python3-gobject \
             gtk3 \
             libappindicator-gtk3 \
             libnotify \

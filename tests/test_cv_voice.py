@@ -21,7 +21,7 @@ def test_camera_falls_back_when_mediapipe_cannot_initialize(monkeypatch):
     monkeypatch.setitem(sys.modules, "mediapipe", None)
     monitor = PresenceMonitor()
     try:
-        assert monitor._gaze_detector is None
         assert monitor._analyze_frame(np.zeros((64, 64, 3), dtype=np.uint8)) == (False, False)
+        assert monitor._gaze_detector is None
     finally:
         monitor.stop()

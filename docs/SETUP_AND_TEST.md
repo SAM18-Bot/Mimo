@@ -324,6 +324,7 @@ pip install pywin32
    ```bash
    pip install -r requirements.txt
    ```
+   Debian and Ubuntu need `libgles2` for MediaPipe face landmarks. Install it with `sudo apt install libgles2`.
 7. Restart server. The camera feed starts automatically.
 
 ---

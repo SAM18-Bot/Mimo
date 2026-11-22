@@ -49,15 +49,16 @@ class PresenceMonitor:
         self._last_seen   = time.time()
         self._away_since: float | None = None
 
-        self._detector = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-        # Advanced gaze detector (uses FaceMesh + iris when available)
+        self._detector = None
         self._gaze_detector = None
+
+    def _open_detectors(self):
+        self._detector = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
         if _GazeDetector is not None:
             try:
                 self._gaze_detector = _GazeDetector(use_iris=True)
-                log.info("GazeDetector: using head-pose + iris tracking.")
-            except Exception as e:
-                log.warning(f"GazeDetector init failed, using basic fallback: {e}")
+            except Exception as exc:
+                log.warning("Gaze detector unavailable, using basic face detection: %s", exc)
 
     def start(self):
         if self._running:
@@ -73,6 +74,8 @@ class PresenceMonitor:
             self._thread.join(timeout=3.0)
         if self._gaze_detector is not None:
             self._gaze_detector.close()
+            self._gaze_detector = None
+        self._detector = None
         log.info("Presence monitor stopped.")
 
     def _loop(self):
@@ -90,6 +93,8 @@ class PresenceMonitor:
 
     def _analyze_frame(self, frame: np.ndarray) -> tuple[bool, bool]:
         """Returns (face_detected, looking_away). Uses GazeDetector when available."""
+        if self._detector is None:
+            self._open_detectors()
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
         # ── primary path: GazeDetector (head pose + iris) ─────────────

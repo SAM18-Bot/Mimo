@@ -48,9 +48,9 @@ OS=$(uname -s)
 if [ "$OS" = "Linux" ]; then
   info "Linux detected — installing xdotool (for screen tracking)..."
   if command -v apt-get &>/dev/null; then
-    sudo apt-get install -y xdotool espeak portaudio19-dev -q 2>/dev/null || warn "apt-get failed — install xdotool, espeak, portaudio19-dev manually"
+    sudo apt-get install -y xdotool espeak portaudio19-dev libgles2 -q 2>/dev/null || warn "apt-get failed — install xdotool, espeak, portaudio19-dev and libgles2 manually"
   elif command -v dnf &>/dev/null; then
-    sudo dnf install -y xdotool espeak portaudio-devel -q 2>/dev/null || warn "dnf failed"
+    sudo dnf install -y xdotool espeak portaudio-devel libglvnd-gles -q 2>/dev/null || warn "dnf failed"
   fi
   # Use ewmh instead of pygetwindow on Linux
   pip install ewmh -q 2>/dev/null || warn "ewmh install failed — screen tracking may be limited"

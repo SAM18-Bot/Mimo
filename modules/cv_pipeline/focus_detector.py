@@ -242,6 +242,7 @@ class GazeDetector:
     def close(self):
         if self._face_mesh:
             self._face_mesh.close()
+            self._face_mesh = None
 
 
 # ── math helpers ─────────────────────────────────────────────────────────
