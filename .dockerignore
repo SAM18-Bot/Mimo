@@ -1,0 +1,17 @@
+.git
+.env
+.env.*
+!.env.example
+modules/cv_pipeline/models
+android
+desktop
+tests
+logs
+dist
+build
+**/__pycache__
+*.db
+*.db-*
+*.keystore
+*.jks
+*.pem

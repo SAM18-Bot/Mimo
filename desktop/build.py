@@ -34,6 +34,9 @@ def build_executable():
         "--hidden-import", "pystray",
         "--hidden-import", "plyer",
         "--hidden-import", "plyer.platforms.win.notification",
+        "--add-data", f"db/migrations{os.pathsep}db/migrations",
+        "--collect-all", "mediapipe",
+        "--add-data", f"modules/cv_pipeline/models{os.pathsep}modules/cv_pipeline/models",
         # Include static and assets directories
         "--add-data", f"static{os.pathsep}static",
         "--add-data", f"assets{os.pathsep}assets",

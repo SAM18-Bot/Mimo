@@ -27,7 +27,7 @@ class MimoTray:
     Call open_dashboard() to show the webview window.
     """
 
-    def __init__(self, open_window_fn=None, shutdown_fn=None, base_url: str = _DEFAULT_BASE_URL):
+    def __init__(self, open_window_fn=None, shutdown_fn=None, base_url: str = _DEFAULT_BASE_URL, pause_tracking=None):
         """
         open_window_fn: optional callable to (re)open the pywebview window.
         shutdown_fn: optional callable to shut down the application cleanly.
@@ -38,6 +38,7 @@ class MimoTray:
         self._open_window_fn = open_window_fn
         self._shutdown_fn    = shutdown_fn
         self._base_url       = base_url.rstrip("/")
+        self._pause_tracking = pause_tracking
 
         # Live stats shown in menu
         self._focus_score    = 0
@@ -179,17 +180,11 @@ class MimoTray:
         webbrowser.open(f"{self._base_url}/settings")
 
     def _on_toggle_pause(self, icon=None, item=None):
-        try:
-            import httpx
-
-            from desktop.session import auth_headers
-            if self._paused:
-                httpx.post(f"{self._base_url}/monitoring/resume", timeout=3, headers=auth_headers())
-            else:
-                httpx.post(f"{self._base_url}/monitoring/pause", timeout=3, headers=auth_headers())
-            self.set_paused(not self._paused)
-        except Exception as e:
-            log.error("Pause toggle failed: %s", e)
+        if self._pause_tracking is None:
+            return
+        paused = not self._paused
+        self._pause_tracking(paused)
+        self.set_paused(paused)
 
     def _on_toggle_autostart(self, icon=None, item=None):
         try:

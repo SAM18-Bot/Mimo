@@ -15,7 +15,9 @@ import com.mimo.app.ui.components.StatsRow
 
 @Composable
 fun HomeScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier) {
-    val stats by viewModel.stats.collectAsState()
+    val cached by viewModel.stats.collectAsState()
+    val live by viewModel.liveStats.collectAsState()
+    val stats = live?.takeIf { it.date == cached.date } ?: cached
     val screenBreakdown by viewModel.screenBreakdown.collectAsState()
 
     Column(
@@ -34,6 +36,8 @@ fun HomeScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier) {
 
         ScreenTimeBar(breakdown = screenBreakdown)
 
+        LiveActivity(viewModel, screenBreakdown, stats)
+
         // Pomodoro Timer
         PomodoroTimer()
     }
@@ -41,38 +45,32 @@ fun HomeScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier) {
 
 @Composable
 fun PomodoroTimer() {
-    var timeLeft by remember { mutableStateOf(25 * 60) }
-    var isRunning by remember { mutableStateOf(false) }
-
-    LaunchedEffect(isRunning) {
-        while (isRunning && timeLeft > 0) {
-            kotlinx.coroutines.delay(1000)
-            timeLeft--
+    var minutes by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(25) }
+    var remaining by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(minutes * 60) }
+    var deadline by androidx.compose.runtime.saveable.rememberSaveable { mutableLongStateOf(0L) }
+    LaunchedEffect(deadline) {
+        while (deadline != 0L) {
+            remaining = ((deadline - android.os.SystemClock.elapsedRealtime() + 999) / 1000).toInt().coerceAtLeast(0)
+            if (remaining == 0) deadline = 0L else kotlinx.coroutines.delay(250)
         }
-        if (timeLeft == 0) isRunning = false
     }
-
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Focus Session Timer", style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(16.dp))
-            val minutes = timeLeft / 60
-            val seconds = timeLeft % 60
-            Text(
-                text = String.format("%02d:%02d", minutes, seconds),
-                style = MaterialTheme.typography.displayLarge
-            )
-            Spacer(modifier = Modifier.height(16.dp))
+        Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Focus timer", style = MaterialTheme.typography.titleMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { isRunning = !isRunning }) {
-                    Text(if (isRunning) "Pause" else "Start")
-                }
-                OutlinedButton(onClick = {
-                    isRunning = false
-                    timeLeft = 25 * 60
-                }) {
-                    Text("Reset")
-                }
+                listOf(25, 50).forEach { value -> FilterChip(value == minutes, {
+                    deadline = 0L; minutes = value; remaining = value * 60
+                }, label = { Text("${value}m") }) }
+            }
+            Text("%02d:%02d".format(remaining / 60, remaining % 60), style = MaterialTheme.typography.displayLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = {
+                    if (deadline == 0L) {
+                        if (remaining == 0) remaining = minutes * 60
+                        deadline = android.os.SystemClock.elapsedRealtime() + remaining * 1000L
+                    } else deadline = 0L
+                }) { Text(if (deadline == 0L) "Start" else "Pause") }
+                OutlinedButton(onClick = { deadline = 0L; remaining = minutes * 60 }) { Text("Reset") }
             }
         }
     }

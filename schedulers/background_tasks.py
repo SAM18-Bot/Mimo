@@ -59,19 +59,9 @@ def start_all(speak_fn=None, broadcast_fn=None):
     # ── Roast engine ──────────────────────────────────────────────────────
     from modules.ai_layer.roast_engine import RoastEngine
 
-    # Wire native OS notifications when running as desktop app
-    _notify_fn = None
-    try:
-        from desktop.notifications import notify_roast
-        _notify_fn = notify_roast
-        log.info("Native OS notifications enabled.")
-    except ImportError:
-        pass  # server-only mode — fine
-
     roast_engine = RoastEngine(
         speak_fn     = speak_fn,
         broadcast_fn = broadcast_fn,
-        notify_fn    = _notify_fn,
     )
     log.info("Roast engine ready.")
 

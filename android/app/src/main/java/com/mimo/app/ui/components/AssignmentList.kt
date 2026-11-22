@@ -99,7 +99,7 @@ fun AssignmentCard(
                         Spacer(modifier = Modifier.width(8.dp))
                     }
                     Text(
-                        text = statusText,
+                        text = listOfNotNull(statusText, assignment.due_time).joinToString(" · "),
                         color = statusColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium

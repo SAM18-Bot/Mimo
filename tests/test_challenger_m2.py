@@ -390,7 +390,7 @@ def test_websocket_connect_user_isolation(client, db_engine):
 
     token1 = create_access_token(user_id=u1_id, role="student")
 
-    with client.websocket_connect(f"/ws?token={token1}") as ws1:
+    with client.websocket_connect("/ws", headers={"Authorization": f"Bearer {token1}"}) as ws1:
         # First received message: stats_update for user 1
         msg1 = ws1.receive_json()
         assert msg1["type"] == "stats_update"

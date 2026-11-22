@@ -96,7 +96,8 @@ data class Assignment(
     val due_date: String = "",
     val priority: String = "medium",
     val status: String = "pending",
-    val notes: String? = null
+    val notes: String? = null,
+    val due_time: String? = null
 )
 
 // POST /assignments/ request
@@ -106,7 +107,8 @@ data class AssignmentCreate(
     val due_date: String,
     val due_time: String? = null,
     val priority: String = "medium",
-    val notes: String? = null
+    val notes: String? = null,
+    val request_id: String? = null
 )
 
 // GET /screen/breakdown
@@ -116,7 +118,8 @@ data class ScreenBreakdown(
     val neutral_min: Int = 0,
     val total_min: Int = 0,
     val top_productive: List<AppMinutes> = emptyList(),
-    val top_distracting: List<AppMinutes> = emptyList()
+    val top_distracting: List<AppMinutes> = emptyList(),
+    val device_minutes: Map<String, Int> = emptyMap()
 )
 
 data class AppMinutes(
@@ -129,6 +132,9 @@ data class WsEvent(
     val type: String = "",
     val message: String? = null,
     val trigger: String? = null,
+    val title: String? = null,
+    val category: String? = null,
+    val event: String? = null,
     val app: String? = null,
     val ts: String? = null,
     val stats: DailyStats? = null,
@@ -141,8 +147,10 @@ data class SyncPayload(
     val mobileProductiveMin: Int,
     val mobileDistractingMin: Int,
     val mobileNeutralMin: Int,
+    val sync_id: String? = null,
     val assignments: List<Assignment> = emptyList(),
-    val mergedStats: DailyStats? = null
+    val mergedStats: DailyStats? = null,
+    val app_name: String? = null
 )
 
 // POST /onboarding/complete request
@@ -151,6 +159,7 @@ data class OnboardingRequest(
     val age: Int,
     val education_level: String,
     val ai_engine: String,
+    val timezone: String = java.time.ZoneId.systemDefault().id,
     val api_key: String? = null,
     val wake_time: String = "07:00",
     val sleep_time: String = "23:00",
@@ -188,12 +197,6 @@ data class TodoUpdate(
 )
 
 
-
-data class StudyRecommendationsResponse(
-    val analysis_date: String?,
-    val recommendations: List<String>?,
-    val daily_study_plan: List<String>?
-)
 
 data class ChatMessage(
     val sender: String,

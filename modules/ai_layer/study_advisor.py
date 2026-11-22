@@ -12,7 +12,7 @@ Generates:
   - Subject priority ranking (most neglected → study first)
   - Daily study plan with time slots
   - Resource recommendations per subject
-  - AI narrative with OpenAI (or rule-based fallback)
+  - AI narrative with Gemini (or rule-based fallback)
 """
 
 from __future__ import annotations
@@ -103,7 +103,7 @@ class StudyAdvisor:
                 .filter(Assignment.user_id == user_id)
                 .filter(Assignment.due_date >= date.today())
                 .filter(Assignment.status != "done")
-                .order_by(Assignment.due_date)
+                .order_by(Assignment.due_date, Assignment.due_time.asc().nulls_last())
                 .first()
             )
             if upcoming:

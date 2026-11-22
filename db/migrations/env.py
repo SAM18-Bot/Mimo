@@ -30,7 +30,7 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # ── override URL from environment if set ──────────────────────────────────
-db_url = os.getenv("DATABASE_URL", app_config.DATABASE_URL)
+db_url = app_config.DATABASE_URL.replace("%", "%%")
 config.set_main_option("sqlalchemy.url", db_url)
 
 
@@ -57,6 +57,13 @@ def run_migrations_online() -> None:
     Run migrations in 'online' mode (with a live DB connection).
     This is the normal mode used by `alembic upgrade head`.
     """
+    existing = config.attributes.get("connection")
+    if existing is not None:
+        context.configure(connection=existing, target_metadata=target_metadata)
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix      = "sqlalchemy.",

@@ -1,6 +1,7 @@
 name: Desktop App Build
 
 on:
+  workflow_dispatch:
   push:
     branches: [ "main" ]
 
@@ -26,3 +27,12 @@ jobs:
     - name: Build executable
       run: |
         python desktop/build.py
+
+    - name: Launch and verify the packaged Windows app
+      run: python scripts/check_desktop_bundle.py dist/Mimo/Mimo.exe
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: Mimo-Windows
+        path: dist/Mimo/
+        if-no-files-found: error

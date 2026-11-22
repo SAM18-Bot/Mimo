@@ -25,19 +25,12 @@ def get_cv_events(target_date: date | None = None, user: User = Depends(current_
 
 
 @router.get("/presence")
-def current_presence():
-    """
-    Returns the last known CV state. Polled by dashboard as REST fallback.
-    Real-time updates come via WebSocket cv_event messages.
-    """
-    from schedulers.background_tasks import presence_monitor
-    
-    if presence_monitor:
-        status = getattr(presence_monitor, "_state", "unknown")
-    else:
-        status = "offline"
-        
-    return {"status": status}
+def current_presence(user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Return the last CV event for the authenticated account."""
+    latest = db.query(CVEvent).filter(CVEvent.user_id == user.id, CVEvent.session_date == date.today()).order_by(
+        CVEvent.timestamp.desc()
+    ).first()
+    return {"status": latest.event_type if latest else "offline"}
 
 
 @router.get("/focus/today")
@@ -86,6 +79,7 @@ def mock_cv_event(payload: MockCVEvent, user: User = Depends(current_user)):
         ))
 
     push_event({
+        "user_id": user.id,
         "type":  "cv_event",
         "event": payload.event,
         "ts":    now.isoformat(),
@@ -95,7 +89,7 @@ def mock_cv_event(payload: MockCVEvent, user: User = Depends(current_user)):
     try:
         from schedulers.background_tasks import roast_engine
         if roast_engine:
-            roast_engine.on_cv_event(payload.event)
+            roast_engine.on_cv_event(payload.event, user_id=user.id)
     except Exception:
         pass
 

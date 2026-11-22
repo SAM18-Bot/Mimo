@@ -78,13 +78,13 @@ fun TimePickerField(
 fun parse12HourToIso(timeStr: String): String? {
     if (timeStr.isBlank()) return null
     try {
-        val formatter = DateTimeFormatter.ofPattern("h:mm a")
+        val formatter = DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.US)
         val parsedTime = java.time.LocalTime.parse(timeStr.uppercase(), formatter)
         var dateTime = LocalDateTime.now().withHour(parsedTime.hour).withMinute(parsedTime.minute).withSecond(0).withNano(0)
         if (dateTime.isBefore(LocalDateTime.now())) {
             dateTime = dateTime.plusDays(1)
         }
-        return dateTime.atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT)
+        return dateTime.atZone(java.time.ZoneId.systemDefault()).toInstant().toString()
     } catch (e: Exception) {
         return null
     }
@@ -302,7 +302,7 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
             if (showAddDialog) {
                 var newTitle by remember { mutableStateOf("") }
                 var newSubject by remember { mutableStateOf("") }
-                var newDueDate by remember { mutableStateOf("") }
+                var newDueDate by remember { mutableStateOf(java.time.LocalDate.now().plusDays(1).toString()) }
                 var newDueTime by remember { mutableStateOf("") }
                 var newPriority by remember { mutableStateOf("medium") }
 
@@ -344,11 +344,12 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
                     },
                     confirmButton = {
                         TextButton(
+                            enabled = newTitle.isNotBlank() && runCatching { java.time.LocalDate.parse(newDueDate.trim()) }.isSuccess,
                             onClick = {
                                 viewModel.addAssignment(
                                     title = newTitle,
                                     subject = newSubject.ifBlank { null },
-                                    dueDate = newDueDate.ifBlank { "2024-01-01" }, // Need better default
+                                    dueDate = newDueDate.trim(),
                                     dueTime = newDueTime.ifBlank { null },
                                     priority = newPriority.ifBlank { "medium" }
                                 )

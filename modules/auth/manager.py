@@ -29,6 +29,8 @@ def register_user(
         raise ValueError("role must be student or parent")
     if len(password) < 8:
         raise ValueError("password must be at least 8 characters")
+    if len(password.encode("utf-8")) > 72:
+        raise ValueError("password must be at most 72 UTF-8 bytes")
     if db.query(User).filter(User.email == email).first():
         raise ValueError("email already registered")
 
@@ -46,19 +48,22 @@ def register_user(
 
 def login_user(db: Session, *, email: str, password: str) -> tuple[User, str]:
     user = db.query(User).filter(User.email == _normalize_email(email)).first()
-    if not user or not verify_password(password, user.password_hash):
+    if not user or not user.password_hash or not verify_password(password, user.password_hash):
         raise ValueError("invalid email or password")
     return user, create_access_token(user.id, user.role)
 
 
 def google_login_user(db: Session, *, token: str) -> tuple[User, str]:
+    if not config.GOOGLE_CLIENT_ID:
+        raise ValueError("Google sign-in is not configured")
+
     try:
         idinfo = id_token.verify_oauth2_token(token, requests.Request(), config.GOOGLE_CLIENT_ID)
         email = idinfo.get("email")
         google_id = idinfo.get("sub")
         display_name = idinfo.get("name")
         
-        if not email or not google_id:
+        if not email or not google_id or idinfo.get("email_verified") is not True:
             raise ValueError("Invalid Google token payload")
         
         email = _normalize_email(email)
@@ -76,12 +81,10 @@ def google_login_user(db: Session, *, token: str) -> tuple[User, str]:
             db.add(user)
             db.commit()
             db.refresh(user)
-        else:
-            if not user.google_id:
-                user.google_id = google_id
-                user.auth_provider = "google"
-                db.commit()
-                db.refresh(user)
+        elif user.google_id != google_id:
+            # Linking an existing email/password account requires proof of
+            # control of that Mimo account, which this endpoint cannot verify.
+            raise ValueError("This Google account is not linked to the existing Mimo account")
                 
         return user, create_access_token(user.id, user.role)
         
@@ -150,7 +153,15 @@ def consume_parent_invite(db: Session, *, parent: User, code: str) -> ParentStud
         .filter(ParentInvite.code == code.strip().upper())
         .first()
     )
-    if not invite or invite.consumed_at or invite.expires_at <= datetime.utcnow():
+    if not invite:
+        raise ValueError("invalid or expired invite code")
+    now = datetime.utcnow()
+    claimed = db.query(ParentInvite).filter(
+        ParentInvite.id == invite.id,
+        ParentInvite.consumed_at.is_(None),
+        ParentInvite.expires_at > now,
+    ).update({ParentInvite.consumed_at: now}, synchronize_session=False)
+    if not claimed:
         raise ValueError("invalid or expired invite code")
 
     existing = (
@@ -160,13 +171,11 @@ def consume_parent_invite(db: Session, *, parent: User, code: str) -> ParentStud
         .first()
     )
     if existing:
-        invite.consumed_at = datetime.utcnow()
         db.commit()
         db.refresh(existing)
         return existing
 
     link = ParentStudentLink(parent_id=parent.id, student_id=invite.student_id)
-    invite.consumed_at = datetime.utcnow()
     db.add(link)
     db.commit()
     db.refresh(link)
@@ -222,7 +231,7 @@ def _normalize_email(email: str) -> str:
 
 def _new_invite_code(db: Session) -> str:
     for _ in range(20):
-        code = f"{secrets.randbelow(1_000_000):06d}"
+        code = secrets.token_hex(6).upper()
         if not db.query(ParentInvite).filter(ParentInvite.code == code).first():
             return code
     raise RuntimeError("could not generate unique invite code")

@@ -41,7 +41,7 @@ def test_push_sync_stress_column_names_and_dates(client, auth_headers, db_sessio
     assert summary1.neutral_time_s == 10 * 60
     assert summary1.desk_time_s == 70 * 60
 
-    # Test 3: Invalid date string fallback to date.today()
+    # Test 3: Reject invalid dates without modifying today's summary
     payload_invalid_date = {
         "date": "invalid-date-string",
         "mobileProductiveMin": 15,
@@ -50,14 +50,13 @@ def test_push_sync_stress_column_names_and_dates(client, auth_headers, db_sessio
         "assignments": []
     }
     resp3 = client.post("/sync/push", json=payload_invalid_date, headers=auth_headers)
-    assert resp3.status_code == 200
+    assert resp3.status_code == 422
 
     today_summary = db_session.query(DailySummary).filter(
         DailySummary.user_id == user.id,
         DailySummary.date == date.today()
     ).first()
-    assert today_summary is not None
-    assert today_summary.productive_time_s >= 15 * 60
+    assert today_summary is None
 
 
 def test_pull_sync_user_isolation(client, auth_headers, db_session):

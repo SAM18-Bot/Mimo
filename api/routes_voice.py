@@ -14,7 +14,7 @@ Endpoints:
 """
 
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from api.routes_auth import current_user
@@ -52,14 +52,7 @@ def send_command(payload: CommandRequest, user: User = Depends(current_user)):
     from api.websocket import push_event
 
     def _speak(msg: str):
-        # Print to server console AND broadcast to dashboard
-        print(f"\n🔊 [VOICE RESPONSE] {msg}\n")
         push_event({"type": "voice_response", "message": msg, "user_id": user.id})
-        try:
-            from desktop.notifications import notify
-            notify("Coach 🧑‍🏫", msg)
-        except ImportError:
-            pass
 
     try:
         from db.database import get_db_ctx
@@ -72,9 +65,13 @@ def send_command(payload: CommandRequest, user: User = Depends(current_user)):
             db.commit()
 
         from modules.voice.intent_router import IntentRouter
+        def broadcast(event: dict):
+            if payload.speak_response or event.get("type") not in {"voice_response", "study_advice"}:
+                push_event({**event, "user_id": user.id})
+
         router_inst = IntentRouter(
             speak_fn     = _speak if payload.speak_response else None,
-            broadcast_fn = push_event,
+            broadcast_fn = broadcast,
             user_id      = user.id,
         )
         res = router_inst.route(payload.text)
@@ -86,16 +83,19 @@ def send_command(payload: CommandRequest, user: User = Depends(current_user)):
             db.commit()
             
         return {"ok": True, "routed_text": payload.text, "ai_response": res}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        import logging
+
+        logging.getLogger(__name__).exception("Voice command failed")
+        raise HTTPException(status_code=500, detail="Could not process voice command")
 
 @router.get("/history")
-def get_chat_history(limit: int = 10, user: User = Depends(current_user)):
+def get_chat_history(limit: int = Query(default=10, ge=1, le=100), user: User = Depends(current_user)):
     """Fetch recent chat history."""
     from db.database import get_db_ctx
     from db.models import ChatMessage
     with get_db_ctx() as db:
-        messages = db.query(ChatMessage).filter(ChatMessage.user_id == user.id).order_by(ChatMessage.created_at.desc()).limit(limit).all()
+        messages = db.query(ChatMessage).filter(ChatMessage.user_id == user.id).order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc()).limit(limit).all()
         # Return in chronological order
         return {"messages": [{"sender": m.sender, "text": m.text, "created_at": m.created_at} for m in reversed(messages)]}
 

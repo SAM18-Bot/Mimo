@@ -25,6 +25,20 @@ _MONTH_RE = (
     r'|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)'
 )
 
+def normalize_due_time(value: str | None) -> str | None:
+    if value is None or not value.strip():
+        return None
+    match = re.fullmatch(r"(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", value.strip().lower().replace(".", ""))
+    if match:
+        hour, minute = int(match[1]), int(match[2] or 0)
+        if minute < 60:
+            if match[3] and 1 <= hour <= 12:
+                return f"{hour % 12 + (12 if match[3] == 'pm' else 0):02}:{minute:02}"
+            if not match[3] and hour < 24:
+                return f"{hour:02}:{minute:02}"
+    raise ValueError("Use a valid deadline time, such as 17:00 or 5 PM")
+
+
 def _next_weekday(day_name: str) -> date:
     target = _DAY_NAMES[day_name.lower()]
     today  = date.today()
@@ -36,14 +50,16 @@ def parse_assignment_command(text: str) -> dict | None:
     due_date: date | None = None
     due_time: str | None = None
 
-    time_m = re.search(r'\b(?:at|by)\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.|\s*o\'clock|))', text_low)
-    if not time_m:
-        time_m = re.search(r'\b(\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.))\b', text_low)
-    
+    time_m = re.search(
+        r"\b(?:at|by)\s+(?!\d{1,2}\s+" + _MONTH_RE + r"\b)(\d{1,2}(?::\d{2})?(?:\s*[ap]\.?m\.?)?)(?![\w:-])"
+        r"|\b(\d{1,2}(?::\d{2})?\s*[ap]\.?m\.?)(?!\w)", text_low
+    )
     if time_m:
-        t_str = time_m.group(1).replace('.', '').replace(' ', '').strip()
-        if t_str and not t_str.isdigit():
-            due_time = t_str
+        try:
+            due_time = normalize_due_time(time_m[1] or time_m[2])
+        except ValueError:
+            return None
+        text_low = text_low[:time_m.start()] + text_low[time_m.end():]
 
     m = re.search(r'\bnext\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b', text_low)
     if m:
@@ -94,7 +110,7 @@ def parse_assignment_command(text: str) -> dict | None:
     title = text_low
 
     title = re.sub(r'\b(add|create|new|remind me to|submit)\b', '', title)
-    title = re.sub(r'\b(assignment|task|homework|project|lab|report|essay|test|exam|quiz)\b', '', title)
+    title = re.sub(r'\b\d{1,2}(?:st|nd|rd|th)?\s+' + _MONTH_RE + r'(?:\s+\d{4})?\b', '', title)
     title = re.sub(r'\bnext\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b', '', title)
     title = re.sub(r'\bin\s+\d+\s+days?\b', '', title)
     title = re.sub(r'\b(tomorrow|today|tonight)\b', '', title)
@@ -114,7 +130,6 @@ def parse_assignment_command(text: str) -> dict | None:
     for subj in sorted(KNOWN_SUBJECTS, key=len, reverse=True):
         if re.search(r'\b' + re.escape(subj) + r'\b', title, re.IGNORECASE):
             subject = subj
-            title = re.sub(r'\b' + re.escape(subj) + r'\b', '', title, flags=re.IGNORECASE)
             break
 
     title = re.sub(r'\s+', ' ', title).strip(" -—.,")

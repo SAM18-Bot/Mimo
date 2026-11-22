@@ -1,20 +1,6 @@
-"""
-Screen tracker — polls the active window every SCREEN_POLL_INTERVAL seconds.
-Uses SessionStitcher (from session.py) to stitch adjacent windows into sessions.
-Cross-platform: Windows (win32gui), Linux (xdotool), macOS (osascript).
-"""
-
 import logging
 import platform
-import threading
-import time
-from datetime import datetime
-
 import psutil
-
-import config
-from modules.screen_tracker.categorizer import categorize_app
-from modules.screen_tracker.session import Session, SessionStitcher
 
 log = logging.getLogger(__name__)
 
@@ -86,7 +72,3 @@ def get_active_window() -> tuple[str, str]:
         log.debug("get_active_window error: %s", e)
 
     return "unknown", ""
-
-
-# ── screen tracker ─────────────────────────────────────────────────────────
-

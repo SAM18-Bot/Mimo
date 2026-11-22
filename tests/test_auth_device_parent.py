@@ -76,7 +76,7 @@ def test_student_creates_parent_invite_and_parent_links(client):
 
     invite = client.post("/parent/invites", headers=_auth(student["access_token"]))
     assert invite.status_code == 201
-    assert len(invite.json()["code"]) == 6
+    assert len(invite.json()["code"]) == 12
 
     linked = client.post("/parent/link", json={
         "code": invite.json()["code"],

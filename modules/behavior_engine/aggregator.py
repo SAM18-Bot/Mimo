@@ -93,6 +93,7 @@ def get_daily_stats(db: Session, target_date: date | None = None, user_id: int =
     )
     upcoming_3d = (
         db.query(Assignment)
+        .filter(Assignment.user_id == user_id)
         .filter(Assignment.due_date > target_date)
         .filter(Assignment.due_date <= target_date + timedelta(days=3))
         .filter(Assignment.status != "done")

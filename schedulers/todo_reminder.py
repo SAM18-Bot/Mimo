@@ -1,7 +1,7 @@
 ﻿import logging
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from db.database import get_db_ctx
 from db.models import Todo
 from api.websocket import push_event
@@ -41,7 +41,7 @@ class TodoReminderService:
                 Todo.status != 'done',
                 Todo.remind_at != None,
                 Todo.delivered == False,
-                Todo.remind_at <= datetime.now()
+                Todo.remind_at <= datetime.now(timezone.utc).replace(tzinfo=None)
             ).all()
 
             for t in pending:
@@ -54,7 +54,7 @@ class TodoReminderService:
                     "user_id": t.user_id,
                     "todo_id": t.id,
                     "message": msg,
-                    "ts": datetime.now().isoformat()
+                    "ts": datetime.now(timezone.utc).isoformat()
                 })
 
                 t.delivered = True

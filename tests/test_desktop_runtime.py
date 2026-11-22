@@ -184,6 +184,13 @@ class TestMimoTrayLogic:
 
 class TestSingleInstance:
 
+    @pytest.fixture(autouse=True)
+    def isolated_lock_file(self, monkeypatch, tmp_path):
+        from desktop import single_instance
+
+        monkeypatch.setattr(single_instance, "_LOCK_DIR", str(tmp_path))
+        monkeypatch.setattr(single_instance, "_PID_FILE", str(tmp_path / "mimo.pid"))
+
     def test_acquire_and_release_unix(self):
         """On the first acquire we should get the lock; release should free it."""
         import platform
@@ -211,7 +218,7 @@ class TestSingleInstance:
         if platform.system() == "Windows":
             pytest.skip("Unix-only test (uses fcntl)")
 
-        from desktop.single_instance import acquire, release
+        from desktop.single_instance import _LOCK_DIR, acquire, release
 
         # Hold the lock in THIS process
         first = acquire()
@@ -221,12 +228,14 @@ class TestSingleInstance:
         child_code = textwrap.dedent(f"""
             import sys
             sys.path.insert(0, {os.path.dirname(os.path.dirname(os.path.abspath(__file__)))!r})
-            from desktop.single_instance import acquire
-            result = acquire()
+            from desktop import single_instance
+            single_instance._LOCK_DIR = sys.argv[1]
+            single_instance._PID_FILE = sys.argv[1] + "/mimo.pid"
+            result = single_instance.acquire()
             print("LOCKED" if result else "BLOCKED")
         """)
         proc = subprocess.run(
-            [sys.executable, "-c", child_code],
+            [sys.executable, "-c", child_code, _LOCK_DIR],
             capture_output=True, text=True, timeout=10,
         )
 
@@ -286,7 +295,8 @@ class TestWaitForServer:
         assert result is False
         assert elapsed < 3   # should not hang way past the timeout
 
-    def test_wait_for_server_updates_splash_message(self, monkeypatch):
+    @pytest.mark.parametrize(("local", "label"), [(True, "Starting Mimo"), (False, "Waking server")])
+    def test_wait_for_server_updates_splash_message(self, monkeypatch, local, label):
         import httpx
 
         from desktop import main_desktop as md
@@ -300,9 +310,10 @@ class TestWaitForServer:
             def update(self, msg):
                 messages.append(msg)
 
+        monkeypatch.setattr(md, "RUN_LOCAL_SERVER", local)
         md._wait_for_server(timeout=1, splash=FakeSplash())
         assert len(messages) > 0
-        assert all("Starting Mimo" in m for m in messages)
+        assert all(label in m for m in messages)
 
     def test_constants_are_sane(self):
         from desktop import main_desktop as md

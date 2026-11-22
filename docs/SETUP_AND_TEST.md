@@ -51,7 +51,7 @@ You should see `(.venv)` in your terminal prompt. If you close the terminal, run
 ## Step 4 — Install dependencies
 
 ```bash
-pip install fastapi uvicorn sqlalchemy python-dotenv pydantic apscheduler dateparser python-dateutil httpx aiofiles python-multipart openai
+pip install fastapi uvicorn sqlalchemy python-dotenv pydantic apscheduler dateparser python-dateutil httpx aiofiles python-multipart google-genai
 ```
 
 This is the **no-hardware subset** — no OpenCV, Mediapipe, PyAudio needed yet.  
@@ -67,7 +67,7 @@ pip install -r requirements.txt
 The `.env` file was already created for you. Open it:
 
 ```
-OPENAI_API_KEY=sk-your-key-here
+GEMINI_API_KEY=sk-your-key-here
 DATABASE_URL=sqlite:///./accountability.db
 ESP32_STREAM_URL=http://192.168.1.100:81/stream
 NO_HARDWARE=1
@@ -75,7 +75,7 @@ NO_VOICE=1
 ```
 
 **What to change:**
-- `OPENAI_API_KEY` — paste your actual key from https://platform.openai.com/api-keys  
+- `GEMINI_API_KEY` — paste your actual key from https://aistudio.google.com/apikey
   (Leave as fake key to test without AI — pre-written roasts still fire)
 - `NO_HARDWARE=1` — keep this. Disables ESP32-CAM entirely.
 - `NO_VOICE=1` — keep this. Disables microphone. Roasts print to console instead.
@@ -216,7 +216,7 @@ In **/docs** → **POST /reports/eod** → Execute
 
 This triggers the full report pipeline:
 - Aggregates today's screen time and CV events from the DB
-- Calls OpenAI (if key is set) to generate analysis and roast
+- Calls Gemini (if key is set) to generate analysis and roast
 - Speaks via TTS (if NO_VOICE=0) or prints to console
 - Broadcasts to dashboard
 
@@ -293,10 +293,10 @@ On **Windows**, install pywin32:
 pip install pywin32
 ```
 
-### Enable real OpenAI roasts
+### Enable real Gemini roasts
 
-1. Get a key: https://platform.openai.com/api-keys
-2. Edit `.env`: `OPENAI_API_KEY=sk-your-real-key`
+1. Get a key: https://aistudio.google.com/apikey
+2. Edit `.env`: `GEMINI_API_KEY=sk-your-real-key`
 3. Restart the server
 4. Roasts will now be AI-generated and reference your actual data
 
@@ -322,7 +322,7 @@ pip install pywin32
 5. Set `NO_HARDWARE=0` in `.env`
 6. Install CV deps:
    ```bash
-   pip install opencv-python mediapipe
+   pip install -r requirements.txt
    ```
 7. Restart server. The camera feed starts automatically.
 

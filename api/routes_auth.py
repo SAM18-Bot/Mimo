@@ -1,8 +1,11 @@
+import os
+import time
 from datetime import datetime
+from ipaddress import ip_address
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, SecretStr
 from sqlalchemy.orm import Session
 
 from db.database import get_db
@@ -99,8 +102,10 @@ def current_user(
 ) -> User:
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Missing bearer token")
-    token = authorization.split(" ", 1)[1].strip()
+    return user_for_token(authorization.split(" ", 1)[1].strip(), db)
 
+
+def user_for_token(token: str, db: Session) -> User:
     from db.models import TokenBlocklist
     if db.query(TokenBlocklist).filter(TokenBlocklist.token == token).first():
         raise HTTPException(status_code=401, detail="Token revoked")
@@ -114,6 +119,19 @@ def current_user(
     user = db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid token")
+    return user
+
+
+def local_controls_user(request: Request, user: User = Depends(current_user)) -> User:
+    """Protect settings and switches that affect the server process as a whole."""
+    enabled = getattr(request.app.state, "local_controls_enabled", False)
+    enabled = enabled or os.getenv("MIMO_LOCAL_CONTROLS") == "1"
+    try:
+        loopback = request.client is not None and ip_address(request.client.host).is_loopback
+    except ValueError:
+        loopback = False
+    if not enabled or not loopback:
+        raise HTTPException(403, "Server controls are available only on a local Mimo instance")
     return user
 
 
@@ -140,13 +158,11 @@ def logout(
     block = TokenBlocklist(token=token, expires_at=expires_at)
     db.add(block)
     db.commit()
+
+    from api.websocket import push_event
+    push_event({"user_id": user.id, "type": "_revoke_session", "token": token})
     return {"status": "logged_out"}
 
-
-
-import time
-
-from fastapi import Request
 
 _login_attempts = {}
 
@@ -178,6 +194,20 @@ def google_login(payload: GoogleLoginIn, db: Session = Depends(get_db)):
     except ValueError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     return {"access_token": token, "user": user}
+
+
+class PersonalKeyIn(BaseModel):
+    api_key: SecretStr | None = Field(max_length=100)
+
+
+@router.put("/auth/me/gemini-key", status_code=204)
+def update_gemini_key(payload: PersonalKeyIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    key = payload.api_key.get_secret_value().strip() if payload.api_key else None
+    try:
+        user.api_key = key
+    except ValueError:
+        raise HTTPException(status_code=503, detail="Personal key storage is unavailable")
+    db.commit()
 
 
 @router.get("/auth/me", response_model=UserOut)

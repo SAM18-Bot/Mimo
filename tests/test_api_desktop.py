@@ -11,6 +11,11 @@ API integration tests for desktop-specific routes:
 
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def local_controls(monkeypatch):
+    monkeypatch.setenv("MIMO_LOCAL_CONTROLS", "1")
+
 # ── Shared fixture: redirect .env writes to tmp file ─────────────────────
 
 @pytest.fixture

@@ -22,7 +22,8 @@ import java.time.format.DateTimeFormatter
 import java.time.ZoneOffset
 
 @Composable
-fun ScheduleScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier) {
+fun ScheduleScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, initialSubject: String? = null,
+                   onInitialSubjectHandled: () -> Unit = {}) {
     val schedule by viewModel.schedule.collectAsState()
     val assignments by viewModel.assignments.collectAsState()
     val todos by viewModel.todos.collectAsState()
@@ -37,10 +38,7 @@ fun ScheduleScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Today's Schedule", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                ScheduleList(schedule = schedule)
-            }
+            com.mimo.app.ui.planner.WeeklyPlanner(initialSubject, onInitialSubjectHandled, viewModel::refresh)
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Assignments", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -97,7 +95,7 @@ fun ScheduleScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier)
         if (showAddDialog) {
             var newTitle by remember { mutableStateOf("") }
             var newSubject by remember { mutableStateOf("") }
-            var newDueDate by remember { mutableStateOf("") }
+            var newDueDate by remember { mutableStateOf(java.time.LocalDate.now().plusDays(1).toString()) }
             var newDueTime by remember { mutableStateOf("") }
             var newPriority by remember { mutableStateOf("medium") }
 
@@ -109,20 +107,19 @@ fun ScheduleScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier)
                         OutlinedTextField(value = newTitle, onValueChange = { newTitle = it }, label = { Text("Title") })
                         OutlinedTextField(value = newSubject, onValueChange = { newSubject = it }, label = { Text("Subject") })
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(value = newDueDate, onValueChange = { newDueDate = it }, label = { Text("Date") }, modifier = Modifier.weight(1f))
+                            OutlinedTextField(value = newDueDate, onValueChange = { newDueDate = it }, label = { Text("Date (YYYY-MM-DD)") }, modifier = Modifier.weight(1f))
                             TimePickerField(value = newDueTime, onValueChange = { newDueTime = it }, label = "Time", modifier = Modifier.weight(1f))
                         }
                         OutlinedTextField(value = newPriority, onValueChange = { newPriority = it }, label = { Text("Priority") })
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = {
-                        val defaultIso = LocalDateTime.now().plusDays(1).atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT)
-                        val combinedIso = parse12HourToIso(newDueTime) ?: defaultIso
+                    TextButton(enabled = newTitle.isNotBlank() && newTitle.trim().length <= 300 && newSubject.trim().length <= 100 &&
+                        newPriority.ifBlank { "medium" } in setOf("high","medium","low") && runCatching { java.time.LocalDate.parse(newDueDate.trim()) }.isSuccess, onClick = {
                         viewModel.addAssignment(
                             title = newTitle,
                             subject = newSubject.ifBlank { null },
-                            dueDate = newDueDate.ifBlank { "2024-01-01" },
+                            dueDate = newDueDate.trim(),
                             dueTime = newDueTime.ifBlank { null },
                             priority = newPriority.ifBlank { "medium" }
                         )

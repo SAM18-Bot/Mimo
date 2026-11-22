@@ -7,7 +7,7 @@ def test_websocket_missing_token(client):
 
 def test_websocket_invalid_token(client):
     with pytest.raises(Exception):
-        with client.websocket_connect("/ws?token=invalid_jwt"):
+        with client.websocket_connect("/ws", headers={"Authorization": "Bearer invalid_jwt"}):
             pass
 
 def test_websocket_dev_token(client):
@@ -56,6 +56,7 @@ async def test_connection_manager_unicast_and_broadcast():
 
 def test_websocket_valid_token(client, auth_headers):
     token = auth_headers['Authorization'].replace('Bearer ', '')
-    with client.websocket_connect(f'/ws?token={token}'):
-        # If it doesn\'t raise an exception, connection is successful
+    with pytest.raises(Exception), client.websocket_connect(f"/ws?token={token}"):
         pass
+    with client.websocket_connect("/ws", headers=auth_headers) as socket:
+        assert socket.receive_json()["type"] == "stats_update"

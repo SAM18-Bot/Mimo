@@ -3,6 +3,8 @@ package com.mimo.app.ui.tabs
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -14,6 +16,10 @@ import com.mimo.app.ui.DashboardViewModel
 import com.mimo.app.network.ApiClient
 import android.content.Intent
 import com.mimo.app.MainActivity
+import com.mimo.app.MimoApplication
+import com.mimo.app.service.RoastEnforcementService
+import com.mimo.app.tracker.MobileTrackerService
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 @Suppress("UNUSED_PARAMETER")
@@ -27,7 +33,7 @@ fun SettingsScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier)
 
     Column(
         modifier = modifier
-            .fillMaxSize()
+            .fillMaxSize().verticalScroll(rememberScrollState())
             .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
@@ -68,18 +74,10 @@ fun SettingsScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier)
             }
         }
 
-        Button(
-            onClick = {
-                TokenManager.clearToken(context)
-                val intent = Intent(context, MainActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                }
-                context.startActivity(intent)
-            },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-        ) {
-            Text("Sign Out")
-        }
+        com.mimo.app.ui.TrackingSettings()
+        com.mimo.app.ui.AppearanceSetting()
+        com.mimo.app.ui.GeminiKeySetting()
+        com.mimo.app.ui.ServerSetting()
+        com.mimo.app.ui.SignOutButton()
     }
 }

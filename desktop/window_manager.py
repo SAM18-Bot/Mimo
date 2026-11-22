@@ -38,8 +38,12 @@ class _JSBridge:
     def report_token(self, token: str) -> bool:
         from desktop.session import set_token
         set_token(token)
-        log.info("Session token received from dashboard.")
+        log.debug("Desktop session updated.")
         return True
+
+    def show_notification(self, title: str, message: str) -> None:
+        from desktop.notifications import notify
+        notify(title, message)
 
 
 class WindowManager:

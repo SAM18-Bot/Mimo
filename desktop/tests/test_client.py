@@ -1,24 +1,11 @@
 import os
 import sys
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 # Add parent directory to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-# Mock heavy dependencies completely to avoid installing them
-import sys
-
-sys.modules['cv2'] = MagicMock()
-sys.modules['mediapipe'] = MagicMock()
-sys.modules['mediapipe.solutions'] = MagicMock()
-
-# Mock GUI and server libraries
-sys.modules['webview'] = MagicMock()
-sys.modules['uvicorn'] = MagicMock()
-sys.modules['fastapi'] = MagicMock()
-sys.modules['tkinter'] = MagicMock()
 
 def test_main_desktop_initialization():
     try:

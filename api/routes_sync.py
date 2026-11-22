@@ -1,13 +1,15 @@
-from datetime import date
+from datetime import date as CalendarDate, datetime, time
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from api.routes_auth import current_user
 from db.database import get_db
-from db.models import DailySummary, SyncReceipt, User
+from db.models import DailySummary, ScreenSession, SyncReceipt, User
 from modules.assignments.manager import get_upcoming
 from modules.behavior_engine.aggregator import get_daily_stats
 
@@ -18,6 +20,7 @@ class AssignmentModel(BaseModel):
     title: str
     subject: str | None = None
     due_date: str
+    due_time: str | None = None
     priority: str = "medium"
     status: str = "pending"
     notes: str | None = None
@@ -30,11 +33,12 @@ class DailyStatsModel(BaseModel):
     focus_score: float
 
 class SyncPayload(BaseModel):
-    date: str
-    mobileProductiveMin: int
-    mobileDistractingMin: int
-    mobileNeutralMin: int
+    date: CalendarDate
+    mobileProductiveMin: int = Field(ge=0, le=1440)
+    mobileDistractingMin: int = Field(ge=0, le=1440)
+    mobileNeutralMin: int = Field(ge=0, le=1440)
     sync_id: str | None = Field(default=None, min_length=8, max_length=64)
+    app_name: str | None = Field(default=None, min_length=1, max_length=200)
     assignments: list[AssignmentModel] = []
     mergedStats: DailyStatsModel | None = None
 
@@ -44,65 +48,44 @@ def push_sync(
     user: User = Depends(current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Receives mobile screen time usage and adds it to the PC screen time usage.
-    """
-    # Parse payload.date string to date object
-    if isinstance(payload.date, str):
-        try:
-            summary_date = date.fromisoformat(payload.date)
-        except ValueError:
-            summary_date = date.today()
-    else:
-        summary_date = payload.date
-
+    """Merge one batch of mobile usage into reportable screen time."""
+    insert = pg_insert if db.get_bind().dialect.name == "postgresql" else sqlite_insert
     if payload.sync_id:
-        receipt = db.query(SyncReceipt).filter(
-            SyncReceipt.user_id == user.id,
-            SyncReceipt.sync_id == payload.sync_id,
-        ).first()
-        if receipt:
+        claim = insert(SyncReceipt).values(
+            user_id=user.id, sync_id=payload.sync_id, summary_date=payload.date
+        ).on_conflict_do_nothing(index_elements=["user_id", "sync_id"])
+        if db.execute(claim).rowcount == 0:
             return {"status": "ok", "duplicate": True}
 
-    # 1. Update Daily Stats with mobile usage
-    stats_record = db.query(DailySummary).filter(
-        DailySummary.user_id == user.id,
-        DailySummary.date == summary_date
-    ).first()
-    if not stats_record:
-        stats_record = DailySummary(
-            user_id=user.id,
-            date=summary_date,
-            productive_time_s=payload.mobileProductiveMin * 60,
-            distracted_time_s=payload.mobileDistractingMin * 60,
-            neutral_time_s=payload.mobileNeutralMin * 60,
-            desk_time_s=(payload.mobileProductiveMin + payload.mobileDistractingMin + payload.mobileNeutralMin) * 60,
+    seconds = {
+        "productive": payload.mobileProductiveMin * 60,
+        "distracting": payload.mobileDistractingMin * 60,
+        "neutral": payload.mobileNeutralMin * 60,
+    }
+    started_at = datetime.combine(payload.date, time.min)
+    db.add_all([
+        ScreenSession(
+            user_id=user.id, device="android", app_name=payload.app_name or "Android usage", category=category,
+            started_at=started_at, duration_s=duration, session_date=payload.date,
         )
-        db.add(stats_record)
-    else:
-        stats_record.productive_time_s = (stats_record.productive_time_s or 0) + payload.mobileProductiveMin * 60
-        stats_record.distracted_time_s = (stats_record.distracted_time_s or 0) + payload.mobileDistractingMin * 60
-        stats_record.neutral_time_s = (stats_record.neutral_time_s or 0) + payload.mobileNeutralMin * 60
-        stats_record.desk_time_s = (stats_record.desk_time_s or 0) + (
-            payload.mobileProductiveMin + payload.mobileDistractingMin + payload.mobileNeutralMin
-        ) * 60
+        for category, duration in seconds.items() if duration
+    ])
 
-    if payload.sync_id:
-        db.add(SyncReceipt(
-            user_id=user.id,
-            sync_id=payload.sync_id,
-            summary_date=summary_date,
-        ))
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        if payload.sync_id and db.query(SyncReceipt).filter(
-            SyncReceipt.user_id == user.id,
-            SyncReceipt.sync_id == payload.sync_id,
-        ).first():
-            return {"status": "ok", "duplicate": True}
-        raise
+    totals = {
+        "productive_time_s": seconds["productive"],
+        "distracted_time_s": seconds["distracting"],
+        "neutral_time_s": seconds["neutral"],
+        "desk_time_s": sum(seconds.values()),
+    }
+    summary = insert(DailySummary).values(user_id=user.id, date=payload.date, **totals)
+    db.execute(summary.on_conflict_do_update(
+        index_elements=["user_id", "date"],
+        set_={
+            name: func.coalesce(getattr(DailySummary, name), 0) + getattr(summary.excluded, name)
+            for name in totals
+        },
+    ))
+    db.commit()
     return {"status": "ok", "duplicate": False}
 
 @router.get("/pull", response_model=SyncPayload)
@@ -113,8 +96,6 @@ def pull_sync(
     """
     Returns the merged assignments and stats to the Android app.
     """
-    today_str = date.today().isoformat()
-    
     stats_dict = get_daily_stats(db, user_id=user.id)
     merged_stats = DailyStatsModel(
         date=stats_dict["date"],
@@ -132,13 +113,14 @@ def pull_sync(
             title=t.title,
             subject=t.subject,
             due_date=str(t.due_date),
+            due_time=t.due_time,
             priority=t.priority,
             status=t.status,
             notes=t.notes
         ))
         
     return SyncPayload(
-        date=today_str,
+        date=stats_dict["date"],
         mobileProductiveMin=0,
         mobileDistractingMin=0,
         mobileNeutralMin=0,

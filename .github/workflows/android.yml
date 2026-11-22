@@ -1,6 +1,14 @@
 name: Android App Build
 
 on:
+  workflow_dispatch:
+    inputs:
+      signed_release:
+        type: boolean
+        default: false
+        description: Build a signed release APK
+  pull_request:
+    branches: [ "main" ]
   push:
     branches: [ "main" ]
 
@@ -26,4 +34,33 @@ jobs:
       run: chmod +x gradlew
 
     - name: Build with Gradle
-      run: ./gradlew assembleDebug
+      run: ./gradlew assembleDebug testDebugUnitTest lintDebug
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: Mimo-Android-debug
+        path: android/app/build/outputs/apk/debug/app-debug.apk
+        if-no-files-found: error
+
+    - name: Build signed release
+      if: github.ref == 'refs/heads/main' && inputs.signed_release
+      env:
+        KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      run: |
+        set -eu
+        umask 077
+        export MIMO_KEYSTORE_PATH="$RUNNER_TEMP/mimo-release.keystore"
+        trap 'rm -f "$MIMO_KEYSTORE_PATH"' EXIT
+        printf '%s' "${KEYSTORE_BASE64:?Set ANDROID_KEYSTORE_BASE64}" | base64 --decode > "$MIMO_KEYSTORE_PATH"
+        ./gradlew assembleRelease
+        "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify app/build/outputs/apk/release/app-release.apk
+
+    - uses: actions/upload-artifact@v4
+      if: github.ref == 'refs/heads/main' && inputs.signed_release
+      with:
+        name: Mimo-Android-release
+        path: android/app/build/outputs/apk/release/app-release.apk
+        if-no-files-found: error

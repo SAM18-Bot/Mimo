@@ -9,7 +9,7 @@ GET  /monitoring/status  — returns current state
 
 from fastapi import APIRouter, Depends
 
-from api.routes_auth import current_user
+from api.routes_auth import local_controls_user
 from db.models import User
 
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
@@ -18,7 +18,7 @@ _paused: bool = False
 
 
 @router.post("/pause")
-def pause_monitoring(user: User = Depends(current_user)):
+def pause_monitoring(user: User = Depends(local_controls_user)):
     """Pause screen tracking and CV pipeline."""
     global _paused
     _paused = True
@@ -33,12 +33,12 @@ def pause_monitoring(user: User = Depends(current_user)):
         return {"ok": False, "error": str(e)}
 
     from api.websocket import push_event
-    push_event({"type": "monitoring_paused"})
+    push_event({"user_id": user.id, "type": "monitoring_paused"})
     return {"ok": True, "status": "paused"}
 
 
 @router.post("/resume")
-def resume_monitoring(user: User = Depends(current_user)):
+def resume_monitoring(user: User = Depends(local_controls_user)):
     """Resume screen tracking and CV pipeline."""
     global _paused
     _paused = False
@@ -64,7 +64,7 @@ def resume_monitoring(user: User = Depends(current_user)):
             except Exception:
                 pass
 
-        push_event({"type": "monitoring_resumed"})
+        push_event({"user_id": user.id, "type": "monitoring_resumed"})
 
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -73,7 +73,7 @@ def resume_monitoring(user: User = Depends(current_user)):
 
 
 @router.get("/status")
-def monitoring_status(user: User = Depends(current_user)):
+def monitoring_status(user: User = Depends(local_controls_user)):
     """Returns current monitoring state."""
     import os
 

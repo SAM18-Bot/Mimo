@@ -249,8 +249,8 @@ def test_push_sync_data_integrity_and_accumulation(client, auth_headers, db_sess
     assert summary.desk_time_s == 55 * 60
 
 
-def test_push_sync_invalid_date_fallback(client, auth_headers, db_session):
-    """Verify push_sync handles invalid date format by falling back to date.today()."""
+def test_push_sync_rejects_invalid_date(client, auth_headers, db_session):
+    """Verify an invalid sync date does not alter today’s totals."""
     payload = {
         "date": "invalid-date-format-str",
         "mobileProductiveMin": 15,
@@ -259,13 +259,13 @@ def test_push_sync_invalid_date_fallback(client, auth_headers, db_session):
         "assignments": []
     }
     res = client.post("/sync/push", json=payload, headers=auth_headers)
-    assert res.status_code == 200
+    assert res.status_code == 422
 
     summary = db_session.query(DailySummary).filter(
         DailySummary.user_id == 1,
         DailySummary.date == date.today()
     ).first()
-    assert summary is not None
+    assert summary is None
 
 
 def test_pull_sync_multi_tenant_isolation(client, auth_headers, db_session):

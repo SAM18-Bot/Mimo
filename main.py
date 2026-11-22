@@ -18,7 +18,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -32,6 +32,7 @@ log = logging.getLogger(__name__)
 # ── DB init ───────────────────────────────────────────────────────────────
 from db.database import init_db
 import time
+from sqlalchemy.exc import OperationalError
 
 def safe_init_db():
     max_retries = 10
@@ -40,7 +41,7 @@ def safe_init_db():
             init_db()
             log.info("Database initialized successfully.")
             break
-        except Exception as e:
+        except OperationalError as e:
             if i == max_retries - 1:
                 log.error(f"Failed to initialize database: {e}")
                 raise e
@@ -136,28 +137,33 @@ app.include_router(onboarding_router)
 
 # ── WebSocket ─────────────────────────────────────────────────────────────
 @app.websocket("/ws")
-async def websocket_endpoint(ws: WebSocket, token: str | None = None):
+async def websocket_endpoint(ws: WebSocket):
+    token = None
+    authorization = ws.headers.get("Authorization", "")
+    scheme, _, bearer = authorization.partition(" ")
+    protocols = ws.scope.get("subprotocols", [])
+    browser_protocol = "mimo.auth" if len(protocols) == 2 and protocols[0] == "mimo.auth" else None
+    if authorization:
+        token = bearer.strip() if scheme.lower() == "bearer" else None
+    elif browser_protocol:
+        token = protocols[1]
     if not token:
         await ws.close(code=1008, reason="Missing token")
         return
 
+    from api.routes_auth import user_for_token
+    from db.database import get_db_ctx
     from modules.auth.security import decode_access_token
-    
+
     try:
-        payload = decode_access_token(token)
-        user_id = int(payload["sub"])
-    except Exception:
+        with get_db_ctx() as db:
+            user_id = user_for_token(token, db).id
+        expires_at = int(decode_access_token(token)["exp"])
+    except (HTTPException, KeyError, TypeError, ValueError):
         await ws.close(code=1008, reason="Invalid token")
         return
 
-    from db.database import get_db_ctx
-    from db.models import TokenBlocklist
-    with get_db_ctx() as db:
-        if db.query(TokenBlocklist).filter(TokenBlocklist.token == token).first():
-            await ws.close(code=1008, reason="Token revoked")
-            return
-
-    await manager.connect(ws, user_id=user_id)
+    await manager.connect(ws, user_id=user_id, subprotocol=browser_protocol, token=token)
     try:
         from modules.assignments.manager import get_upcoming
         from modules.behavior_engine.aggregator import get_daily_stats
@@ -167,20 +173,20 @@ async def websocket_endpoint(ws: WebSocket, token: str | None = None):
             tasks = get_upcoming(db, user_id=user_id, days=7)
             
             task_dicts = [
-                {"id": a.id, "title": a.title, "due_date": str(a.due_date),
+                {"id": a.id, "title": a.title, "due_date": str(a.due_date), "due_time": a.due_time,
                  "priority": a.priority, "status": a.status, "subject": a.subject}
                 for a in tasks
             ]
 
-        await manager.unicast(user_id, {"type": "stats_update", "stats": stats})
-        await manager.unicast(user_id, {
-            "type":  "tasks_list",
-            "tasks": task_dicts,
-        })
+        await ws.send_json({"type": "stats_update", "stats": stats}, mode="text")
+        await ws.send_json({"type": "tasks_list", "tasks": task_dicts})
 
         while True:
-            await ws.receive_text()
+            await asyncio.wait_for(ws.receive_text(), timeout=max(0, expires_at - time.time()))
 
+    except asyncio.TimeoutError:
+        manager.disconnect(ws, user_id=user_id)
+        await ws.close(code=1008, reason="Session expired")
     except WebSocketDisconnect:
         manager.disconnect(ws, user_id=user_id)
     except Exception as e:

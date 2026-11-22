@@ -37,11 +37,8 @@ def _chat(system: str, user: str, model: str | None = None, json_mode: bool = Fa
         log.warning("No Gemini API key available (neither user nor server).")
         return None
 
+    gemini_model = model or "gemini-3.1-flash-lite"
     try:
-        client = genai.Client(api_key=gemini_key)
-        # Default to 3.7-flash since it's the current stable version for 2026
-        gemini_model = model if (model and "gemini" in model.lower()) else "gemini-3.1-flash-lite"
-        
         config_args = {
             "system_instruction": system,
             "temperature": 0.85,
@@ -49,16 +46,16 @@ def _chat(system: str, user: str, model: str | None = None, json_mode: bool = Fa
         if json_mode:
             config_args["response_mime_type"] = "application/json"
             
-        response = client.models.generate_content(
-            model=gemini_model,
-            contents=user,
-            config=types.GenerateContentConfig(**config_args),
-        )
+        with genai.Client(api_key=gemini_key) as client:
+            response = client.models.generate_content(
+                model=gemini_model,
+                contents=user,
+                config=types.GenerateContentConfig(**config_args),
+            )
         if response and response.text:
             return response.text.strip()
     except Exception as e:
-        log.error(f"Gemini API Error (model={gemini_model}): {type(e).__name__} - {str(e)}")
-        # You can add log.exception("Full traceback:") if you need deeper stack traces in Render
+        log.error("Gemini call failed for %s (%s)", gemini_model, type(e).__name__)
         return None
 
 def generate_roast(

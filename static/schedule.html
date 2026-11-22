@@ -28,6 +28,7 @@ input,select,textarea{width:100%;background:var(--bg3);border:1px solid var(--bo
 .toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px}.toolbar-title{font-size:13px;color:var(--muted)}
 @media(max-width:900px){.layout{grid-template-columns:1fr}.week{grid-template-columns:1fr}.inline-row,.fixed-row{grid-template-columns:1fr}}
 </style>
+  <script src="/static/session.js"></script>
 </head>
 <body>
 <header><div class="logo"><em>Mimo</em> Schedule</div><a class="back-btn" href="/">Back to Dashboard</a></header>
@@ -63,24 +64,7 @@ input,select,textarea{width:100%;background:var(--bg3);border:1px solid var(--bo
   </section>
 </main>
 <script>
-const originalFetch = window.fetch;
-window.fetch = async function (...args) {
-  let [resource, config] = args;
-  if (!config) config = {};
-  if (!config.headers) config.headers = {};
-  const token = localStorage.getItem('mimo_token');
-  if (token && !config.headers['Authorization'] && !config.headers.Authorization) {
-    config.headers['Authorization'] = `Bearer ${token}`;
-  }
-  const isAuthEndpoint = typeof resource === 'string' && resource.includes('/auth/');
-  const res = await originalFetch(resource, config);
-  if (res.status === 401 && token && !isAuthEndpoint) {
-      console.error("API returned 401. Logging out.");
-      localStorage.removeItem('mimo_token');
-      window.location.reload();
-  }
-  return res;
-};
+
 
 const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 function bootDays(){const el=document.getElementById('school-days');el.innerHTML='';DAYS.forEach((day,i)=>{const label=document.createElement('label');label.className='day-toggle';label.innerHTML=`<input type="checkbox" value="${i}" ${i<5?'checked':''}><span>${day}</span>`;el.appendChild(label)})}
@@ -101,6 +85,7 @@ function readPayload(){
     school_days:[...document.querySelectorAll('#school-days input:checked')].map(i=>Number(i.value)),
     school_start:document.getElementById('school-start').value||null,
     school_end:document.getElementById('school-end').value||null,
+    timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,
     study_goal_minutes:Number(document.getElementById('goal').value||120),
     session_minutes:Number(document.getElementById('session').value||50),
     break_minutes:10,
@@ -109,11 +94,11 @@ function readPayload(){
     notes: notes||null
   }
 }
-async function buildSchedule(){const btn=document.getElementById('build-btn');btn.disabled=true;showStatus('Building schedule...','');try{const r=await fetch('/schedule/onboarding',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(readPayload())});const data=await r.json();if(!r.ok){showStatus(data.detail||'Could not build schedule.','err');return}renderWeek(data.blocks||[]);showStatus('Schedule saved.','ok')}catch{showStatus('Server error while building schedule.','err')}finally{btn.disabled=false}}
+async function buildSchedule(){const btn=document.getElementById('build-btn');btn.disabled=true;showStatus('Building schedule...','');try{const r=await mimoFetch('/schedule/onboarding',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(readPayload())});const data=await r.json();if(!r.ok){showStatus(data.detail||'Could not build schedule.','err');return}renderWeek(data.blocks||[]);showStatus('Schedule saved.','ok')}catch{showStatus('Server error while building schedule.','err')}finally{btn.disabled=false}}
 async function loadSchedule() {
   try {
     let profileLoaded = false;
-    const profRes = await fetch('/schedule/profile');
+    const profRes = await mimoFetch('/schedule/profile');
     if (profRes.ok) {
       const p = await profRes.json();
       if (p && p.id) {
@@ -140,7 +125,7 @@ async function loadSchedule() {
         }
       }
     }
-    const r = await fetch('/schedule/weekly');
+    const r = await mimoFetch('/schedule/weekly');
     if (r.ok) {
       const blocks = await r.json() || [];
       renderWeek(blocks);

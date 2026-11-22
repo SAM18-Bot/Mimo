@@ -1,7 +1,9 @@
+import ast
+import json
 from datetime import date
 
 from fastapi import APIRouter, BackgroundTasks, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from api.routes_auth import current_user
@@ -14,8 +16,8 @@ router = APIRouter(prefix="/reports", tags=["reports"])
 
 
 class AccountabilityAnswer(BaseModel):
-    question: str
-    answer:   str
+    question: str = Field(min_length=1, max_length=500)
+    answer: str = Field(min_length=1, max_length=10000)
 
 
 # ── stats ─────────────────────────────────────────────────────────────────
@@ -51,7 +53,7 @@ def history(days: int = 7, user: User = Depends(current_user), db: Session = Dep
 
 # ── EOD report ────────────────────────────────────────────────────────────
 @router.post("/eod")
-def trigger_eod(background_tasks: BackgroundTasks, user: User = Depends(current_user)):
+def trigger_eod(background_tasks: BackgroundTasks, user: User = Depends(current_user), wait: bool = False):
     """Manually trigger the end-of-day report (useful for testing)."""
     from modules.ai_layer.daily_report import run_eod_report
     from modules.voice.speaker import speak
@@ -64,16 +66,29 @@ def trigger_eod(background_tasks: BackgroundTasks, user: User = Depends(current_
         )
         return report
 
+    if wait:
+        return {"ok": True, "date": str(date.today()), "report": _run(user.id)}
     background_tasks.add_task(_run, user.id)
     return {"ok": True, "message": "EOD report generating in background..."}
 
 
 @router.get("/eod/latest")
 def latest_eod(user: User = Depends(current_user), db: Session = Depends(get_db)):
-    row = db.query(DailySummary).filter(DailySummary.user_id == user.id).order_by(DailySummary.date.desc()).first()
+    row = db.query(DailySummary).filter(
+        DailySummary.user_id == user.id, DailySummary.ai_report_text.is_not(None)
+    ).order_by(DailySummary.date.desc()).first()
     if not row:
         return {"message": "No report yet"}
+    try:
+        report = json.loads(row.ai_report_text)
+    except ValueError:
+        # Previous releases stored Python dictionary representations.
+        try:
+            report = ast.literal_eval(row.ai_report_text)
+        except (ValueError, SyntaxError):
+            report = {"summary": row.ai_report_text}
     return {
+        "report": report if isinstance(report, dict) else {"summary": str(report)},
         "date":           str(row.date),
         "focus_score":    row.focus_score,
         "productive_min": (row.productive_time_s or 0) // 60,
@@ -82,6 +97,12 @@ def latest_eod(user: User = Depends(current_user), db: Session = Depends(get_db)
 
 
 # ── accountability Q&A ────────────────────────────────────────────────────
+@router.get("/accountability/questions")
+def accountability_questions(user: User = Depends(current_user)):
+    import config
+    return {"questions": config.ACCOUNTABILITY_QUESTIONS}
+
+
 @router.post("/accountability", status_code=201)
 def log_accountability(payload: AccountabilityAnswer, user: User = Depends(current_user), db: Session = Depends(get_db)):
     entry = AccountabilityLog(

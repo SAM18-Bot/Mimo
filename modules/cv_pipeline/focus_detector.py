@@ -20,6 +20,9 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass
+from pathlib import Path
+
+import mediapipe as mp
 
 import numpy as np
 
@@ -80,21 +83,13 @@ class GazeDetector:
         Disable if running on CPU-only hardware (iris adds ~5ms).
         """
         self._use_iris = use_iris
-        self._face_mesh = None
-        self._init_mesh()
-
-    def _init_mesh(self):
-        try:
-            import mediapipe as mp
-            self._face_mesh = mp.solutions.face_mesh.FaceMesh(
-                max_num_faces       = 1,
-                refine_landmarks    = self._use_iris,  # enables iris landmarks (468+)
-                min_detection_confidence = 0.5,
-                min_tracking_confidence  = 0.5,
-            )
-            log.debug("GazeDetector: FaceMesh initialised (iris=%s)", self._use_iris)
-        except ImportError:
-            log.warning("mediapipe not installed — GazeDetector disabled")
+        options = mp.tasks.vision.FaceLandmarkerOptions(
+            base_options=mp.tasks.BaseOptions(
+                model_asset_buffer=(Path(__file__).with_name("models") / "face_landmarker.task").read_bytes()
+            ),
+            num_faces=1,
+        )
+        self._face_mesh = mp.tasks.vision.FaceLandmarker.create_from_options(options)
 
     def detect(self, frame_rgb: np.ndarray) -> GazeResult | None:
         """
@@ -105,12 +100,12 @@ class GazeDetector:
             return None
 
         h, w = frame_rgb.shape[:2]
-        result = self._face_mesh.process(frame_rgb)
+        result = self._face_mesh.detect(mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb))
 
-        if not result.multi_face_landmarks:
+        if not result.face_landmarks:
             return None
 
-        lm = result.multi_face_landmarks[0].landmark
+        lm = result.face_landmarks[0]
         pts = [(int(l.x * w), int(l.y * h)) for l in lm]
 
         # ── primary: head-pose PnP ────────────────────────────────────────

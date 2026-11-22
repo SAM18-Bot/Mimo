@@ -1,6 +1,7 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
+from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import AfterValidator, BaseModel, StringConstraints
 from sqlalchemy.orm import Session
 
 from api.websocket import push_event
@@ -10,23 +11,31 @@ from api.routes_auth import current_user
 
 router = APIRouter(prefix="/todos", tags=["todos"])
 
+def _utc_storage(value: datetime) -> datetime:
+    # Legacy clients supplied server-local wall time. New clients provide an offset.
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+ReminderTime = Annotated[datetime, AfterValidator(_utc_storage)]
+TodoTitle = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
+
 class TodoCreate(BaseModel):
-    title: str
+    title: TodoTitle
     due_date: date | None = None
-    remind_at: datetime | None = None
+    remind_at: ReminderTime | None = None
 
 class TodoOut(BaseModel):
     id: int
     title: str
     due_date: date | None
-    remind_at: datetime | None
+    remind_at: Annotated[datetime, AfterValidator(lambda value: value.replace(tzinfo=timezone.utc))] | None
     status: str
     delivered: bool
 
 class TodoUpdate(BaseModel):
-    status: str | None = None
-    title: str | None = None
-    remind_at: datetime | None = None
+    status: Literal["pending", "done"] | None = None
+    title: TodoTitle | None = None
+    remind_at: ReminderTime | None = None
     due_date: date | None = None
 
 @router.get("", response_model=list[TodoOut])
@@ -49,13 +58,7 @@ def create_todo(payload: TodoCreate, user: User = Depends(current_user), db: Ses
     push_event({
         "type": "todo_added",
         "user_id": user.id,
-        "todo": {
-            "id": todo.id,
-            "title": todo.title,
-            "status": todo.status,
-            "due_date": str(todo.due_date) if todo.due_date else None,
-            "remind_at": str(todo.remind_at) if todo.remind_at else None,
-        }
+        "todo": TodoOut.model_validate(todo, from_attributes=True).model_dump(mode="json")
     })
     return todo
 
@@ -69,10 +72,10 @@ def update_todo(todo_id: int, payload: TodoUpdate, user: User = Depends(current_
         todo.status = payload.status
     if payload.title is not None:
         todo.title = payload.title
-    if payload.remind_at is not None:
+    if "remind_at" in payload.model_fields_set:
         todo.remind_at = payload.remind_at
         todo.delivered = False # Reset delivery status on update
-    if payload.due_date is not None:
+    if "due_date" in payload.model_fields_set:
         todo.due_date = payload.due_date
 
     db.commit()
@@ -81,13 +84,7 @@ def update_todo(todo_id: int, payload: TodoUpdate, user: User = Depends(current_
     push_event({
         "type": "todo_updated",
         "user_id": user.id,
-        "todo": {
-            "id": todo.id,
-            "title": todo.title,
-            "status": todo.status,
-            "due_date": str(todo.due_date) if todo.due_date else None,
-            "remind_at": str(todo.remind_at) if todo.remind_at else None,
-        }
+        "todo": TodoOut.model_validate(todo, from_attributes=True).model_dump(mode="json")
     })
     return todo
 

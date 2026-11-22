@@ -12,7 +12,7 @@
 
   <p>
     <img src="https://img.shields.io/badge/Python-3.11+-blue.svg" alt="Python Version">
-    <img src="https://img.shields.io/badge/FastAPI-0.111.0-009688.svg" alt="FastAPI">
+    <img src="https://img.shields.io/badge/FastAPI-0.165.0-009688.svg" alt="FastAPI">
     <img src="https://img.shields.io/badge/Kotlin-Android-green.svg" alt="Android Support">
     <img src="https://img.shields.io/badge/License-MIT-gray.svg" alt="License">
   </p>
@@ -22,13 +22,13 @@
 
 ## Overview
 
-Mimo is an aggressive productivity tracker that goes beyond traditional screen-time applications. By leveraging multi-modal AI (Google Gemini / OpenAI), offline-first desktop clients, and an Android companion app, Mimo actively monitors your behavior, categorizes application usage, and forcibly terminates distracting processes during scheduled focus blocks.
+Mimo is an aggressive productivity tracker that goes beyond traditional screen-time applications. By leveraging multi-modal AI (Google Gemini), connected desktop clients, and an Android companion app, Mimo actively monitors your behavior, categorizes application usage, and forcibly terminates distracting processes during scheduled focus blocks.
 
 ## Features
 
 * **Strict Application Blocking:** Mimo actively polls the OS window manager. If time limits on distracting applications are exceeded during a scheduled study session, Mimo forces process termination (`taskkill`).
-* **Multi-LLM Behavioral Analysis:** Native support for Google Gemini 2.5 Flash and OpenAI GPT-4o. The AI engine analyzes daily telemetry to identify productivity patterns, peak focus hours, and avoidance behaviors.
-* **Offline-Resilient Desktop Client:** The standalone Windows executable caches screen telemetry locally in the event of a network disruption and synchronizes automatically with the central cloud database upon reconnection.
+* **Gemini Behavioral Analysis:** Native support for Google Gemini. The AI engine analyzes daily telemetry to identify productivity patterns, peak focus hours, and avoidance behaviors.
+* **Windows desktop client:** The tray application records screen sessions and sends them to the configured server while connected.
 * **Distributed Cloud Architecture:** A decoupled architecture allows the FastAPI backend and PostgreSQL database to be hosted remotely via Docker, while lightweight clients stream data from end-user devices.
 * **Android Companion App:** A native Kotlin Jetpack Compose application that monitors mobile application usage and mirrors the central web dashboard.
 * **Physical Presence Verification (Optional):** Integration with ESP32-CAM via computer vision to verify physical desk presence.
@@ -54,7 +54,7 @@ cd Mimo
 # Configure environment variables
 echo "GEMINI_API_KEY=your_key_here" > .env
 echo "NO_HARDWARE=1" >> .env
-echo "NO_TRACKER=1" >> .env
+printf 'JWT_SECRET_KEY=%s\n' "$(python -c 'import secrets; print(secrets.token_urlsafe(48))')" >> .env
 
 # Build and start the backend and PostgreSQL database
 docker-compose up --build -d
@@ -72,7 +72,7 @@ set MIMO_CLOUD_URL=https://your-server-url.com
 # Build the executable
 python desktop/build.py
 ```
-The resulting `dist/MimoDesktopTracker.exe` runs silently in the background (`--noconsole`) and automatically synchronizes with the configured `MIMO_CLOUD_URL`.
+Distribute the entire `dist/Mimo/` folder. Launch `dist/Mimo/Mimo.exe` on Windows to open the dashboard and run the tray tracker against the configured `MIMO_CLOUD_URL`.
 
 ### 3. Android Application
 

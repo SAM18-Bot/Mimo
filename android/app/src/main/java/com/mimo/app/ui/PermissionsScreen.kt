@@ -68,7 +68,7 @@ fun PermissionsScreen(onPermissionsGranted: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("We need some permissions to keep Mimo running and tracking.")
+        Text("Allow Usage Access to track screen time and notifications to receive reminders. You can continue without either permission.")
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(onClick = {
@@ -92,24 +92,7 @@ fun PermissionsScreen(onPermissionsGranted: () -> Unit) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Button(onClick = {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = Uri.parse("package:${context.packageName}")
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-                context.startActivity(intent)
-            }
-        }) {
-            Text("3. Ignore Battery Optimizations")
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(
-            onClick = { onPermissionsGranted() },
-            enabled = usageGranted // enforce that usage access is granted
-        ) {
+        Button(onClick = { onPermissionsGranted() }) {
             Text("Continue")
         }
     }

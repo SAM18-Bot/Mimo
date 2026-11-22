@@ -24,6 +24,15 @@ interface DailyStatsDao {
         insertRaw(stats)
     }
 
+    @Insert
+    suspend fun enqueueUsage(usage: PendingUsage)
+
+    @Query("SELECT * FROM pending_usage ORDER BY date, id")
+    suspend fun pendingUsage(): List<PendingUsage>
+
+    @Query("DELETE FROM pending_usage WHERE id = :id")
+    suspend fun removeUsage(id: String)
+
     @Query("SELECT * FROM daily_stats WHERE is_synced = 0")
     suspend fun getUnsynced(): List<DailyStatsEntity>
 

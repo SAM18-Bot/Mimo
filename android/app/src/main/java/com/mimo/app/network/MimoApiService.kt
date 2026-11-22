@@ -2,6 +2,7 @@ package com.mimo.app.network
 
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.PATCH
 import retrofit2.http.Path
@@ -10,6 +11,9 @@ import retrofit2.http.Query
 interface MimoApiService {
     @POST("/auth/login")
     suspend fun login(@Body body: LoginRequest): AuthResponse
+
+    @POST("/auth/logout")
+    suspend fun logout(@Header("Authorization") authorization: String): Map<String, Any>
 
     @POST("/auth/register")
     suspend fun register(@Body body: RegisterRequest): AuthResponse
@@ -45,13 +49,16 @@ interface MimoApiService {
     suspend fun getScreenBreakdown(@Query("target_date") targetDate: String? = null): ScreenBreakdown
 
     @POST("/screen/mock")
-    suspend fun syncMockScreen(@Body body: MockWindowEvent): Map<String, Any>
+    suspend fun syncMockScreen(
+        @Body body: MockWindowEvent,
+        @Header("Authorization") authorization: String? = null,
+    ): Map<String, Any>
 
     @POST("/sync/push")
-    suspend fun pushSync(@Body payload: SyncPayload): Map<String, Any>
+    suspend fun pushSync(@Body payload: SyncPayload, @Header("Authorization") authorization: String): Map<String, Any>
 
     @GET("/sync/pull")
-    suspend fun pullSync(): SyncPayload
+    suspend fun pullSync(@Header("Authorization") authorization: String): SyncPayload
 
     @GET("/todos")
     suspend fun getTodos(): List<Todo>

@@ -1,3 +1,4 @@
+import json
 from datetime import date
 from unittest.mock import MagicMock, patch
 
@@ -24,7 +25,7 @@ def test_run_eod_report(client, db_session):
     # Check DB
     summary = db_session.query(DailySummary).first()
     assert summary is not None
-    assert summary.ai_report_text == str(mock_ai_response)
+    assert json.loads(summary.ai_report_text) == mock_ai_response
     
     # Check callbacks
     speak_mock.assert_called()

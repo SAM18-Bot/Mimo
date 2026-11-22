@@ -1,7 +1,8 @@
-from datetime import date
+from datetime import date, datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.orm import Session
 
 from api.routes_auth import current_user
@@ -15,6 +16,7 @@ router = APIRouter(prefix="/screen", tags=["screen"])
 
 class SessionOut(BaseModel):
     id:           int
+    device:       str
     app_name:     str
     window_title: str | None
     category:     str | None
@@ -29,6 +31,7 @@ class DailyBreakdown(BaseModel):
     distracting_min: int
     neutral_min:     int
     total_min:       int
+    device_minutes:  dict[str, int]
     top_productive:  list[dict]
     top_distracting: list[dict]
 
@@ -36,7 +39,7 @@ class DailyBreakdown(BaseModel):
 class MockWindowEvent(BaseModel):
     app:      str
     title:    str = ""
-    category: str = ""   # leave blank to auto-detect
+    category: Literal["", "productive", "distracting", "neutral"] = ""
 
 
 # ── endpoints ─────────────────────────────────────────────────────────────
@@ -83,7 +86,12 @@ def daily_breakdown(
             key=lambda x: x["minutes"], reverse=True,
         )[:n]
 
+    device_seconds = {}
+    for session in sessions:
+        device_seconds[session.device] = device_seconds.get(session.device, 0) + (session.duration_s or 0)
+
     return {
+        "device_minutes": {device: seconds // 60 for device, seconds in device_seconds.items()},
         "productive_min":  prod_s // 60,
         "distracting_min": dist_s // 60,
         "neutral_min":     neut_s // 60,
@@ -96,11 +104,18 @@ def daily_breakdown(
 @router.get("/live")
 def live_status(user: User = Depends(current_user)):
     """Returns the most recently tracked app (REST fallback for dashboard)."""
-    from modules.screen_tracker.categorizer import categorize_app
-    from modules.screen_tracker.tracker import get_active_window
-    app, title = get_active_window()
-    cat = categorize_app(app, title)
-    return {"app": app, "title": title[:80], "category": cat}
+    from db.database import get_db_ctx
+
+    with get_db_ctx() as db:
+        latest = db.query(ScreenSession).filter(
+            ScreenSession.user_id == user.id, ScreenSession.ended_at.is_not(None)
+        ).order_by(ScreenSession.started_at.desc()).first()
+        if latest is None:
+            return {"app": "Unknown", "title": "", "category": "neutral"}
+        return {
+            "app": latest.app_name, "title": (latest.window_title or "")[:80],
+            "category": latest.category or "neutral",
+        }
 
 
 @router.post("/mock")
@@ -120,6 +135,7 @@ def mock_window_change(payload: MockWindowEvent, user: User = Depends(current_us
     # No fake session insertion here anymore! Android uses /sync/push for stats.
 
     event = {
+        "user_id":  user.id,
         "type":     "window_change",
         "app":      payload.app,
         "title":    payload.title,
@@ -132,33 +148,48 @@ def mock_window_change(payload: MockWindowEvent, user: User = Depends(current_us
     try:
         from schedulers.background_tasks import roast_engine
         if roast_engine:
-            roast_engine.on_window_change(payload.app, payload.title, cat)
+            roast_engine.on_window_change(payload.app, payload.title, cat, user_id=user.id)
     except Exception:
         pass
 
-    return {"ok": True, "app": payload.app, "category": cat}
+    from modules.schedule.manager import active_study_block
+    return {"ok": True, "app": payload.app, "category": cat,
+            "study_block_active": cat == "distracting" and active_study_block(db, user.id)}
 
 class StitchedSession(BaseModel):
-    app_name: str
-    window_title: str
-    category: str
-    started_at: str
-    ended_at: str | None = None
-    duration_s: int
-    session_date: str
+    app_name: str = Field(min_length=1, max_length=200)
+    window_title: str = Field(max_length=500)
+    category: Literal["productive", "distracting", "neutral"]
+    started_at: datetime
+    ended_at: datetime | None = None
+    duration_s: int = Field(ge=0, le=86400)
+    session_date: date
+
+    @model_validator(mode="after")
+    def validate_session(self):
+        if self.session_date != self.started_at.date():
+            raise ValueError("Session date must match its start date")
+        if self.ended_at is not None:
+            try:
+                if self.ended_at < self.started_at:
+                    raise ValueError("Session end precedes its start")
+            except TypeError as exc:
+                raise ValueError("Session timestamps must use consistent timezone offsets") from exc
+        return self
+
 
 @router.post("/session")
 def save_session(payload: StitchedSession, user: User = Depends(current_user), db: Session = Depends(get_db)):
-    from datetime import date, datetime
     db.add(ScreenSession(
         user_id      = user.id,
+        device       = "desktop",
         app_name     = payload.app_name,
         window_title = payload.window_title,
         category     = payload.category,
-        started_at   = datetime.fromisoformat(payload.started_at),
-        ended_at     = datetime.fromisoformat(payload.ended_at) if payload.ended_at else None,
+        started_at   = payload.started_at,
+        ended_at     = payload.ended_at,
         duration_s   = payload.duration_s,
-        session_date = date.fromisoformat(payload.session_date),
+        session_date = payload.session_date,
     ))
     db.commit()
     return {"ok": True}

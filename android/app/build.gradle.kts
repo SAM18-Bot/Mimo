@@ -24,7 +24,7 @@ android {
     signingConfigs {
         create("release") {
             // Read from GitHub Actions Secrets or environment variables
-            storeFile = file("release.keystore")
+            storeFile = file(System.getenv("MIMO_KEYSTORE_PATH") ?: "release.keystore")
             storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
             keyAlias = System.getenv("KEY_ALIAS") ?: ""
             keyPassword = System.getenv("KEY_PASSWORD") ?: ""
@@ -43,8 +43,8 @@ android {
     }
 
     lint {
-        checkReleaseBuilds = false
-        abortOnError = false
+        checkReleaseBuilds = true
+        abortOnError = true
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8

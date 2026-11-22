@@ -91,7 +91,7 @@ print('Icons generated in desktop/assets/')
 echo ""
 if [ ! -f ".env" ]; then
     cp .env.example .env
-    warn ".env created from template. Edit it and add your OPENAI_API_KEY."
+    warn ".env created from template. Edit it and add your GEMINI_API_KEY."
 else
     ok ".env already exists"
 fi

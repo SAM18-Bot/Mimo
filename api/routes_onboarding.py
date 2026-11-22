@@ -15,8 +15,9 @@ class OnboardingRequest(BaseModel):
     course: str = Field(..., min_length=1, max_length=120)
     age: int = Field(..., ge=5, le=120)
     education_level: Literal["high_school", "undergraduate", "graduate", "other"]
-    ai_engine: Literal["gemini", "openai"]
-    api_key: str | None = None
+    timezone: str = Field(default="local", max_length=80)
+    ai_engine: Literal["gemini"]
+    api_key: str | None = Field(default=None, max_length=100)
     wake_time: str = Field(default="07:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     sleep_time: str = Field(default="23:00", pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
     study_goal_minutes: int = Field(default=120, ge=15, le=1440)
@@ -38,7 +39,6 @@ def complete_onboarding(data: OnboardingRequest, user: User = Depends(current_us
         user.course = data.course
         user.age = data.age
         user.education_level = data.education_level
-        user.ai_engine = data.ai_engine
         if data.api_key:
             user.api_key = data.api_key.strip()
         user.onboarding_completed = True
@@ -48,6 +48,7 @@ def complete_onboarding(data: OnboardingRequest, user: User = Depends(current_us
         )
         profile = ScheduleProfile(
             user_id=user.id,
+            timezone=data.timezone,
             wake_time=data.wake_time,
             sleep_time=data.sleep_time,
             study_goal_minutes=data.study_goal_minutes,

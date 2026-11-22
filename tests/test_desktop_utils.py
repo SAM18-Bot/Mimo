@@ -233,7 +233,7 @@ class TestSettingsManager:
     def test_input_type_text_for_urls(self):
         from desktop.settings_manager import _infer_input_type
         assert _infer_input_type("ESP32_STREAM_URL") == "text"
-        assert _infer_input_type("DATABASE_URL")     == "text"
+        assert _infer_input_type("DATABASE_URL")     == "password"
 
     def test_every_default_key_has_a_label(self):
         from desktop.settings_manager import DEFAULTS, LABELS

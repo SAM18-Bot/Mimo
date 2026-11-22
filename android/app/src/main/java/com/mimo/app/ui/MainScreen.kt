@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mimo.app.ui.tabs.HomeScreen
@@ -19,9 +20,20 @@ enum class TabScreen { Home, Schedule, Insights, Settings }
 
 @Composable
 fun MainScreen(viewModel: DashboardViewModel = viewModel()) {
-    var currentTab by remember { mutableStateOf(TabScreen.Home) }
+    var currentTab by rememberSaveable { mutableStateOf(TabScreen.Home) }
+    var suggestedSubject by rememberSaveable { mutableStateOf<String?>(null) }
+    val tabState = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+    val snackbar = remember { SnackbarHostState() }
+    val error by viewModel.error.collectAsState()
+    LaunchedEffect(error) {
+        error?.let {
+            snackbar.showSnackbar(it)
+            viewModel.dismissError(it)
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
@@ -52,11 +64,16 @@ fun MainScreen(viewModel: DashboardViewModel = viewModel()) {
         }
     ) { paddingValues ->
         val modifier = Modifier.padding(paddingValues)
-        when (currentTab) {
+        tabState.SaveableStateProvider(currentTab.name) {
+          when (currentTab) {
             TabScreen.Home -> HomeScreen(viewModel, modifier)
-            TabScreen.Schedule -> ScheduleScreen(viewModel, modifier)
-            TabScreen.Insights -> InsightsScreen(viewModel, modifier)
+            TabScreen.Schedule -> ScheduleScreen(viewModel, modifier, suggestedSubject) { suggestedSubject = null }
+            TabScreen.Insights -> InsightsScreen(viewModel, modifier, onTrackSubject = { subject ->
+                suggestedSubject = subject
+                currentTab = TabScreen.Schedule
+            })
             TabScreen.Settings -> SettingsScreen(viewModel, modifier)
+          }
         }
     }
 }

@@ -111,12 +111,9 @@ class ReminderLoop:
     # ── helpers ───────────────────────────────────────────────────────────
 
     def _get_pending(self, db) -> list[Reminder]:
-        return (
-            db.query(Reminder)
-            .filter(Reminder.remind_at <= datetime.now())
-            .filter(Reminder.delivered == False)
-            .all()
-        )
+        from modules.assignments.manager import get_pending_reminders
+
+        return get_pending_reminders(db)
 
     def _get_silently_overdue(self, db) -> list[Assignment]:
         """Overdue assignments that haven't been reminded in the last 24h."""
@@ -145,6 +142,9 @@ class ReminderLoop:
             return reminder.message or "Deadline reminder."
 
         days = (a.due_date - date.today()).days
+
+        if a.due_time and reminder.message and days >= 0:
+            return reminder.message
 
         if days < 0:
             return _overdue_msg(a)
@@ -208,38 +208,7 @@ def _overdue_msg(a: Assignment) -> str:
 
 
 def schedule_reminders_for(assignment: Assignment, db) -> int:
-    """
-    Create Reminder rows for an assignment at 3d, 1d, and day-of.
-    Returns the number of reminders created.
-    Skips dates already in the past.
-    """
-    due = datetime.combine(assignment.due_date, datetime.min.time())
-    schedule = [
-        (due - timedelta(days=3), "gentle"),
-        (due - timedelta(days=1), "urgent"),
-        (due,                      "critical"),
-    ]
+    """Add the daily reminders without committing the caller's transaction."""
+    from modules.assignments.manager import _schedule_reminders
 
-    count = 0
-    for remind_at, level in schedule:
-        if remind_at <= datetime.now():
-            continue
-        days = (assignment.due_date - date.today()).days
-        msg  = _build_message(assignment.title, days, level)
-        db.add(Reminder(
-            assignment_id = assignment.id,
-            remind_at     = remind_at,
-            delivered     = False,
-            message       = msg,
-        ))
-        count += 1
-
-    return count
-
-
-def _build_message(title: str, days_until: int, level: str) -> str:
-    if level == "gentle":
-        return f"Heads up: '{title}' is due in {days_until} days. Start planning."
-    if level == "urgent":
-        return f"'{title}' is due tomorrow. Start if you haven't already."
-    return f"TODAY is the deadline for '{title}'. Submit it."
+    return _schedule_reminders(db, assignment)

@@ -95,9 +95,15 @@ hidden_imports = [
 ]
 
 # ── Data files to bundle ───────────────────────────────────────────────────
-datas = [
+from PyInstaller.utils.hooks import collect_all
+
+mp_data, mp_binaries, mp_imports = collect_all("mediapipe")
+hidden_imports += mp_imports
+datas = mp_data + [
+    (os.path.join(ROOT, "modules", "cv_pipeline", "models"), "modules/cv_pipeline/models"),
     # Web dashboard and settings page
     (os.path.join(ROOT, "static"),         "static"),
+    (os.path.join(ROOT, "db", "migrations"), "db/migrations"),
     # Desktop assets (tray icons)
     (os.path.join(ROOT, "desktop", "assets"), os.path.join("desktop", "assets")),
     # .env example (users copy this to .env)
@@ -110,7 +116,7 @@ datas = [
 a = Analysis(
     [os.path.join(ROOT, "desktop", "main_desktop.py")],
     pathex            = [ROOT],
-    binaries          = [],
+    binaries          = mp_binaries,
     datas             = datas,
     hiddenimports     = hidden_imports,
     hookspath         = [],

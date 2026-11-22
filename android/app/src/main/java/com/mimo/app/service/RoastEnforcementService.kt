@@ -24,6 +24,8 @@ class RoastEnforcementService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val webSocketManager = WebSocketManager()
+    private var sessionToken: String? = null
+    private var eventJob: kotlinx.coroutines.Job? = null
     private val CHANNEL_ID_FG = "mimo_fg_service"
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -46,10 +48,21 @@ class RoastEnforcementService : Service() {
             startForeground(1001, notification)
         }
 
-        webSocketManager.connect(TokenManager.getToken(this))
+        val token = TokenManager.getToken(this)
+        if (token == null || !TokenManager.isStudent(this)) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        if (sessionToken == token && eventJob?.isActive == true) return START_STICKY
 
-        serviceScope.launch {
+        sessionToken = token
+        eventJob?.cancel()
+        webSocketManager.connect(token)
+        eventJob = serviceScope.launch {
             webSocketManager.events.collectLatest { event ->
+                if (TokenManager.getToken(this@RoastEnforcementService) != token) return@collectLatest
+                if (event.type == "eod_report") showCoachNotification("Your daily report is ready in Insights.")
+                if (event.type == "morning_qa") showReminderNotification("Your daily check-in is ready in Insights.")
                 if (event.type == "roast" && event.message != null) {
                     showRoastNotification(event.message)
                 }
@@ -74,6 +87,7 @@ class RoastEnforcementService : Service() {
             .setContentTitle("Mimo is watching \ud83d\udc40")
             .setContentText(message)
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .build()
@@ -86,6 +100,7 @@ class RoastEnforcementService : Service() {
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle("Mimo Reminder")
             .setContentText(message)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))

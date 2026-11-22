@@ -124,7 +124,7 @@ def create_from_onboarding(payload: ScheduleOnboardingIn, user: User = Depends(c
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     blocks = get_weekly_schedule(db, user_id=user.id)
-    push_event({"type": "schedule_updated", "profile_id": profile.id, "blocks": len(blocks)})
+    push_event({"user_id": user.id, "type": "schedule_updated", "profile_id": profile.id, "blocks": len(blocks)})
     return {"profile": profile, "blocks": blocks}
 
 
@@ -156,7 +156,7 @@ def set_block_status(block_id: int, payload: BlockStatusIn, user: User = Depends
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if not block:
         raise HTTPException(status_code=404, detail="Schedule block not found")
-    push_event({"type": "schedule_block_updated", "id": block.id, "status": block.status})
+    push_event({"user_id": user.id, "type": "schedule_block_updated", "id": block.id, "status": block.status})
     return block
 
 
@@ -166,6 +166,7 @@ def reschedule(target_date: date | None = None, user: User = Depends(current_use
     new_blocks = reschedule_missed_blocks(db, user_id=user.id, target_date=target_date)
     if new_blocks:
         push_event({
+            "user_id": user.id,
             "type": "schedule_rescheduled",
             "count": len(new_blocks),
             "blocks": [b.id for b in new_blocks],
@@ -186,6 +187,7 @@ def boost(
     )
     if boosted:
         push_event({
+            "user_id": user.id,
             "type": "schedule_boosted",
             "count": len(boosted),
             "subjects": list({b.subject for b in boosted if b.subject}),
@@ -200,17 +202,5 @@ def suggestions(target_date: date | None = None, user: User = Depends(current_us
 
 @router.get("/study-blocks/active")
 def is_study_block_active(user: User = Depends(current_user), db: Session = Depends(get_db)):
-    from datetime import datetime
-
-    from db.models import ScheduleBlock
-    now_time = datetime.now().strftime("%H:%M")
-    today_day = datetime.now().weekday()
-    
-    block = db.query(ScheduleBlock).filter(
-        ScheduleBlock.profile.has(user_id=user.id),
-        ScheduleBlock.day_of_week == today_day,
-        ScheduleBlock.start_time <= now_time,
-        ScheduleBlock.end_time >= now_time,
-        ScheduleBlock.kind == "study"
-    ).first()
-    return {"active": block is not None}
+    from modules.schedule.manager import active_study_block
+    return {"active": active_study_block(db, user.id)}

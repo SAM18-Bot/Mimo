@@ -12,7 +12,9 @@ import com.mimo.app.data.MimoDatabase
 import com.mimo.app.data.toDomain
 import com.mimo.app.data.toEntity
 import com.mimo.app.network.*
+import com.mimo.app.sync.uploadAssignment
 import com.mimo.app.data.TokenManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -30,9 +32,9 @@ class DashboardViewModel @JvmOverloads constructor(
     private val dailyStatsDao: DailyStatsDao = MimoDatabase.getDatabase(application).dailyStatsDao(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val dateProvider: () -> String = {
-        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())
     },
-    private val webSocketManager: WebSocketManager? = null,
+    private val webSocketManager: WebSocketManager? = WebSocketManager(),
     apiService: MimoApiService? = null
 ) : AndroidViewModel(application) {
 
@@ -81,8 +83,9 @@ class DashboardViewModel @JvmOverloads constructor(
     val screenBreakdown: StateFlow<ScreenBreakdown> = _screenBreakdown.asStateFlow()
 
 
-    private val _studyRecommendations = MutableStateFlow<StudyRecommendationsResponse?>(null)
-    val studyRecommendations: StateFlow<StudyRecommendationsResponse?> = _studyRecommendations.asStateFlow()
+    val liveEvents: Flow<WsEvent> = webSocketManager?.events ?: emptyFlow()
+    private val _liveStats = MutableStateFlow<DailyStats?>(null)
+    val liveStats: StateFlow<DailyStats?> = _liveStats.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -92,6 +95,10 @@ class DashboardViewModel @JvmOverloads constructor(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    fun dismissError(message: String) {
+        _error.compareAndSet(message, null)
+    }
 
     private val _wsConnectionState = MutableStateFlow(WebSocketManager.ConnectionState.DISCONNECTED)
     val wsConnectionState: StateFlow<WebSocketManager.ConnectionState> = _wsConnectionState.asStateFlow()
@@ -112,12 +119,14 @@ class DashboardViewModel @JvmOverloads constructor(
                 ws.events.collect { event ->
                     when (event.type) {
                         "stats_update" -> event.stats?.let { remoteStats ->
+                            _liveStats.value = remoteStats
                             dailyStatsDao.insertOrUpdate(remoteStats.toEntity(isSynced = true))
                         }
                         "tasks_list" -> event.tasks?.let { remoteTasks ->
                             assignmentDao.insertAll(remoteTasks.map { it.toEntity(isSynced = true) })
                         }
-                        "assignment_done", "assignment_added", "assignment_updated", "schedule_updated" -> refresh()
+                        "assignment_done", "assignment_added", "assignment_updated", "assignment_deleted", "schedule_updated" -> refresh()
+                        "todo_added", "todo_updated", "todo_deleted" -> fetchTodos()
                         "voice_response", "study_advice" -> event.message?.let {
                             val newMsg = ChatMessage(sender = "ai", text = it, created_at = "")
                             _chatHistory.value = _chatHistory.value + newMsg
@@ -140,6 +149,7 @@ class DashboardViewModel @JvmOverloads constructor(
             try {
                 try {
                     val remoteStats = apiService.getStats()
+                    _liveStats.value = remoteStats
                     dailyStatsDao.insertOrUpdate(remoteStats.toEntity(isSynced = true))
                 } catch (e: Exception) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
@@ -147,8 +157,12 @@ class DashboardViewModel @JvmOverloads constructor(
                 }
 
                 try {
+                    for (pending in assignmentDao.getUnsynced()) {
+                        uploadAssignment(assignmentDao, apiService, pending)
+                    }
+                    val knownIds = assignmentDao.syncedIds()
                     val remoteAssignments = apiService.getAssignments()
-                    assignmentDao.insertAll(remoteAssignments.map { it.toEntity(isSynced = true) })
+                    assignmentDao.applyFullList(knownIds, remoteAssignments.map { it.toEntity(isSynced = true) })
                 } catch (e: Exception) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
                     // Network exception on assignments - proceed offline
@@ -209,26 +223,21 @@ class DashboardViewModel @JvmOverloads constructor(
                     title = title,
                     subject = subject,
                     dueDate = dueDate,
+                    dueTime = dueTime,
                     priority = priority,
                     status = "pending",
                     notes = notes,
                     isSynced = false
                 )
-                assignmentDao.insert(tempEntity)
+                val localId = assignmentDao.insertPending(tempEntity)
 
-                // Hit API
-                apiService.createAssignment(
-                    AssignmentCreate(
-                        title = title,
-                        subject = subject,
-                        due_date = dueDate, due_time = dueTime,
-                        priority = priority,
-                        notes = notes
-                    )
-                )
+                assignmentDao.getById(localId)?.let { uploadAssignment(assignmentDao, apiService, it) }
                 refresh()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (e: Exception) {
-                _error.value = "Failed to create assignment: ${e.localizedMessage}"
+                _error.value = if (e is java.io.IOException) "Assignment saved on this device. Waiting to sync."
+                    else "Assignment sync failed: ${e.localizedMessage}"
             }
         }
     }
@@ -270,7 +279,16 @@ class DashboardViewModel @JvmOverloads constructor(
     fun markAssignmentDone(id: Int) {
         viewModelScope.launch(ioDispatcher) {
             assignmentDao.markDone(id)
-            runCatching { apiService.markAssignmentDone(id) }
+            if (id > 0) {
+                try {
+                    assignmentDao.getById(id)?.let { uploadAssignment(assignmentDao, apiService, it) }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    _error.value = if (error is java.io.IOException) "Marked done on this device. Waiting to sync."
+                        else "Could not update the assignment on the server"
+                }
+            }
         }
     }
 
@@ -306,11 +324,17 @@ class DashboardViewModel @JvmOverloads constructor(
                 val newMsg = ChatMessage(sender = "user", text = text, created_at = "")
                 _chatHistory.value = _chatHistory.value + newMsg
                 
-                // Hitting the endpoint with speak_response=false since Android has no TTS integrated yet
-                apiService.sendVoiceCommand(VoiceCommandRequest(text = text, speak_response = false))
-                // Note: The actual AI response comes back via WebSocket `voice_response` event!
+                val result = apiService.sendVoiceCommand(VoiceCommandRequest(text = text, speak_response = false))
+                val message = result["ai_response"] as? String
+                if (message != null) {
+                    _chatHistory.value = _chatHistory.value + ChatMessage(sender = "ai", text = message, created_at = "")
+                }
+                onResponse(message)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (e: Exception) {
                 _error.value = "Voice command failed: ${e.localizedMessage}"
+                onResponse(null)
             }
         }
     }

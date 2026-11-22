@@ -1,5 +1,5 @@
 """
-Presence monitor — reads frames from frame_slot, uses Mediapipe FaceDetection
+Presence monitor — reads frames from frame_slot, uses MediaPipe Face Landmarker
 to determine:
   - present   : face visible
   - absent    : no face for ABSENCE_THRESHOLD seconds
@@ -16,7 +16,6 @@ from collections.abc import Callable
 from datetime import datetime
 
 import cv2
-import mediapipe as mp
 import numpy as np
 
 from db.database import get_db_ctx
@@ -50,10 +49,7 @@ class PresenceMonitor:
         self._last_seen   = time.time()
         self._away_since: float | None = None
 
-        # Mediapipe face detector (lightweight model 0)
-        self._detector = mp.solutions.face_detection.FaceDetection(
-            model_selection=0, min_detection_confidence=0.5
-        )
+        self._detector = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
         # Advanced gaze detector (uses FaceMesh + iris when available)
         self._gaze_detector = None
         if _GazeDetector is not None:
@@ -75,7 +71,8 @@ class PresenceMonitor:
         self._running = False
         if self._thread:
             self._thread.join(timeout=3.0)
-        self._detector.close()
+        if self._gaze_detector is not None:
+            self._gaze_detector.close()
         log.info("Presence monitor stopped.")
 
     def _loop(self):
@@ -104,13 +101,12 @@ class PresenceMonitor:
             return False, False
 
         # ── fallback: basic face detection with center-x heuristic ────
-        result = self._detector.process(rgb)
-        if not result.detections:
+        gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
+        boxes = self._detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+        if not len(boxes):
             return False, False
-
-        det    = result.detections[0]
-        bbox   = det.location_data.relative_bounding_box
-        face_cx = bbox.xmin + bbox.width / 2
+        x, _, width, _ = max(boxes, key=lambda box: box[2] * box[3])
+        face_cx = (x + width / 2) / frame.shape[1]
         looking_away = not (0.2 < face_cx < 0.8)
         return True, looking_away
 

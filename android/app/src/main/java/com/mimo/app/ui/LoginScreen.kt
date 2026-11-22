@@ -1,7 +1,17 @@
 package com.mimo.app.ui
 
 import android.app.Activity
-import android.util.Log
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.mimo.app.network.AccountApi
+import com.mimo.app.network.GoogleLogin
+import com.mimo.app.network.AuthResponse
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import kotlinx.coroutines.CancellationException
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -30,12 +40,30 @@ fun LoginScreen(onLoginSuccess: (Boolean) -> Unit) {
     var password by remember { mutableStateOf("") }
     var displayName by remember { mutableStateOf("") }
 
+    var role by remember { mutableStateOf("student") }
+    var origin by remember { mutableStateOf(ApiClient.baseUrl) }
+    var clientId by remember(origin) { mutableStateOf("") }
+    val account = remember(origin) { ApiClient.createService(AccountApi::class.java) }
+    LaunchedEffect(origin) {
+        try {
+            clientId = account.googleClientId().client_id.orEmpty()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            clientId = ""
+        }
+    }
+    fun complete(response: AuthResponse) {
+        TokenManager.saveToken(context, response.access_token)
+        TokenManager.setOnboardingCompleted(context, response.user.onboarding_completed)
+        onLoginSuccess(response.user.onboarding_completed)
+    }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxSize().verticalScroll(rememberScrollState())
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -75,6 +103,12 @@ fun LoginScreen(onLoginSuccess: (Boolean) -> Unit) {
         }
 
         if (isRegisterMode) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("student", "parent").forEach { value ->
+                    FilterChip(selected = value == role, onClick = { role = value },
+                        label = { Text(value.replaceFirstChar(Char::uppercase)) })
+                }
+            }
             OutlinedTextField(
                 value = displayName,
                 onValueChange = { displayName = it },
@@ -133,7 +167,7 @@ fun LoginScreen(onLoginSuccess: (Boolean) -> Unit) {
                                     RegisterRequest(
                                         email = email.trim(),
                                         password = password,
-                                        role = "student",
+                                        role = role,
                                         display_name = displayName.ifBlank { null }
                                     )
                                 )
@@ -146,11 +180,10 @@ fun LoginScreen(onLoginSuccess: (Boolean) -> Unit) {
                                 )
                             }
 
-                            TokenManager.saveToken(context, authResponse.access_token)
-                            TokenManager.setOnboardingCompleted(context, authResponse.user.onboarding_completed)
-                            onLoginSuccess(authResponse.user.onboarding_completed)
+                            complete(authResponse)
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
-                            Log.e("LoginScreen", "Auth error", e)
                             errorMessage = e.localizedMessage ?: "Authentication failed. Check credentials."
                         } finally {
                             isLoading = false
@@ -166,6 +199,28 @@ fun LoginScreen(onLoginSuccess: (Boolean) -> Unit) {
             
         }
 
+        if (!isRegisterMode && clientId.isNotBlank()) {
+            OutlinedButton(enabled = !isLoading, onClick = {
+                coroutineScope.launch {
+                    isLoading = true
+                    errorMessage = null
+                    try {
+                        val option = GetSignInWithGoogleOption.Builder(clientId).build()
+                        val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
+                        val credential = CredentialManager.create(context).getCredential(context, request).credential
+                        val googleToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
+                        complete(account.googleLogin(GoogleLogin(googleToken)))
+                    } catch (_: GetCredentialCancellationException) {
+                        // The chooser was dismissed.
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        errorMessage = "Google sign-in could not be completed. Try again or use email."
+                    } finally { isLoading = false }
+                }
+            }) { Text("Sign in with Google") }
+        }
+        ServerSetting(enabled = !isLoading, onChanged = { origin = ApiClient.baseUrl })
         errorMessage?.let {
             Spacer(modifier = Modifier.height(16.dp))
             Text(

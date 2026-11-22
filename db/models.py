@@ -22,6 +22,7 @@ class ScreenSession(Base):
 
     id           = Column(Integer, primary_key=True)
     user_id      = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    device       = Column(String(12), nullable=False, default="unknown", server_default="unknown")
     app_name     = Column(String(200), nullable=False)
     window_title = Column(String(500))
     category     = Column(String(20))          # productive | neutral | distracting
@@ -47,9 +48,11 @@ class CVEvent(Base):
 
 class Assignment(Base):
     __tablename__ = "assignments"
+    __table_args__ = (Index("ix_assignments_user_request", "user_id", "request_id", unique=True),)
 
     id         = Column(Integer, primary_key=True)
     user_id    = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    request_id = Column(String(36))
     title      = Column(String(300), nullable=False)
     subject    = Column(String(100))
     due_date   = Column(Date, nullable=False, index=True)
@@ -193,7 +196,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=True) # Now optional because of Google Auth
     role          = Column(String(20), nullable=False, default="student", server_default="student")  # student | parent
     display_name  = Column(String(120))
-    ai_engine     = Column(String(20), nullable=False, default="openai", server_default="openai")  # openai | gemini
+    ai_engine     = Column(String(20), nullable=False, default="gemini", server_default="gemini")
     _api_key_encrypted = Column("api_key", String(255))
     
     @property
@@ -201,7 +204,8 @@ class User(Base):
         from cryptography.fernet import Fernet, InvalidToken
 
         import config
-        if not self._api_key_encrypted: return None
+        if self.ai_engine != "gemini" or not self._api_key_encrypted:
+            return None
         if not config.SECRET_KEY or len(config.SECRET_KEY) < 43:
             raise ValueError("SECRET_KEY must be configured with a valid 32-byte Fernet key.")
         try:
@@ -222,6 +226,7 @@ class User(Base):
             raise ValueError("SECRET_KEY must be configured with a valid 32-byte Fernet key to store personal API keys safely.")
         f = Fernet(config.SECRET_KEY.encode())
         self._api_key_encrypted = f.encrypt(value.encode()).decode()
+        self.ai_engine = "gemini"
     
     # Onboarding fields
     course        = Column(String(120))

@@ -35,15 +35,18 @@ class FakeMimoApiService(
         return AuthResponse(access_token = "fake_token", token_type = "bearer")
     }
 
-    override suspend fun completeOnboarding(body: OnboardingRequest): UserOut {
-        if (shouldThrowError) throw IOException("Network connection offline")
-        return UserOut(id = 1, email = "test@example.com", onboarding_completed = true)
-    }
+    override suspend fun logout(authorization: String): Map<String, Any> = mapOf("status" to "logged_out")
 
-    override suspend fun authenticateGoogle(body: Map<String, String>): Map<String, Any> {
-        if (shouldThrowError) throw IOException("Network connection offline")
-        return mapOf("token" to "fake_token", "user" to mapOf("id" to "1"))
-    }
+    override suspend fun completeOnboarding(body: OnboardingRequest): OnboardingResponse =
+        OnboardingResponse(onboarding_completed = true)
+
+    override suspend fun createParentInvite(): ParentInvite = ParentInvite()
+
+    override suspend fun getTodos(): List<Todo> = emptyList()
+
+    override suspend fun createTodo(payload: TodoCreate): Todo = throw UnsupportedOperationException()
+
+    override suspend fun markTodoDone(id: Int, payload: TodoUpdate): Todo = throw UnsupportedOperationException()
 
     override suspend fun getStats(targetDate: String?): DailyStats {
         if (shouldThrowError) throw IOException("Network connection offline")
@@ -93,17 +96,17 @@ class FakeMimoApiService(
         return breakdownToReturn
     }
 
-    override suspend fun syncMockScreen(body: MockWindowEvent): Map<String, Any> {
+    override suspend fun syncMockScreen(body: MockWindowEvent, authorization: String?): Map<String, Any> {
         if (shouldThrowError) throw IOException("Network connection offline")
         return mapOf("status" to "ok")
     }
 
-    override suspend fun pushSync(payload: SyncPayload): Map<String, Any> {
+    override suspend fun pushSync(payload: SyncPayload, authorization: String): Map<String, Any> {
         if (shouldThrowError) throw IOException("Network connection offline")
         return mapOf("status" to "ok")
     }
 
-    override suspend fun pullSync(): SyncPayload {
+    override suspend fun pullSync(authorization: String): SyncPayload {
         if (shouldThrowError) throw IOException("Network connection offline")
         return SyncPayload(
             date = "2026-08-07",

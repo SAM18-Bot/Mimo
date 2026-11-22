@@ -70,7 +70,7 @@ fi
 if [ ! -f ".env" ]; then
   cp .env.example .env
   warn ".env created from template. EDIT IT NOW:"
-  warn "  1. Add your OPENAI_API_KEY"
+  warn "  1. Add your GEMINI_API_KEY"
   warn "  2. Set ESP32_STREAM_URL to your ESP32-CAM IP"
   echo ""
   info "Opening .env for editing (Ctrl+C to skip)..."

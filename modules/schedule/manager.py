@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy.orm import Session
 
@@ -718,3 +719,29 @@ def _format_time(total_minutes: int) -> str:
     hour = total_minutes // 60
     minute = total_minutes % 60
     return f"{hour:02d}:{minute:02d}"
+
+
+def schedule_zone(profile: ScheduleProfile | None) -> ZoneInfo | None:
+    if profile is None or not profile.timezone or profile.timezone == "local":
+        return None
+    try:
+        return ZoneInfo(profile.timezone)
+    except (ValueError, ZoneInfoNotFoundError):
+        return None
+
+
+def active_study_block(db: Session, user_id: int) -> bool:
+    profile = get_active_profile(db, user_id)
+    if profile is None:
+        return False
+    now = datetime.now(schedule_zone(profile))
+    now_time = now.strftime("%H:%M")
+    block = db.query(ScheduleBlock.id).filter(
+        ScheduleBlock.profile_id == profile.id,
+        ScheduleBlock.day_of_week == now.weekday(),
+        ScheduleBlock.start_time <= now_time,
+        ScheduleBlock.end_time > now_time,
+        ScheduleBlock.kind == "study",
+        ScheduleBlock.status == "planned",
+    ).first()
+    return block is not None

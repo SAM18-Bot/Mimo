@@ -5,7 +5,11 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
-import com.mimo.app.data.MimoDatabase
+import androidx.work.Constraints
+import androidx.work.NetworkType
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -18,9 +22,7 @@ import androidx.work.Configuration
 
 class MimoApplication : Application(), Configuration.Provider {
 
-    val database: MimoDatabase by lazy {
-        MimoDatabase.getDatabase(this)
-    }
+    val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
@@ -30,6 +32,8 @@ class MimoApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        com.mimo.app.network.ApiClient.restoreOrigin(this)
+        com.mimo.app.ui.Appearance.restore(this)
         com.mimo.app.data.TokenManager.init(this)
         createNotificationChannel()
         
@@ -37,10 +41,12 @@ class MimoApplication : Application(), Configuration.Provider {
 
         // Schedule periodic SyncWorker every 15 minutes (minimum allowed by WorkManager)
         runCatching {
-            val syncRequest = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES).build()
+            val syncRequest = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
+                .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+                .build()
             WorkManager.getInstance(this).enqueueUniquePeriodicWork(
                 "MimoSyncWorker",
-                ExistingPeriodicWorkPolicy.KEEP,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 syncRequest
             )
         }

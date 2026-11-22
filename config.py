@@ -1,4 +1,5 @@
 import os
+import secrets
 
 from dotenv import load_dotenv
 
@@ -12,15 +13,42 @@ GEMINI_API_KEY    = os.getenv("GEMINI_API_KEY", "")
 # ─────────────────────────────────────────
 # Auth & Security
 # ─────────────────────────────────────────
-JWT_SECRET_KEY     = os.getenv("JWT_SECRET_KEY", "dev-only-change-me")
+# A local single-process server can start without provisioning a shared key.
+# Keep the fallback stable across configuration reloads within that process.
+_DEVELOPMENT_JWT_SECRET = globals().get("_DEVELOPMENT_JWT_SECRET") or secrets.token_urlsafe(48)
+PRODUCTION = os.getenv("MIMO_ENV") == "production" or os.getenv("RENDER", "").lower() == "true"
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "").strip()
+if JWT_SECRET_KEY in {"", "dev-only-change-me", "change_me_in_prod", "change-me-to-a-random-string"}:
+    if PRODUCTION:
+        raise ValueError("Set a strong JWT_SECRET_KEY for production")
+    JWT_SECRET_KEY = _DEVELOPMENT_JWT_SECRET
 JWT_ALGORITHM      = "HS256"
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))
 SECRET_KEY         = os.getenv("SECRET_KEY", "")
 
 DATABASE_URL     = os.getenv("DATABASE_URL", "sqlite:///./mimo.db")
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = "postgresql://" + DATABASE_URL.removeprefix("postgres://")
+if DATABASE_URL.startswith("postgresql"):
+    from sqlalchemy.engine import make_url
+    _url = make_url(DATABASE_URL)
+    if (_url.host or "").endswith(".neon.tech"):
+        if _url.query.get("sslmode") not in {"require", "verify-ca", "verify-full"}:
+            DATABASE_URL = _url.update_query_dict({"sslmode": "require"}).render_as_string(hide_password=False)
+
+if PRODUCTION:
+    from cryptography.fernet import Fernet
+    if len(JWT_SECRET_KEY.encode()) < 32:
+        raise ValueError("JWT_SECRET_KEY must contain at least 32 bytes")
+    if not SECRET_KEY or SECRET_KEY == "A_FAKE_KEY_FOR_EXAMPLE_DONT_USE_IN_PROD_123=":
+        raise ValueError("Set a private Fernet SECRET_KEY for production")
+    Fernet(SECRET_KEY)
+
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 
 # ─────────────────────────────────────────
+ESP32_STREAM_URL = os.getenv("ESP32_STREAM_URL", "http://192.168.1.100:81/stream")
+ABSENCE_THRESHOLD = int(os.getenv("ABSENCE_THRESHOLD", "30"))
 SCREEN_POLL_INTERVAL  = 2     # seconds
 SESSION_GAP_THRESHOLD = 10    # seconds of same app before stitching into one session
 

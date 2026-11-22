@@ -15,45 +15,21 @@ You can run the entire backend + database on your own machine using Docker.
   - `[Mimo Root]/docker-compose.yml`
 - **Commands:**
   ```bash
-  # Ensure you are in the root directory
-  cd c:\Users\samee\projects\Mimo
-
-  # Build and start the containers in the background
+  # From the checkout, set SECRET_KEY and JWT_SECRET_KEY in .env.
   docker-compose up --build -d
   ```
 - **Result:** The backend is now live at `http://localhost:8000`.
 
 ### **Deploying with Neon (Database) + Render (Backend) - 100% FREE**
-If you don't have a credit card for Oracle, the best permanent free stack is to host the database on Neon (which never expires and requires no card) and the backend on Render.
+Use a persistent Neon database and a Docker web service connected to this repository.
+Set these variables under the Render service's Environment tab.
 
-#### Step A: Set up the Database (Neon)
-1. Go to [neon.tech](https://neon.tech/) and sign up (no credit card required).
-2. Create a new Postgres project.
-3. Once created, click on your Dashboard and copy the **Postgres Connection String** (it starts with `postgresql://`).
+- `DATABASE_URL` holds the Neon connection string. Mimo accepts the PostgreSQL URL schemes and requires TLS for Neon hosts.
+- `SECRET_KEY` holds the Fernet key used to encrypt personal API keys. Preserve the existing private key across deploys. For a new installation generate it once with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`.
+- `JWT_SECRET_KEY` holds a persistent random signing secret. Generate one with `python -c "import secrets; print(secrets.token_urlsafe(48))"`.
+- `GEMINI_API_KEY` enables live coaching, and `GOOGLE_CLIENT_ID` enables Google sign-in.
 
-#### Step B: Set up the Backend (Render)
-1. **Upload your code to GitHub:**
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git push -u origin main
-   ```
-2. **Deploy on Render (render.com):**
-   - Create a new **Web Service** and connect your GitHub repo.
-   - **Environment:** Docker
-   - **Build Command:** (Leave blank, Render detects the `Dockerfile` automatically)
-   - **Start Command:** (Leave blank)
-   - Add Environment Variables:
-     - `DATABASE_URL` = (Paste your Neon Postgres Connection String here)
-     - `OPENAI_API_KEY` = (Your OpenAI Key)
-     - `GEMINI_API_KEY` = (Your Gemini Key)
-     - `NO_HARDWARE` = `1`
-     - `NO_TRACKER` = `1`
-3. Click **Deploy**.
-
-> [!IMPORTANT]
-> Once deployed, Render will give you a public URL (e.g., `https://mimo-app.onrender.com`). You **MUST** use this URL when configuring your Desktop and Android apps!
+Leave Render's Docker start command empty and set the health check path to `/health`. The image runs Alembic before serving traffic. Take a database backup before the first upgrade. Startup recognizes the previous unversioned ORM schema. A schema mismatch stops the upgrade so the operator can reconcile a backup with revision 005. A cold service may take up to a minute to answer the first request.
 
 ---
 
@@ -69,14 +45,9 @@ The desktop app runs locally on your PC. It tracks your screen, forcefully kills
   # Ensure you are in the root directory
   cd c:\Users\samee\projects\Mimo
 
-  # If deploying to the cloud, set the cloud URL first so the .exe knows where to send data
-  # (If testing locally, you can skip this step)
-  set MIMO_CLOUD_URL=https://mimo-app.onrender.com
-
-  # Build the .exe
   python desktop/build.py
   ```
-- **Result:** You will find `MimoDesktopTracker.exe` inside the `dist/` folder. You can email this `.exe` to anyone or put it on a USB drive. When they run it, it will silently track them and sync data to your cloud URL!
+- The Windows workflow uploads the complete `dist/Mimo/` directory. Extract the artifact and run `Mimo.exe` beside its bundled libraries. Set `MIMO_CLOUD_URL` on the client to override the default server at runtime.
 
 ---
 
@@ -99,11 +70,7 @@ The mobile app serves as a companion dashboard and pushes mobile tracking events
   `c:\Users\samee\projects\Mimo\android\app\build\outputs\apk\debug\app-debug.apk`
 - **Installation:** You can transfer this `.apk` file to your Android phone via Google Drive or USB, tap it, and hit "Install".
 
----
+The Android workflow uploads the debug APK on push. For a signed release, store the base64-encoded private upload keystore in the GitHub Actions secret `ANDROID_KEYSTORE_BASE64`, alongside `KEYSTORE_PASSWORD`, `KEY_ALIAS`, and `KEY_PASSWORD`. Reuse the signing identity for existing installations. Run the Android workflow manually on `main` with **Build a signed release APK** selected. CI verifies the APK signature before uploading the artifact.
 
-## 🎯 Summary Checklist for the Hackathon Demo
-1. Run `docker-compose up -d` to start the backend.
-2. Open `http://localhost:8000` in your browser to show the Dashboard.
-3. Double click `dist/MimoDesktopTracker.exe` to start the desktop tracker.
-4. Show the Android app running on an emulator or physical device.
+Android study-block enforcement uses notifications. It requires notification permission, and usage tracking requires the student's Usage Access grant.
 5. Profit!

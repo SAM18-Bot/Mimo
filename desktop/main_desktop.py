@@ -29,6 +29,7 @@ import sys
 import tempfile
 import threading
 import time
+from urllib.parse import urlsplit
 
 # ── project root on sys.path ──────────────────────────────────────────────
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -105,7 +106,7 @@ SERVER_PORT = 8000
 #   MIMO_CLOUD_URL=https://other-host    → point at a different deployment
 DEFAULT_CLOUD_URL = "https://mimo-e8u2.onrender.com"
 
-STARTUP_TIMEOUT = 40   # seconds to wait for the server to be ready
+STARTUP_TIMEOUT = 90   # seconds to wait for the server to be ready
 
 
 def _resolve_server_url():
@@ -114,36 +115,17 @@ def _resolve_server_url():
     if override.lower() == "local":
         return f"http://{SERVER_HOST}:{SERVER_PORT}", True
     if override:
+        parsed = urlsplit(override)
+        if (
+            parsed.scheme != "https" or not parsed.hostname or parsed.username is not None
+            or parsed.query or parsed.fragment or parsed.path.rstrip("/")
+        ):
+            raise ValueError("MIMO_CLOUD_URL must be an HTTPS server origin or 'local'")
         return override.rstrip("/"), False
     return DEFAULT_CLOUD_URL.rstrip("/"), False
 
 
 SERVER_URL, RUN_LOCAL_SERVER = _resolve_server_url()
-
-_FIRST_RUN_MARKER = os.path.expanduser("~/.mimo/.first_run_complete")
-
-
-def _enable_autostart_on_first_run():
-    """
-    The very first time Mimo successfully starts, register it to launch on
-    system boot automatically — most users expect an accountability/tracking
-    app to "just work" without them finding a settings toggle first.
-
-    After this first time, we leave it alone: if the user later turns it off
-    from the tray menu, we never silently turn it back on for them.
-    """
-    try:
-        if os.path.exists(_FIRST_RUN_MARKER):
-            return
-        os.makedirs(os.path.dirname(_FIRST_RUN_MARKER), exist_ok=True)
-        from desktop.autostart import enable
-        if enable():
-            log.info("First run — autostart enabled automatically.")
-        with open(_FIRST_RUN_MARKER, "w") as f:
-            f.write(str(time.time()))
-    except Exception as e:
-        log.warning("Could not set up autostart on first run (non-critical): %s", e)
-
 
 # ══════════════════════════════════════════════════════════════════════════
 # Step 1 — Single instance
@@ -198,6 +180,7 @@ def _start_server():
             import uvicorn
 
             from main import app
+            app.state.local_controls_enabled = True
             uvicorn.run(
                 app,
                 host      = SERVER_HOST,
@@ -238,7 +221,8 @@ def _wait_for_server(timeout: int = STARTUP_TIMEOUT, splash=None) -> bool:
         attempts += 1
         if splash:
             dots = "." * (attempts % 4)
-            splash.update(f"Starting Mimo{dots}")
+            message = "Starting Mimo" if RUN_LOCAL_SERVER else "Waking server"
+            splash.update(f"{message}{dots}")
         time.sleep(0.5)
 
     log.error("Server did not become ready within %ds", timeout)
@@ -252,7 +236,7 @@ def _wait_for_server(timeout: int = STARTUP_TIMEOUT, splash=None) -> bool:
 _shutdown_event = threading.Event()
 
 
-def _start_tray(window_manager):
+def _start_tray(window_manager, tracker=None):
     """Start the system tray in a daemon thread."""
     from desktop.tray import MimoTray
 
@@ -260,6 +244,7 @@ def _start_tray(window_manager):
         open_window_fn=window_manager.open,
         shutdown_fn=lambda: _shutdown(window_manager),
         base_url=SERVER_URL,
+        pause_tracking=tracker.set_paused if tracker else None,
     )
     thread = threading.Thread(target=tray.run, daemon=True, name="system-tray")
     thread.start()
@@ -324,7 +309,7 @@ def main():
         _start_server()
     else:
         log.info("Connecting to cloud server: %s", SERVER_URL)
-        splash.update("Connecting to Mimo…")
+        splash.update("Waking server…")
 
     # ── wait for server ───────────────────────────────────────────────────
     if not _wait_for_server(splash=splash):
@@ -346,26 +331,24 @@ def main():
     splash.update("Server ready — opening dashboard…")
     log.info("Server is ready. Initialising desktop components.")
 
-    _enable_autostart_on_first_run()
-
     # ── window manager ────────────────────────────────────────────────────
     from desktop.window_manager import WindowManager
     wm             = WindowManager(url=SERVER_URL)
     webview_ok     = wm.create()
     atexit.register(_shutdown, wm)
 
-    # ── system tray ───────────────────────────────────────────────────────
-    _tray, tray_thread = _start_tray(wm)
-    
     # ── decoupled background tracker ──────────────────────────────────────
+    tracker = None
     try:
         from desktop.tracker import DesktopTracker
-        _desktop_tracker = DesktopTracker()
-        _desktop_tracker.start()
-        atexit.register(_desktop_tracker.stop)
+        tracker = DesktopTracker()
+        tracker.start()
+        atexit.register(tracker.stop)
         log.info("Decoupled ScreenTracker started.")
     except Exception as e:
         log.warning("Failed to start decoupled ScreenTracker: %s", e)
+
+    _tray, tray_thread = _start_tray(wm, tracker)
 
     # ── startup notification ──────────────────────────────────────────────
     try:

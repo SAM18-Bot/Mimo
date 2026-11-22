@@ -1,108 +1,63 @@
 package com.mimo.app
 
-import android.Manifest
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
-import androidx.core.content.ContextCompat
+import androidx.compose.ui.Modifier
 import com.mimo.app.data.TokenManager
-import com.mimo.app.service.RoastEnforcementService
-import com.mimo.app.tracker.MobileTrackerService
-import com.mimo.app.ui.MainScreen
-import com.mimo.app.ui.LoginScreen
+import com.mimo.app.tracker.DeviceTracking
+import com.mimo.app.ui.*
+import com.mimo.app.ui.theme.MimoTheme
 
-enum class AppScreen { Login, Onboarding, Permissions, Dashboard }
+enum class AppScreen { Login, Onboarding, Permissions, Dashboard, Parent }
 
 class MainActivity : ComponentActivity() {
-
-    private val notificationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            startServices()
+    private fun screen(): AppScreen = when (TokenManager.role(this)) {
+        "parent" -> AppScreen.Parent
+        "student" -> when {
+            !TokenManager.isOnboardingCompleted(this) -> AppScreen.Onboarding
+            !DeviceTracking.prefs(this).getBoolean("permissions_seen", false) -> AppScreen.Permissions
+            else -> AppScreen.Dashboard
         }
+        else -> AppScreen.Login
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         TokenManager.init(this)
-
-        // Request notification permission on Android 13+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(
-                    this, Manifest.permission.POST_NOTIFICATIONS
-                ) == PackageManager.PERMISSION_GRANTED
-            ) {
-                startServices()
-            } else {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        } else {
-            startServices()
-        }
-
         setContent {
-            var currentScreen by remember { 
-                mutableStateOf(
-                    if (!TokenManager.isLoggedIn(this@MainActivity)) AppScreen.Login
-                    else if (!TokenManager.isOnboardingCompleted(this@MainActivity)) AppScreen.Onboarding
-                    else AppScreen.Permissions // We let PermissionsScreen handle the check, then it moves to Dashboard
-                )
-            }
-
-            when (currentScreen) {
-                AppScreen.Login -> {
-                    LoginScreen(
-                        onLoginSuccess = { onboardingCompleted ->
-                            currentScreen = if (onboardingCompleted) AppScreen.Permissions else AppScreen.Onboarding
+            val theme by Appearance.theme.collectAsState()
+            MimoTheme(darkTheme = theme == ThemeChoice.Dark || (theme == ThemeChoice.System && isSystemInDarkTheme())) {
+                var current by remember { mutableStateOf(screen()) }
+                val expired by TokenManager.sessionExpired.collectAsState()
+                LaunchedEffect(expired) {
+                    if (expired) {
+                        viewModelStore.clear()
+                        current = AppScreen.Login
+                    }
+                }
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    when (if (expired) AppScreen.Login else current) {
+                        AppScreen.Login -> LoginScreen { current = screen() }
+                        AppScreen.Parent -> ParentScreen()
+                        AppScreen.Onboarding -> OnboardingScreen {
+                            TokenManager.setOnboardingCompleted(this, true)
+                            current = screen()
                         }
-                    )
-                }
-                AppScreen.Onboarding -> {
-                    com.mimo.app.ui.OnboardingScreen(
-                        onOnboardingFinished = {
-                            TokenManager.setOnboardingCompleted(this@MainActivity, true)
-                            currentScreen = AppScreen.Permissions
+                        AppScreen.Permissions -> PermissionsScreen {
+                            DeviceTracking.prefs(this).edit().putBoolean("permissions_seen", true).apply()
+                            current = AppScreen.Dashboard
                         }
-                    )
-                }
-                AppScreen.Permissions -> {
-                    com.mimo.app.ui.PermissionsScreen(
-                        onPermissionsGranted = {
-                            currentScreen = AppScreen.Dashboard
+                        AppScreen.Dashboard -> {
+                            LaunchedEffect(Unit) { DeviceTracking.apply(this@MainActivity) }
+                            MainScreen()
                         }
-                    )
+                    }
                 }
-                AppScreen.Dashboard -> {
-                    MainScreen()
-                }
-            }
-        }
-    }
-
-    private fun startServices() {
-        if (!TokenManager.isLoggedIn(this)) {
-            return
-        }
-        val roastIntent = Intent(this, RoastEnforcementService::class.java)
-        val trackerIntent = Intent(this, MobileTrackerService::class.java)
-        runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(roastIntent)
-            } else {
-                startService(roastIntent)
-            }
-        }
-        runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(trackerIntent)
-            } else {
-                startService(trackerIntent)
             }
         }
     }

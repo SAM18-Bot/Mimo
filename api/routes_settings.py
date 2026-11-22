@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
-from api.routes_auth import current_user
+from api.routes_auth import local_controls_user
 from db.models import User
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -44,16 +44,16 @@ def settings_page():
 # ── API ───────────────────────────────────────────────────────────────────
 
 @router.get("/data")
-def get_settings(user: User = Depends(current_user)):
+def get_settings(user: User = Depends(local_controls_user)):
     """Return current settings grouped by section (sensitive values masked)."""
-    from desktop.settings_manager import get_settings_for_ui
+    from modules.settings_manager import get_settings_for_ui
     return get_settings_for_ui()
 
 
 @router.post("/save")
-def save_setting(payload: SettingUpdate, user: User = Depends(current_user)):
+def save_setting(payload: SettingUpdate, user: User = Depends(local_controls_user)):
     """Save a single setting to .env."""
-    from desktop.settings_manager import save_setting as _save
+    from modules.settings_manager import save_setting as _save
     ok = _save(payload.key, payload.value)
     if not ok:
         raise HTTPException(400, f"Unknown or invalid setting: {payload.key}")
@@ -61,9 +61,9 @@ def save_setting(payload: SettingUpdate, user: User = Depends(current_user)):
 
 
 @router.post("/save-all")
-def save_all_settings(payload: BulkSettingsUpdate, user: User = Depends(current_user)):
+def save_all_settings(payload: BulkSettingsUpdate, user: User = Depends(local_controls_user)):
     """Save multiple settings at once."""
-    from desktop.settings_manager import save_many
+    from modules.settings_manager import save_many
     results = save_many(payload.settings)
     failed  = [k for k, v in results.items() if not v]
     return {
@@ -74,7 +74,7 @@ def save_all_settings(payload: BulkSettingsUpdate, user: User = Depends(current_
 
 
 @router.post("/restart")
-def restart_services(user: User = Depends(current_user)):
+def restart_services(user: User = Depends(local_controls_user)):
     """
     Restart monitoring services after settings change.
     Safe to call without full app restart for most changes.

@@ -30,7 +30,13 @@ data class AssignmentEntity(
     val notes: String? = null,
 
     @ColumnInfo(name = "is_synced")
-    val isSynced: Boolean = false
+    val isSynced: Boolean = false,
+
+    @ColumnInfo(name = "due_time")
+    val dueTime: String? = null,
+
+    @ColumnInfo(name = "request_id")
+    val requestId: String? = null
 )
 
 fun AssignmentEntity.toDomain(): Assignment {
@@ -39,6 +45,7 @@ fun AssignmentEntity.toDomain(): Assignment {
         title = title,
         subject = subject,
         due_date = dueDate,
+        due_time = dueTime,
         priority = priority,
         status = status,
         notes = notes
@@ -51,6 +58,7 @@ fun Assignment.toEntity(isSynced: Boolean = false): AssignmentEntity {
         title = title,
         subject = subject,
         dueDate = due_date,
+        dueTime = due_time,
         priority = priority,
         status = status,
         notes = notes,

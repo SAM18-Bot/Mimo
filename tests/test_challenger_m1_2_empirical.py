@@ -156,8 +156,9 @@ def test_revoked_token_returns_401(client, test_users):
 
 # ── 3. Valid Token Access Verification across All Routes ────────────────
 
-def test_settings_routes_with_valid_token(client, test_users):
+def test_settings_routes_with_valid_token(client, test_users, monkeypatch):
     """Verify /settings/* routes with valid auth token."""
+    monkeypatch.setenv("MIMO_LOCAL_CONTROLS", "1")
     headers = test_users["headers1"]
     import os
     import shutil
@@ -194,8 +195,9 @@ def test_settings_routes_with_valid_token(client, test_users):
             importlib.reload(config)
 
 
-def test_monitoring_routes_with_valid_token(client, test_users):
+def test_monitoring_routes_with_valid_token(client, test_users, monkeypatch):
     """Verify /monitoring/* routes with valid auth token."""
+    monkeypatch.setenv("MIMO_LOCAL_CONTROLS", "1")
     headers = test_users["headers1"]
 
     # /monitoring/status

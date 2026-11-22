@@ -198,6 +198,8 @@ async def test_connection_manager_broadcast_string_payload():
     raw_json = json.dumps({"type": "raw_msg", "data": "hello"})
     await cm.broadcast(raw_json)
 
+    ws.send_text.assert_not_called()
+    await cm.broadcast(raw_json, user_id=5)
     ws.send_text.assert_called_once_with(raw_json)
 
 

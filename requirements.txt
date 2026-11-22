@@ -1,18 +1,4 @@
-# Core
-fastapi==0.111.0
-uvicorn[standard]==0.29.0
-websockets>=13.0
-python-multipart==0.0.9
-
-# Database
-sqlalchemy==2.0.30
-aiosqlite==0.20.0
-alembic==1.13.1
-psycopg2-binary==2.9.9
-
-# Config
-python-dotenv==1.0.1
-pydantic>=2.12.5
+-r requirements_server.txt
 
 # Screen tracking
 psutil==5.9.8
@@ -20,39 +6,17 @@ pygetwindow==0.0.9 ; sys_platform == 'win32'
 # ewmh==0.1.6              # Linux only - uncomment on Linux
 
 # Computer Vision
-opencv-python==4.9.0.80
-mediapipe==0.10.14
+opencv-contrib-python==5.1.0.95
+mediapipe==1.2.3
 
 # Voice
 SpeechRecognition==3.10.3
 pyttsx3==2.90
 pyaudio==0.2.14 ; sys_platform == 'win32' or sys_platform == 'darwin'
 
-# AI
-openai==1.30.1
-google-genai>=2.22.0
-
-# Auth
-python-jose[cryptography]==3.3.0
-bcrypt==4.1.3
-cryptography==42.0.5
-email-validator==2.2.0
-google-auth>=2.35.0
-
-# Scheduling
-apscheduler==3.10.4
-
-# Date parsing
-dateparser==1.2.0
-python-dateutil==2.9.0
-
-# Utilities
-httpx>=0.28.1
-aiofiles==23.2.1
-
 # Desktop GUI
 pywebview==5.1.0 ; sys_platform == 'win32'
 pystray==0.19.5 ; sys_platform == 'win32'
 plyer==2.1.0 ; sys_platform == 'win32'
-Pillow==11.0.0
+Pillow==13.0.0
 pywin32==306 ; sys_platform == 'win32'

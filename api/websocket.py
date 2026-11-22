@@ -32,9 +32,16 @@ class ConnectionManager:
         self._active: set[WebSocket] = set()
         self._user_sockets: dict[int, set[WebSocket]] = defaultdict(set)
         self._socket_users: dict[WebSocket, int] = {}
+        self._socket_tokens: dict[WebSocket, str] = {}
 
-    async def connect(self, ws: WebSocket, user_id: int = 1):
-        await ws.accept()
+    async def connect(self, ws: WebSocket, user_id: int = 1, *,
+                      subprotocol: str | None = None, token: str | None = None):
+        if subprotocol:
+            await ws.accept(subprotocol=subprotocol)
+        else:
+            await ws.accept()
+        if token:
+            self._socket_tokens[ws] = token
         self._active.add(ws)
         self._user_sockets[user_id].add(ws)
         self._socket_users[ws] = user_id
@@ -45,6 +52,7 @@ class ConnectionManager:
             user_id = self._socket_users.get(ws)
 
         self._active.discard(ws)
+        self._socket_tokens.pop(ws, None)
         if ws in self._socket_users:
             del self._socket_users[ws]
 
@@ -54,6 +62,15 @@ class ConnectionManager:
                 del self._user_sockets[user_id]
 
         log.info(f"Dashboard disconnected. Remaining: {len(self._active)}")
+
+    async def revoke_session(self, token: str):
+        for ws, session_token in list(self._socket_tokens.items()):
+            if session_token == token:
+                self.disconnect(ws)
+                try:
+                    await ws.close(code=1008, reason="Session revoked")
+                except RuntimeError:
+                    pass
 
     async def unicast(self, user_id: int, message: dict | str):
         sockets = self._user_sockets.get(user_id)
@@ -78,17 +95,7 @@ class ConnectionManager:
             await self.unicast(target_user, message)
             return
 
-        if not self._active:
-            return
-        payload = json.dumps(message) if isinstance(message, dict) else message
-        dead = set()
-        for ws in list(self._active):
-            try:
-                await ws.send_text(payload)
-            except Exception:
-                dead.add(ws)
-        for ws in dead:
-            self.disconnect(ws)
+        log.warning("Dropped WebSocket event without a recipient")
 
     @property
     def client_count(self) -> int:
@@ -111,6 +118,9 @@ async def drain_event_bus():
         try:
             # Non-blocking check so we don't block the event loop
             data = event_bus.get_nowait()
+            if isinstance(data, dict) and data.get("type") == "_revoke_session":
+                await manager.revoke_session(data["token"])
+                continue
             user_id = data.get("user_id") if isinstance(data, dict) else None
             await manager.broadcast(data, user_id=user_id)
         except queue.Empty:

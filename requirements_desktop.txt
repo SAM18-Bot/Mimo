@@ -1,11 +1,14 @@
 # 🖥️ Desktop app dependencies ══════════════════════════════════
 # Install with: pip install -r requirements_desktop.txt
 
+# Core dependencies for the native tracker and bundled server
+-r requirements.txt
+
 # System tray icon
 pystray==0.19.5
 
 # Icon generation
-Pillow==11.0.0
+Pillow==13.0.0
 
 # Native webview window (wraps the browser dashboard in a real app window)
 pywebview==5.1.0
@@ -15,8 +18,3 @@ plyer==2.1.0
 
 # Build desktop executable
 pyinstaller==6.8.0
-
-# Already in requirements.txt but listed here for clarity
-httpx>=0.28.1
-python-dotenv==1.0.1
-pywin32==306 ; sys_platform == 'win32'

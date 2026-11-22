@@ -12,11 +12,11 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
-import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.mimo.app.MimoApplication
-import com.mimo.app.data.DailyStatsEntity
+import com.mimo.app.data.PendingUsage
+import com.mimo.app.data.TokenManager
 import com.mimo.app.data.MimoDatabase
 import com.mimo.app.network.ApiClient
 import com.mimo.app.network.MockWindowEvent
@@ -28,7 +28,6 @@ class MobileTrackerService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val CHANNEL_ID_FG = "mimo_tracker_fg_service"
-    private var lastForegroundApp: String? = null
 
     // Categorization
     private val distractingApps = setOf(
@@ -66,12 +65,15 @@ class MobileTrackerService : Service() {
             startForeground(1002, notification)
         }
 
-        if (!hasUsageStatsPermission()) {
+        if (!DeviceTracking.enabled(this) || !hasUsageStatsPermission()) {
             Log.w("MobileTracker", "PACKAGE_USAGE_STATS permission not granted. Waiting for UI flow.")
         }
 
+        if (!TokenManager.isLoggedIn(this)) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         startTracking()
-
         return START_STICKY
     }
 
@@ -96,16 +98,26 @@ class MobileTrackerService : Service() {
 
     // Removed requestUsageStatsPermission() since background startActivity is blocked in Android 10+
 
+    private var trackingJob: kotlinx.coroutines.Job? = null
+
     private fun startTracking() {
-        serviceScope.launch {
+        if (trackingJob?.isActive == true) return
+        val token = TokenManager.getToken(this) ?: return
+        val server = ApiClient.baseUrl
+        trackingJob = serviceScope.launch {
             val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
             if (usageStatsManager == null) {
                 Log.w("MobileTracker", "UsageStatsManager service unavailable")
                 return@launch
             }
-            val db = MimoDatabase.getDatabase(applicationContext).dailyStatsDao()
+            val db = MimoDatabase.getDatabase(applicationContext, token, server).dailyStatsDao()
+            val api = ApiClient.api
+            val power = getSystemService(android.os.PowerManager::class.java)
+            var warnedThisStreak = false
+            var currentForegroundApp: String? = null
+            var lastSample = System.currentTimeMillis() - 60_000L
 
-            while (isActive) {
+            while (isActive && TokenManager.getToken(this@MobileTrackerService) == token && ApiClient.baseUrl == server) {
                 if (!hasUsageStatsPermission()) {
                     Log.w("MobileTracker", "Waiting for PACKAGE_USAGE_STATS permission...")
                     delay(30_000)
@@ -114,78 +126,73 @@ class MobileTrackerService : Service() {
 
                 try {
                     val endTime = System.currentTimeMillis()
-                    val startTime = endTime - 1000 * 60 // last minute
-
-                    val events = usageStatsManager.queryEvents(startTime, endTime)
+                    if (endTime < lastSample) {
+                        currentForegroundApp = null
+                        lastSample = endTime - 60_000L
+                    }
+                    val events = usageStatsManager.queryEvents(lastSample, endTime)
+                    lastSample = endTime
                     if (events != null) {
                         val event = UsageEvents.Event()
-                        var currentForegroundApp: String? = null
-
                         while (events.hasNextEvent()) {
                             events.getNextEvent(event)
-                            if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED) {
-                                currentForegroundApp = event.packageName
+                            when (event.eventType) {
+                                UsageEvents.Event.ACTIVITY_RESUMED -> currentForegroundApp = event.packageName
+                                UsageEvents.Event.ACTIVITY_PAUSED, UsageEvents.Event.ACTIVITY_STOPPED -> {
+                                    if (currentForegroundApp == event.packageName) currentForegroundApp = null
+                                }
                             }
                         }
 
-                        if (currentForegroundApp != null) {
-                            val category = categorizeApp(currentForegroundApp)
-                            Log.d("MobileTracker", "Foreground App: $currentForegroundApp ($category)")
+                        val app = currentForegroundApp
+                        if (app == null || power?.isInteractive != true) warnedThisStreak = false
+                        if (app != null && power?.isInteractive == true) {
+                            if (TokenManager.getToken(this@MobileTrackerService) != token ||
+                                ApiClient.baseUrl != server
+                            ) return@launch
+                            val category = categorizeApp(app)
+                            val today = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date())
+                            val label = try {
+                                packageManager.getApplicationLabel(packageManager.getApplicationInfo(app, 0)).toString()
+                            } catch (_: android.content.pm.PackageManager.NameNotFoundException) { app }
+                            db.enqueueUsage(PendingUsage(UUID.randomUUID().toString(), today, category, label.take(200)))
 
-                            // Sync data to /screen/mock endpoint
+                            // Send the live activity event separately from the durable usage batch.
                             try {
-                                ApiClient.api.syncMockScreen(
+                                val live = api.syncMockScreen(
                                     MockWindowEvent(
-                                        app = currentForegroundApp,
-                                        title = currentForegroundApp.substringAfterLast("."),
+                                        app = app,
+                                        title = app.substringAfterLast("."),
                                         category = category
-                                    )
+                                    ),
+                                    authorization = "Bearer $token",
                                 )
-                                Log.d("MobileTracker", "Synced $currentForegroundApp to /screen/mock")
-                            } catch (e: Exception) {
-                                Log.e("MobileTracker", "Failed to sync to /screen/mock: ${e.message}")
+                                val warn = category == "distracting" && live["study_block_active"] == true
+                                if (warn && !warnedThisStreak && DeviceTracking.alertsAllowed(this@MobileTrackerService)
+                                    && TokenManager.getToken(this@MobileTrackerService) == token) {
+                                    val notice = NotificationCompat.Builder(this@MobileTrackerService, MimoApplication.CHANNEL_ID_ROASTS)
+                                        .setContentTitle("Scheduled study time").setContentText("Return to your study block when you're ready.")
+                                        .setSmallIcon(android.R.drawable.ic_dialog_info).setAutoCancel(true).build()
+                                    getSystemService(NotificationManager::class.java).notify(1003, notice)
+                                }
+                                warnedThisStreak = warn
+                            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                                throw cancelled
+                            } catch (_: Exception) {
+                                Log.w("MobileTracker", "Could not send live activity")
                             }
 
-                            // We don't fire local roasts anymore.
-                            // The backend RoastEngine monitors the mock screen events
-                            // and triggers roasts via WebSocket to the RoastEnforcementService.
-
-                            // Update local stats every minute
-                            val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                            val currentStats = db.getByDate(today)
-                            
-                            val prodDelta = if (category == "productive") 1 else 0
-                            val distDelta = if (category == "distracting") 1 else 0
-                            val neutDelta = if (category == "neutral") 1 else 0
-                            
-                            if (prodDelta > 0 || distDelta > 0 || neutDelta > 0) {
-                                val prod = (currentStats?.productiveMin ?: 0) + prodDelta
-                                val dist = (currentStats?.distractingMin ?: 0) + distDelta
-                                val neut = (currentStats?.neutralMin ?: 0) + neutDelta
-                                val total = prod + dist + neut
-                                val score = if (total > 0) {
-                                    if (prod + dist > 0) (prod.toDouble() / (prod + dist)) * 100.0 else 50.0
-                                } else 0.0
-
-                                val updatedEntity = DailyStatsEntity(
-                                    date = today,
-                                    productiveMin = prod,
-                                    distractingMin = dist,
-                                    neutralMin = neut,
-                                    focusScore = score,
-                                    isSynced = false
-                                )
-                                db.insertOrUpdate(updatedEntity)
-                            }
                         }
                     }
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
                 } catch (e: SecurityException) {
-                    Log.e("MobileTracker", "SecurityException during usage stats query: ${e.message}")
+                    Log.w("MobileTracker", "Usage statistics permission is unavailable")
                 } catch (e: Exception) {
-                    Log.e("MobileTracker", "Exception during usage stats query: ${e.message}")
+                    Log.w("MobileTracker", "Could not record usage statistics")
                 }
 
-                delay(60_000) // Check once a minute
+                delay(60_000)
             }
         }
     }

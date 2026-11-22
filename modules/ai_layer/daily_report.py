@@ -1,9 +1,10 @@
 """
 End-of-day report pipeline.
-Pulls aggregated stats + 7-day patterns + study advisor, queries OpenAI,
+Pulls aggregated stats + 7-day patterns + study advisor, queries Gemini,
 saves result to DB, speaks via TTS, broadcasts to dashboard.
 """
 
+import json
 import logging
 from collections.abc import Callable
 from datetime import date
@@ -27,7 +28,7 @@ def run_eod_report(
     2. Pull 7-day behavioral patterns
     3. Get study advisor next-step recommendation
     4. Pull morning accountability answers
-    5. Call OpenAI (or fallback) for report generation
+    5. Call Gemini (or fallback) for report generation
     6. Save to DB, speak, broadcast to dashboard
     """
     from db.models import User
@@ -86,16 +87,10 @@ def run_eod_report(
     if speak_fn:
         speak_fn(spoken)
 
-    # Native OS notification (desktop mode)
-    try:
-        from desktop.notifications import notify_eod
-        notify_eod(stats["focus_score"], stats.get("letter_grade", "?"))
-    except ImportError:
-        pass  # not in desktop mode
-
     if broadcast_fn:
         broadcast_fn({
             "type":   "eod_report",
+            "user_id": user_id,
             "report": report,
             "stats":  stats,
         })
@@ -124,7 +119,7 @@ def _save_report(stats: dict, report: dict, user_id: int):
             DailySummary.date == date.fromisoformat(stats["date"])
         ).first()
         if row:
-            row.ai_report_text = str(report)
+            row.ai_report_text = json.dumps(report, ensure_ascii=False)
             db.commit()
 
 

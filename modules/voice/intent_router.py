@@ -30,9 +30,8 @@ class IntentRouter:
 
     def route(self, text: str):
         text = text.lower().strip()
-        log.info(f"Routing intent: {text!r}")
-
         intent = self._detect_intent(text)
+        log.debug("Routing intent: %s", intent)
 
         if intent == "add_assignment":
             return self._handle_add_assignment(text)
@@ -92,6 +91,7 @@ class IntentRouter:
                 title    = result["title"],
                 subject  = result.get("subject"),
                 due_date = result["due_date"],
+                due_time = result.get("due_time"),
                 priority = result.get("priority", "medium"),
                 user_id  = self._user_id,
             )
@@ -103,13 +103,13 @@ class IntentRouter:
         msg = f"Added: {a_title}, due {a_due}."
         if self._speak:
             self._speak(msg)
-        return msg
         if self._broadcast:
-            self._broadcast({"type": "assignment_added", "assignment": {
+            self._broadcast({"user_id": self._user_id, "type": "assignment_added", "assignment": {
                 "id":       a_id,
                 "title":    a_title,
                 "subject":  a_subject,
                 "due_date": str(a_due),
+                "due_time": result.get("due_time"),
                 "priority": a_priority,
                 "status":   a_status,
             }})
@@ -122,7 +122,7 @@ class IntentRouter:
         with get_db_ctx() as db:
             tasks = get_upcoming(db, days=7, user_id=self._user_id)
             task_list = [
-                {"id": a.id, "title": a.title, "due_date": str(a.due_date), "status": a.status}
+                {"id": a.id, "title": a.title, "due_date": str(a.due_date), "due_time": a.due_time, "status": a.status}
                 for a in tasks
             ]
 
@@ -141,7 +141,7 @@ class IntentRouter:
         if self._speak:
             self._speak(summary)
         if self._broadcast:
-            self._broadcast({"type": "tasks_list", "tasks": task_list})
+            self._broadcast({"user_id": self._user_id, "type": "tasks_list", "tasks": task_list})
         return summary
 
     def _handle_mark_done(self, text: str):
@@ -152,7 +152,9 @@ class IntentRouter:
         # Extract subject/title hint
         for w in ["done with", "mark", "finished", "completed", "submitted"]:
             text = text.replace(w, "").strip()
-        keyword = text.strip()
+        keyword = text.removesuffix(" done").strip()
+        if not keyword:
+            return "Which assignment did you finish?"
 
         with get_db_ctx() as db:
             candidates = db.query(Assignment).filter(
@@ -166,12 +168,13 @@ class IntentRouter:
                     self._speak(msg)
                 return msg
             a = mark_done(db, candidates[0].id, user_id=self._user_id)
-            a_title = a.title
+            a_id, a_title = a.id, a.title
 
         msg = f"Marked '{a_title}' as done. Good. Now do the next one."
         if self._speak:
             self._speak(msg)
-        return msg
+        if self._broadcast:
+            self._broadcast({"type": "assignment_done", "user_id": self._user_id, "id": a_id, "title": a_title})
         return msg
 
     def _handle_productivity(self):
@@ -221,7 +224,7 @@ class IntentRouter:
         if self._speak:
             self._speak(msg)
         if self._broadcast:
-            self._broadcast({"type": "study_advice", "message": msg})
+            self._broadcast({"user_id": self._user_id, "type": "study_advice", "message": msg})
         return msg
 
     def _handle_eod_report(self):
@@ -229,7 +232,7 @@ class IntentRouter:
         msg = "Generating your end of day report. Give me a moment."
         if self._speak:
             self._speak(msg)
-        run_eod_report(speak_fn=self._speak, broadcast_fn=self._broadcast)
+        run_eod_report(user_id=self._user_id, speak_fn=self._speak, broadcast_fn=self._broadcast)
         return msg
 
     def _handle_ask_coach(self, text: str):
@@ -264,6 +267,6 @@ class IntentRouter:
         if self._speak:
             self._speak(response)
         if self._broadcast:
-            self._broadcast({"type": "voice_response", "message": response})
+            self._broadcast({"user_id": self._user_id, "type": "voice_response", "message": response})
             
         return response

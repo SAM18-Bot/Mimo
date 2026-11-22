@@ -41,7 +41,7 @@ This installs system packages the tray icon needs:
 
 ```bash
 cp .env.example .env
-nano .env   # add OPENAI_API_KEY=sk-...
+nano .env   # add GEMINI_API_KEY=sk-...
 ```
 
 ### 4. Launch
@@ -82,7 +82,7 @@ Right-click (or left-click on some platforms) the flame icon:
 Open via tray menu → Settings, or go to `http://localhost:8000/settings` directly.
 
 You can change, without editing `.env` by hand:
-- OpenAI API key (with a "Test key" button to verify it works)
+- Gemini API key (with a "Test key" button to verify it works)
 - Hardware toggle (enable/disable ESP32-CAM)
 - Voice toggle (enable/disable microphone)
 - ESP32-CAM stream URL

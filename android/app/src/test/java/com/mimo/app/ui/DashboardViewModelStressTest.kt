@@ -168,23 +168,7 @@ class DashboardViewModelStressTest {
 
     @Test
     fun viewModel_refresh_handlesMultipleExceptionTypesResiliently() = runTest {
-        val throwingApiService = object : MimoApiService {
-            override suspend fun login(body: LoginRequest): AuthResponse {
-                throw UnsupportedOperationException()
-            }
-
-            override suspend fun register(body: RegisterRequest): AuthResponse {
-                throw UnsupportedOperationException()
-            }
-
-            override suspend fun completeOnboarding(body: OnboardingRequest): UserOut {
-                throw UnsupportedOperationException()
-            }
-
-            override suspend fun authenticateGoogle(body: Map<String, String>): Map<String, Any> {
-                throw UnsupportedOperationException()
-            }
-
+        val throwingApiService = object : MimoApiService by FakeMimoApiService() {
             override suspend fun getStats(targetDate: String?): DailyStats {
                 throw RuntimeException("Fatal server error 500")
             }
@@ -197,46 +181,8 @@ class DashboardViewModelStressTest {
                 throw IOException("Socket timeout")
             }
 
-            override suspend fun createAssignment(assignment: com.mimo.app.network.AssignmentCreate): Assignment {
-                throw UnsupportedOperationException()
-            }
-
-            override suspend fun markAssignmentDone(id: Int): Map<String, Any> {
-                throw UnsupportedOperationException()
-            }
-
-            override suspend fun getSchedule(): List<ScheduleBlock> {
-                throw UnsupportedOperationException()
-            }
-
-            override suspend fun getScheduleToday(): List<ScheduleBlock> {
-                throw UnsupportedOperationException()
-            }
-
             override suspend fun getScreenBreakdown(targetDate: String?): ScreenBreakdown {
                 throw RuntimeException("Database timeout")
-            }
-
-            override suspend fun syncMockScreen(body: MockWindowEvent): Map<String, Any> {
-                throw UnsupportedOperationException()
-            }
-
-            override suspend fun pushSync(payload: SyncPayload): Map<String, Any> {
-                throw UnsupportedOperationException()
-            }
-
-            override suspend fun pullSync(): SyncPayload {
-                throw UnsupportedOperationException()
-            }
-
-            override suspend fun sendVoiceCommand(body: VoiceCommandRequest): Map<String, Any> {
-                simulateDelay()
-                return mapOf("status" to "ok")
-            }
-            
-            override suspend fun getChatHistory(limit: Int): ChatHistoryResponse {
-                simulateDelay()
-                return ChatHistoryResponse(emptyList())
             }
         }
 

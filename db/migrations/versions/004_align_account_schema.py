@@ -53,9 +53,11 @@ def _has_user_foreign_key(table: str) -> bool:
 
 def _has_rows_without_owner(table: str) -> bool:
     bind = op.get_bind()
-    if _column(table, "user_id") is None:
-        return bool(bind.execute(sa.text(f"SELECT 1 FROM {table} LIMIT 1")).scalar())
-    return bool(bind.execute(sa.text(f"SELECT 1 FROM {table} WHERE user_id IS NULL LIMIT 1")).scalar())
+    target = sa.table(table, sa.column("user_id"))
+    query = sa.select(sa.literal(1)).select_from(target).limit(1)
+    if _column(table, "user_id") is not None:
+        query = query.where(target.c.user_id.is_(None))
+    return bool(bind.execute(query).scalar())
 
 
 def _legacy_user_id() -> int:
@@ -98,10 +100,8 @@ def _add_owner(table: str, legacy_user_id: int | None) -> None:
     if _has_rows_without_owner(table):
         if legacy_user_id is None:
             raise RuntimeError(f"{table} has legacy rows but no legacy account")
-        op.get_bind().execute(
-            sa.text(f"UPDATE {table} SET user_id = :user_id WHERE user_id IS NULL"),
-            {"user_id": legacy_user_id},
-        )
+        target = sa.table(table, sa.column("user_id"))
+        op.get_bind().execute(target.update().where(target.c.user_id.is_(None)).values(user_id=legacy_user_id))
 
     needs_non_null = bool(column and column.get("nullable", True))
     needs_foreign_key = not _has_user_foreign_key(table)

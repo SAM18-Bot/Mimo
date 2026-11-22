@@ -23,7 +23,6 @@ fun OnboardingScreen(onOnboardingFinished: () -> Unit) {
     var courseMajor by remember { mutableStateOf("") }
     var age by remember { mutableStateOf("") }
     var educationLevel by remember { mutableStateOf("undergraduate") }
-    var aiEngine by remember { mutableStateOf("gemini") }
     var wakeTime by remember { mutableStateOf("07:00") }
     var sleepTime by remember { mutableStateOf("23:00") }
     var dailyStudyGoal by remember { mutableStateOf("120") }
@@ -32,7 +31,6 @@ fun OnboardingScreen(onOnboardingFinished: () -> Unit) {
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val eduLevels = listOf("high_school", "undergraduate", "graduate")
-    val engines = listOf("gemini", "openai")
 
     Column(
         modifier = Modifier
@@ -95,37 +93,6 @@ fun OnboardingScreen(onOnboardingFinished: () -> Unit) {
             }
         }
 
-        // AI Engine Dropdown
-        var engineExpanded by remember { mutableStateOf(false) }
-        ExposedDropdownMenuBox(
-            expanded = engineExpanded,
-            onExpandedChange = { engineExpanded = !engineExpanded },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            OutlinedTextField(
-                value = aiEngine,
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("AI Engine") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = engineExpanded) },
-                modifier = Modifier.menuAnchor().fillMaxWidth()
-            )
-            ExposedDropdownMenu(
-                expanded = engineExpanded,
-                onDismissRequest = { engineExpanded = false }
-            ) {
-                engines.forEach { engine ->
-                    DropdownMenuItem(
-                        text = { Text(engine) },
-                        onClick = {
-                            aiEngine = engine
-                            engineExpanded = false
-                        }
-                    )
-                }
-            }
-        }
-
         OutlinedTextField(
             value = wakeTime,
             onValueChange = { wakeTime = it },
@@ -168,7 +135,7 @@ fun OnboardingScreen(onOnboardingFinished: () -> Unit) {
                                 course = courseMajor.trim(),
                                 age = age.toIntOrNull() ?: 18,
                                 education_level = educationLevel,
-                                ai_engine = aiEngine,
+                                ai_engine = "gemini",
                                 wake_time = wakeTime,
                                 sleep_time = sleepTime,
                                 study_goal_minutes = dailyStudyGoal.toIntOrNull() ?: 120

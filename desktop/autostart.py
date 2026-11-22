@@ -223,7 +223,7 @@ def _enable_linux() -> bool:
     os.makedirs(_AUTOSTART_DIR, exist_ok=True)
     with open(_DESKTOP_PATH, "w") as f:
         f.write(_desktop_content())
-    os.chmod(_DESKTOP_PATH, 0o755)
+    os.chmod(_DESKTOP_PATH, 0o700)
     log.info("Autostart enabled (Linux autostart: %s)", _DESKTOP_PATH)
     return True
 

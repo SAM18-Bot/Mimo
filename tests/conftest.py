@@ -12,7 +12,6 @@ Key design:
 import os
 
 # Force test env before any project imports
-os.environ["OPENAI_API_KEY"] = "sk-test-fake"
 os.environ["NO_HARDWARE"]    = "1"
 os.environ["NO_VOICE"]       = "1"
 # Override DATABASE_URL — individual fixtures will patch the engine further
@@ -87,7 +86,12 @@ def client(db_engine):
 
     app.dependency_overrides[get_db] = override_get_db
 
-    with TestClient(app, raise_server_exceptions=True) as c:
+    async def loopback_app(scope, receive, send):
+        if scope["type"] in {"http", "websocket"}:
+            scope = {**scope, "client": ("127.0.0.1", 50000)}
+        await app(scope, receive, send)
+
+    with TestClient(loopback_app, raise_server_exceptions=True) as c:
         yield c
 
     # Restore originals
@@ -200,38 +204,6 @@ def auth_headers(client, db_engine):
 
 
 # ── mock AI ──────────────────────────────────────────────────────────────
-
-@pytest.fixture(autouse=True)
-def mock_openai(monkeypatch):
-    """Mock OpenAI API calls to speed up tests and prevent network calls."""
-    class MockMessage:
-        content = "Mocked AI Response"
-
-    class MockChoice:
-        message = MockMessage()
-
-    class MockCompletion:
-        choices = [MockChoice()]
-
-    class MockCompletions:
-        def create(self, *args, **kwargs):
-            return MockCompletion()
-
-    class MockChat:
-        completions = MockCompletions()
-
-    class MockClient:
-        chat = MockChat()
-
-    def mock_init(*args, **kwargs):
-        return MockClient()
-
-    try:
-        import openai
-        monkeypatch.setattr(openai, "OpenAI", mock_init)
-    except ImportError:
-        pass
-
 
 @pytest.fixture(autouse=True)
 def mock_gemini_ai(monkeypatch):

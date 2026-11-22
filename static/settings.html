@@ -116,6 +116,7 @@ h1{font-size:22px;font-weight:600;margin-bottom:4px}
 
 .restart-note{font-size:12px;color:var(--muted);margin-top:20px;line-height:1.5}
 </style>
+  <script src="/static/session.js"></script>
 </head>
 <body>
 
@@ -126,7 +127,22 @@ h1{font-size:22px;font-weight:600;margin-bottom:4px}
 
 <div class="layout">
   <h1>Settings</h1>
-  <p class="subtitle">Changes are saved to your .env file. Most take effect immediately. API key changes require a restart.</p>
+  <section class="section">
+    <h2 class="section-title">Personal Gemini API key</h2>
+    <form id="personal-key-form">
+      <input id="personal-key" type="password" aria-label="Personal Gemini API key" maxlength="100" autocomplete="off" required>
+      <button type="submit" class="save-btn">Save key</button>
+      <button type="button" class="save-btn" id="use-server-key">Use server key</button>
+    </form>
+    <p id="personal-key-status" role="status"></p>
+  </section>
+  <section class="section">
+    <h2 class="section-title">Parent access</h2>
+    <p class="subtitle">Share an invite with a parent to give them access to your weekly summary.</p>
+    <button class="save-btn" id="invite-parent">Generate invite code</button>
+    <p id="parent-code" role="status"></p>
+  </section>
+  <h2 class="section-title">Server settings</h2>
 
   <div id="sections-container">
     <div style="color:var(--muted);font-size:13px;padding:20px 0">Loading settings…</div>
@@ -145,31 +161,26 @@ h1{font-size:22px;font-weight:600;margin-bottom:4px}
 </div>
 
 <script>
-const originalFetch = window.fetch;
-window.fetch = async function (...args) {
-  let [resource, config] = args;
-  if (!config) config = {};
-  if (!config.headers) config.headers = {};
-  const token = localStorage.getItem('mimo_token');
-  if (token && !config.headers['Authorization'] && !config.headers.Authorization) {
-    config.headers['Authorization'] = `Bearer ${token}`;
-  }
-  const isAuthEndpoint = typeof resource === 'string' && resource.includes('/auth/');
-  const res = await originalFetch(resource, config);
-  if (res.status === 401 && token && !isAuthEndpoint) {
-      console.error("API returned 401. Logging out.");
-      localStorage.removeItem('mimo_token');
-      window.location.reload();
-  }
-  return res;
-};
+
 
 const changes = {};   // tracks what user has changed
 
 async function loadSettings() {
-  const r    = await fetch('/settings/data');
-  const data = await r.json();
-  renderSections(data.sections);
+  const container = document.getElementById('sections-container');
+  try {
+    const response = await mimoFetch('/settings/data');
+    if (!response.ok) {
+      container.textContent = response.status === 403
+        ? 'Server settings are available in local desktop mode.'
+        : response.status === 401 ? 'Sign in from the dashboard to access settings.' : 'Could not load settings.';
+      document.getElementById('save-btn').disabled = true;
+      document.querySelector('.restart-note').hidden = true;
+      return;
+    }
+    renderSections((await response.json()).sections);
+  } catch {
+    container.textContent = 'Could not reach the server.';
+  }
 }
 
 function renderSections(sections) {
@@ -218,11 +229,10 @@ function renderRow(item) {
       <div style="display:flex;align-items:center">
         <div class="pw-wrap">
           <input class="setting-input" id="inp-${item.key}" type="password"
-            value="${esc(item.value)}" placeholder="sk-proj-…"
+            value="${esc(item.value)}"
             onchange="onChange('${item.key}', this.value)">
           <button class="pw-eye" onclick="togglePw('${item.key}')">👁</button>
         </div>
-        <button class="test-btn" onclick="testApiKey()">Test key</button>
       </div>
     `;
 
@@ -264,7 +274,7 @@ async function saveAll() {
   btn.textContent = 'Saving…';
 
   try {
-    const r    = await fetch('/settings/save-all', {
+    const r    = await mimoFetch('/settings/save-all', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ settings: changes }),
@@ -286,24 +296,9 @@ async function saveAll() {
 }
 
 async function restartServices() {
-  const r    = await fetch('/settings/restart', { method: 'POST' });
+  const r    = await mimoFetch('/settings/restart', { method: 'POST' });
   const data = await r.json();
   showStatus(data.ok ? '✓ Services restarted.' : `❌ ${data.error}`, data.ok);
-}
-
-async function testApiKey() {
-  const inp = document.getElementById('inp-OPENAI_API_KEY');
-  if (inp && inp.value && !inp.value.includes('•')) {
-    // Save key first
-    await fetch('/settings/save', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({key:'OPENAI_API_KEY', value: inp.value}),
-    });
-  }
-  showStatus('Testing API key…', false);
-  const r    = await fetch('/settings/openai-test');
-  const data = await r.json();
-  showStatus(data.ok ? '✓ API key works!' : `❌ ${data.error}`, data.ok);
 }
 
 function togglePw(key) {
@@ -321,6 +316,39 @@ const esc = s => String(s||'')
   .replace(/&/g,'&amp;').replace(/</g,'&lt;')
   .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
+async function setPersonalKey(value) {
+  const form = document.getElementById('personal-key-form');
+  const status = document.getElementById('personal-key-status');
+  const controls = Array.from(form.elements);
+  controls.forEach(control => { control.disabled = true; });
+  try {
+    const response = await mimoFetch('/auth/me/gemini-key', {method: 'PUT',
+      headers: {'Content-Type': 'application/json'}, body: JSON.stringify({api_key: value})});
+    if (!response.ok) throw new Error();
+    form.reset();
+    status.textContent = value ? 'Personal key saved.' : 'Using the server key.';
+  } catch { status.textContent = 'Could not update your key.'; }
+  finally { controls.forEach(control => { control.disabled = false; }); }
+}
+document.getElementById('personal-key-form').onsubmit = event => {
+  event.preventDefault();
+  const value = document.getElementById('personal-key').value.trim();
+  if (value) setPersonalKey(value);
+};
+document.getElementById('use-server-key').onclick = () => setPersonalKey(null);
+
+document.getElementById('invite-parent').onclick = async event => {
+  const button = event.currentTarget;
+  const message = document.getElementById('parent-code');
+  button.disabled = true;
+  try {
+    const response = await mimoFetch('/parent/invites', {method: 'POST'});
+    if (!response.ok) throw new Error('Sign in with a student account to generate an invite.');
+    const invite = await response.json();
+    message.textContent = 'Invite code: ' + invite.code;
+  } catch (error) { message.textContent = error.message; }
+  finally { button.disabled = false; }
+};
 loadSettings();
 </script>
 </body>
