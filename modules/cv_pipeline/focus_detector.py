@@ -22,7 +22,6 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 
-import mediapipe as mp
 
 import numpy as np
 
@@ -82,6 +81,9 @@ class GazeDetector:
         use_iris: also use iris tracking for secondary confirmation.
         Disable if running on CPU-only hardware (iris adds ~5ms).
         """
+        import mediapipe as mp
+
+        self._mp = mp
         self._use_iris = use_iris
         options = mp.tasks.vision.FaceLandmarkerOptions(
             base_options=mp.tasks.BaseOptions(
@@ -100,7 +102,7 @@ class GazeDetector:
             return None
 
         h, w = frame_rgb.shape[:2]
-        result = self._face_mesh.detect(mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb))
+        result = self._face_mesh.detect(self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=frame_rgb))
 
         if not result.face_landmarks:
             return None
