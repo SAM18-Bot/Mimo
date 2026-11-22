@@ -64,3 +64,42 @@ jobs:
         name: Mimo-Android-release
         path: android/app/build/outputs/apk/release/app-release.apk
         if-no-files-found: error
+
+  device:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: temurin
+        cache: gradle
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: pip
+    - name: Install the test backend
+      run: python -m pip install -r requirements_server.txt
+    - name: Run student and parent flows on Android 14
+      run: |
+        set -euo pipefail
+        sudo setfacl -m "u:$USER:rw" /dev/kvm
+        image="system-images;android-34;default;x86_64"
+        sdkmanager --install emulator platform-tools "$image"
+        echo no | avdmanager create avd --name mimo-device --package "$image" --device pixel_2
+        "$ANDROID_HOME/emulator/emulator" -avd mimo-device -accel on -no-window -no-snapshot -no-boot-anim -noaudio \
+          -gpu swiftshader_indirect > "$RUNNER_TEMP/mimo-emulator.log" 2>&1 &
+        emulator_pid=$!
+        trap 'kill "$emulator_pid" 2>/dev/null || true' EXIT
+        timeout 420 bash -c 'until adb -e shell getprop sys.boot_completed 2>/dev/null | tr -d "\r" | grep -qx 1; do sleep 3; done'
+        adb -e shell input keyevent KEYCODE_WAKEUP
+        adb -e shell wm dismiss-keyguard
+        scripts/check_android_device.sh
+    - name: Upload device test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: Mimo-Android-device-tests
+        path: android/app/build/outputs/androidTest-results/connected/
+        if-no-files-found: ignore

@@ -21,6 +21,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 
 enum class ThemeChoice { System, Light, Dark }
 
@@ -65,7 +66,8 @@ fun GeminiKeySetting() {
         busy = true
         scope.launch {
             try {
-                account.updatePersonalKey(PersonalKeyRequest(value))
+                val response = account.updatePersonalKey(PersonalKeyRequest(value))
+                if (!response.isSuccessful) throw HttpException(response)
                 key = ""
                 status = if (value.isEmpty()) "Using the server key." else "Personal key saved."
             } catch (e: CancellationException) {

@@ -1,5 +1,6 @@
 package com.mimo.app.network
 
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.PUT
@@ -8,7 +9,7 @@ import retrofit2.http.Path
 
 interface AccountApi {
     @PUT("/auth/me/gemini-key")
-    suspend fun updatePersonalKey(@Body request: PersonalKeyRequest)
+    suspend fun updatePersonalKey(@Body request: PersonalKeyRequest): Response<Void>
 
     @GET("/auth/google/client-id")
     suspend fun googleClientId(): GoogleClientId

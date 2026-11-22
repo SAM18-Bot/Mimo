@@ -21,6 +21,19 @@ android {
         }
     }
 
+    providers.gradleProperty("mimoDeviceTestAssets").orNull?.let { directory ->
+        buildTypes.create("deviceQa") {
+            initWith(buildTypes.getByName("debug"))
+            matchingFallbacks += "debug"
+        }
+        testBuildType = "deviceQa"
+        sourceSets.getByName("deviceQa") {
+            manifest.srcFile(file("$directory/AndroidManifest.xml"))
+            res.srcDir(file("$directory/res"))
+        }
+        defaultConfig.testInstrumentationRunnerArguments["mimoTestOrigin"] = "https://localhost:18443/"
+    }
+
     signingConfigs {
         create("release") {
             // Read from GitHub Actions Secrets or environment variables
@@ -83,6 +96,9 @@ dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test:runner:1.5.2")
 
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")

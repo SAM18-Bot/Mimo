@@ -391,3 +391,8 @@ focusfire/
 └── esp32/
     └── cam_stream.ino         ← Arduino firmware (flash later)
 ```
+
+
+### Android device integration check
+
+With a dedicated Android emulator running, install `requirements_server.txt` in the active Python environment and run `scripts/check_android_device.sh` from the repository root. The script starts a temporary HTTPS backend and builds the `deviceQa` variant. The test signs in as a student, creates an assignment, chats with the coach, generates an invite, and signs in as a parent to link that student.
