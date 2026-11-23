@@ -243,14 +243,19 @@ class DashboardViewModel @JvmOverloads constructor(
     }
 
     
-    fun addTodo(title: String, dueDate: String?, remindAt: String?) {
+    fun addTodo(title: String, dueDate: String?, remindAt: String?, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             try {
                 apiService.createTodo(TodoCreate(title, dueDate, remindAt))
-                fetchTodos()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _error.value = "Failed to add todo: ${e.message}"
+                onResult(false)
+                return@launch
             }
+            fetchTodos()
+            onResult(true)
         }
     }
 

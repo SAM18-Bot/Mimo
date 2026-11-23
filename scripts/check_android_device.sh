@@ -52,4 +52,9 @@ curl --fail --silent --show-error --retry 20 --retry-connrefused --retry-delay 1
     --cacert "$qa_dir/ca.crt" https://localhost:18443/health >/dev/null
 adb -e reverse tcp:18443 tcp:18443
 cd android
-./gradlew "-PmimoDeviceTestAssets=$qa_dir/assets" connectedDeviceQaAndroidTest
+if ! ./gradlew "-PmimoDeviceTestAssets=$qa_dir/assets" connectedDeviceQaAndroidTest; then
+    # Show the methods, paths and status codes from the disposable server.
+    sed -nE 's/.*"(GET|POST|PUT|PATCH|DELETE) ([^ ?"[:space:]]+)(\?[^ "]+)? HTTP\/[0-9.]+" ([0-9]{3}).*/\1 \2 \4/p' \
+        "$qa_dir/server.log" | sort | uniq -c
+    exit 1
+fi

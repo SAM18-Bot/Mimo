@@ -2,6 +2,8 @@ package com.mimo.app.ui.tabs
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -9,22 +11,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.mimo.app.ui.DashboardViewModel
 import com.mimo.app.ui.components.AssignmentList
-import com.mimo.app.ui.components.ScheduleList
 import com.mimo.app.ui.components.TodoList
 import com.mimo.app.ui.TimePickerField
 import com.mimo.app.ui.parse12HourToIso
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-import java.time.ZoneOffset
 
 @Composable
 fun ScheduleScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier, initialSubject: String? = null,
                    onInitialSubjectHandled: () -> Unit = {}) {
-    val schedule by viewModel.schedule.collectAsState()
     val assignments by viewModel.assignments.collectAsState()
     val todos by viewModel.todos.collectAsState()
 
@@ -57,30 +56,46 @@ fun ScheduleScreen(viewModel: DashboardViewModel, modifier: Modifier = Modifier,
 
                 var newTodoTitle by remember { mutableStateOf("") }
                 var newTodoTime by remember { mutableStateOf("") }
+                var savingTodo by remember { mutableStateOf(false) }
+                val focus = LocalFocusManager.current
+                fun submitTodo() {
+                    val title = newTodoTitle.trim()
+                    if (savingTodo || title.isEmpty() || title.length > 300) return
+                    savingTodo = true
+                    focus.clearFocus()
+                    viewModel.addTodo(title, null, parse12HourToIso(newTodoTime)) { saved ->
+                        savingTodo = false
+                        if (saved) {
+                            newTodoTitle = ""
+                            newTodoTime = ""
+                        }
+                    }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     OutlinedTextField(
                         value = newTodoTitle,
                         onValueChange = { newTodoTitle = it },
                         label = { Text("Task") },
+                        enabled = !savingTodo,
+                        singleLine = true,
+                        isError = newTodoTitle.trim().length > 300,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { submitTodo() }),
                         modifier = Modifier.weight(1f)
                     )
                     Spacer(Modifier.width(8.dp))
                     TimePickerField(
                         value = newTodoTime,
-                        onValueChange = { newTodoTime = it },
+                        onValueChange = { if (!savingTodo) newTodoTime = it },
                         label = "Time",
                         modifier = Modifier.width(100.dp)
                     )
-                    IconButton(onClick = {
-                        if (newTodoTitle.isNotBlank()) {
-                            val remindAt = parse12HourToIso(newTodoTime)
-                            viewModel.addTodo(newTodoTitle, null, remindAt)
-                            newTodoTitle = ""
-                            newTodoTime = ""
-                        }
-                    }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add Todo")
-                    }
+                }
+                if (newTodoTitle.trim().length > 300) {
+                    Text("Use a task title of up to 300 characters.", color = MaterialTheme.colorScheme.error)
+                }
+                Button(enabled = !savingTodo && newTodoTitle.trim().length in 1..300, onClick = ::submitTodo) {
+                    Text(if (savingTodo) "Saving…" else "Add to-do")
                 }
             }
         }

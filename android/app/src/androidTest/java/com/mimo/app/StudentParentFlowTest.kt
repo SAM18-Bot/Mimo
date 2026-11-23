@@ -84,12 +84,13 @@ class StudentParentFlowTest {
     private fun completeTodo() {
         val title = "Review Android notes"
         ui.onNode(hasSetTextAction() and hasText("Task")).performScrollTo().performTextInput(title)
-        ui.onNode(hasContentDescription("Add Todo")).performScrollTo().performClick()
-        waitFor(hasText(title))
-        ui.onNode(hasText(title)).performScrollTo().performClick()
-        ui.waitUntil(20_000) {
-            runBlocking { ApiClient.api.getTodos().any { it.title == title && it.status == "done" } }
-        }
+        ui.onNode(hasText("Add to-do")).performScrollTo().performClick()
+        val pending = hasText(title) and hasContentDescription("Pending")
+        waitFor(pending)
+        ui.onNode(pending).performScrollTo().performClick()
+        waitFor(hasText(title) and hasContentDescription("Done"))
+        val stored = runBlocking { ApiClient.api.getTodos().single { it.title == title } }
+        assertEquals("done", stored.status)
     }
 
     @Test
