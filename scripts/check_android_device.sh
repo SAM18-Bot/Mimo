@@ -15,7 +15,7 @@ umask 077
 mkdir -p "$qa_dir/assets/res/xml" "$qa_dir/assets/res/raw"
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj '/CN=Mimo device test CA' \
     -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" \
-    -keyout "$qa_dir/ca.key" -out "$qa_dir/assets/res/raw/mimo_device_ca.pem" 2>/dev/null
+    -keyout "$qa_dir/ca.key" -out "$qa_dir/ca.crt" 2>/dev/null
 openssl req -new -newkey rsa:2048 -nodes -subj '/CN=localhost' \
     -keyout "$qa_dir/server.key" -out "$qa_dir/server.csr" 2>/dev/null
 cat > "$qa_dir/server.ext" <<'EOF'
@@ -23,8 +23,9 @@ basicConstraints=CA:FALSE
 extendedKeyUsage=serverAuth
 subjectAltName=DNS:localhost
 EOF
-openssl x509 -req -days 2 -in "$qa_dir/server.csr" -CA "$qa_dir/assets/res/raw/mimo_device_ca.pem" \
+openssl x509 -req -days 2 -in "$qa_dir/server.csr" -CA "$qa_dir/ca.crt" \
     -CAkey "$qa_dir/ca.key" -CAcreateserial -extfile "$qa_dir/server.ext" -out "$qa_dir/server.crt" 2>/dev/null
+cp "$qa_dir/ca.crt" "$qa_dir/assets/res/raw/mimo_device_ca.pem"
 cat > "$qa_dir/assets/AndroidManifest.xml" <<'EOF'
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:networkSecurityConfig="@xml/mimo_device_network" />
@@ -48,7 +49,7 @@ python -m uvicorn main:app --host 127.0.0.1 --port 18443 --ssl-keyfile "$qa_dir/
     --ssl-certfile "$qa_dir/server.crt" > "$qa_dir/server.log" 2>&1 &
 server_pid=$!
 curl --fail --silent --show-error --retry 20 --retry-connrefused --retry-delay 1 \
-    --cacert "$qa_dir/assets/res/raw/mimo_device_ca.pem" https://localhost:18443/health >/dev/null
+    --cacert "$qa_dir/ca.crt" https://localhost:18443/health >/dev/null
 adb -e reverse tcp:18443 tcp:18443
 cd android
 ./gradlew "-PmimoDeviceTestAssets=$qa_dir/assets" connectedDeviceQaAndroidTest
