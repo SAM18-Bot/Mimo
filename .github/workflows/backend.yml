@@ -45,3 +45,14 @@ jobs:
         trap 'kill "$server_pid" 2>/dev/null || true' EXIT
         curl --fail --silent --retry 30 --retry-connrefused --retry-delay 1 http://127.0.0.1:8080/health
         python scripts/check_dashboard.py http://127.0.0.1:8080
+
+  container:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@v5
+    - name: Build the production image
+      run: docker build --pull --tag mimo-server:ci .
+    - name: Verify production startup and authenticated routes
+      run: bash scripts/check_server_image.sh mimo-server:ci
