@@ -16,7 +16,7 @@ def test_camera_falls_back_when_mediapipe_cannot_initialize(monkeypatch):
 
     import numpy as np
 
-    from modules.cv_pipeline.presence import PresenceMonitor
+    from server.modules.cv_pipeline.presence import PresenceMonitor
 
     monkeypatch.setitem(sys.modules, "mediapipe", None)
     monitor = PresenceMonitor()

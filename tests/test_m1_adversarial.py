@@ -3,9 +3,9 @@ from unittest.mock import patch
 
 import pytest
 
-from db.models import Assignment, DailySummary, RoastLog, User
-from modules.ai_layer.roast_engine import RoastEngine
-from modules.voice.intent_router import IntentRouter
+from server.db.models import Assignment, DailySummary, RoastLog, User
+from server.modules.ai_layer.roast_engine import RoastEngine
+from server.modules.voice.intent_router import IntentRouter
 
 
 # Helper function to create test user in the active DB session
@@ -95,7 +95,7 @@ def test_roast_engine_fire_roast_user_id_propagation(client, db_session):
 
     engine = RoastEngine(broadcast_fn=mock_broadcast)
     
-    with patch("modules.ai_layer.roast_engine.generate_roast", return_value="Custom mock roast text"):
+    with patch("server.modules.ai_layer.roast_engine.generate_roast", return_value="Custom mock roast text"):
         engine.trigger_roast(trigger="distraction", app="YouTube", minutes=15, user_id=user.id)
 
     # Check DB log for this user
@@ -153,7 +153,7 @@ def test_handle_what_to_study_advisor_exception_fallback(client, db_session):
     )
 
     # Force StudyAdvisor.get_next_to_study to raise RuntimeError
-    with patch("modules.ai_layer.study_advisor.StudyAdvisor.get_next_to_study", side_effect=RuntimeError("Advisor error")):
+    with patch("server.modules.ai_layer.study_advisor.StudyAdvisor.get_next_to_study", side_effect=RuntimeError("Advisor error")):
         router._handle_what_to_study()
 
     assert len(spoken) == 1
@@ -184,7 +184,7 @@ def test_handle_what_to_study_multi_tenant_isolation(client, db_session):
         user_id=user_b.id
     )
 
-    with patch("modules.ai_layer.study_advisor.StudyAdvisor.get_next_to_study", side_effect=Exception("Trigger fallback")):
+    with patch("server.modules.ai_layer.study_advisor.StudyAdvisor.get_next_to_study", side_effect=Exception("Trigger fallback")):
         router_b._handle_what_to_study()
 
     assert len(spoken_b) == 1

@@ -10,7 +10,9 @@ RUN --mount=type=secret,id=pip_ca,target=/tmp/mimo-build-ca.pem,mode=0444 \
     rm -rf /var/lib/apt/lists/* && \
     python -m pip install --no-cache-dir --upgrade pip==26.3 setuptools==84.2.1 && \
     python -m pip install --no-cache-dir -r requirements_server.txt
-COPY . .
+COPY server/ server/
+COPY web/ web/
+COPY main.py run_server.py alembic.ini ./
 ENV NO_HARDWARE=1 NO_VOICE=1 MIMO_ENV=production PYTHONUNBUFFERED=1
 EXPOSE 8000
 CMD ["sh", "-c", "exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]

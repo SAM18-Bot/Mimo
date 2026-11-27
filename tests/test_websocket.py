@@ -19,7 +19,7 @@ def test_websocket_dev_token(client):
 async def test_connection_manager_unicast_and_broadcast():
     from unittest.mock import AsyncMock
 
-    from api.websocket import ConnectionManager
+    from server.api.websocket import ConnectionManager
 
     cm = ConnectionManager()
     ws_user1 = AsyncMock()

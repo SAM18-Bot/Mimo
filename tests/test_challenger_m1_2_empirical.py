@@ -11,14 +11,14 @@ from datetime import date, timedelta
 
 import pytest
 
-from db.models import Assignment, DailySummary, User
+from server.db.models import Assignment, DailySummary, User
 
 # ── Fixtures & Helpers ──────────────────────────────────────────────────
 
 @pytest.fixture
 def test_users(db_session):
     """Create two distinct users in the database."""
-    from modules.auth.security import create_access_token, hash_password
+    from server.modules.auth.security import create_access_token, hash_password
 
     u1 = User(
         email="alice@mimo.test",
@@ -118,7 +118,7 @@ def test_malformed_headers_return_401(client, headers):
 
 def test_expired_token_returns_401(client):
     """Verify expired JWT token returns 401."""
-    from modules.auth.security import create_access_token
+    from server.modules.auth.security import create_access_token
     # Generate token expired 1 hour ago
     expired_token = create_access_token(user_id=1, role="student", expires_minutes=-60)
     res = client.get("/sync/pull", headers={"Authorization": f"Bearer {expired_token}"})
@@ -128,7 +128,7 @@ def test_expired_token_returns_401(client):
 
 def test_nonexistent_user_token_returns_401(client):
     """Verify token signed with valid secret but non-existent user_id returns 401."""
-    from modules.auth.security import create_access_token
+    from server.modules.auth.security import create_access_token
     ghost_token = create_access_token(user_id=999999, role="student")
     res = client.get("/monitoring/status", headers={"Authorization": f"Bearer {ghost_token}"})
     assert res.status_code == 401
@@ -156,43 +156,33 @@ def test_revoked_token_returns_401(client, test_users):
 
 # ── 3. Valid Token Access Verification across All Routes ────────────────
 
-def test_settings_routes_with_valid_token(client, test_users, monkeypatch):
+def test_settings_routes_with_valid_token(client, test_users, monkeypatch, tmp_path):
     """Verify /settings/* routes with valid auth token."""
+    from server.modules import settings_manager
+
     monkeypatch.setenv("MIMO_LOCAL_CONTROLS", "1")
+    monkeypatch.setenv("EOD_REPORT_HOUR", "22")
+    monkeypatch.setattr(settings_manager, "_ENV_PATH", tmp_path / ".env")
     headers = test_users["headers1"]
-    import os
-    import shutil
-    # Backup .env
-    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
-    backup_path = env_path + ".backup"
-    if os.path.exists(env_path):
-        shutil.copy(env_path, backup_path)
-    try:
-        # /settings/data
-        r_data = client.get("/settings/data", headers=headers)
-        assert r_data.status_code == 200
-        assert "sections" in r_data.json()
-        
-        # /settings/save
-        r_save = client.post("/settings/save", json={"key": "EOD_REPORT_HOUR", "value": "21"}, headers=headers)
-        assert r_save.status_code == 200
-        assert r_save.json().get("ok") is True
-        
-        # /settings/save invalid key
-        r_save_inv = client.post("/settings/save", json={"key": "NON_EXISTENT_KEY", "value": "xyz"}, headers=headers)
-        assert r_save_inv.status_code == 400
-        
-        # /settings/save-all
-        r_saveall = client.post("/settings/save-all", json={"settings": {"EOD_REPORT_HOUR": "22"}}, headers=headers)
-        assert r_saveall.status_code == 200
-        assert r_saveall.json().get("ok") is True
-    finally:
-        if os.path.exists(backup_path):
-            shutil.copy(backup_path, env_path)
-            os.remove(backup_path)
-            import config
-            import importlib
-            importlib.reload(config)
+
+    # /settings/data
+    r_data = client.get("/settings/data", headers=headers)
+    assert r_data.status_code == 200
+    assert "sections" in r_data.json()
+
+    # /settings/save
+    r_save = client.post("/settings/save", json={"key": "EOD_REPORT_HOUR", "value": "21"}, headers=headers)
+    assert r_save.status_code == 200
+    assert r_save.json().get("ok") is True
+
+    # /settings/save invalid key
+    r_save_inv = client.post("/settings/save", json={"key": "NON_EXISTENT_KEY", "value": "xyz"}, headers=headers)
+    assert r_save_inv.status_code == 400
+
+    # /settings/save-all
+    r_saveall = client.post("/settings/save-all", json={"settings": {"EOD_REPORT_HOUR": "22"}}, headers=headers)
+    assert r_saveall.status_code == 200
+    assert r_saveall.json().get("ok") is True
 
 
 def test_monitoring_routes_with_valid_token(client, test_users, monkeypatch):

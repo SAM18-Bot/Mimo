@@ -1,5 +1,5 @@
 """
-Unit tests for modules/assignments/parser.py
+Unit tests for server/modules/assignments/parser.py
 
 Tests every supported date format:
   weekday names, next <weekday>, tomorrow, in X days, month names, ISO dates
@@ -8,7 +8,7 @@ Also tests subject extraction, title cleaning, priority detection.
 
 from datetime import date, timedelta
 
-from modules.assignments.parser import parse_assignment_command
+from server.modules.assignments.parser import parse_assignment_command
 
 # ── date parsing ──────────────────────────────────────────────────────────
 

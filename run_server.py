@@ -14,7 +14,7 @@ For the full desktop experience (tray icon + native window):
   python run_desktop.py
 
 Usage:
-  python run_server.py              # production mode
+  python run_server.py              # start without hot reload
   python run_server.py --dev        # hot-reload (file changes restart server)
   python run_server.py --port 8080  # custom port
 """
@@ -63,7 +63,7 @@ def main():
 
     import uvicorn
     uvicorn.run(
-        "main:app",
+        "server.main:app",
         host   = args.host,
         port   = args.port,
         reload = args.dev,

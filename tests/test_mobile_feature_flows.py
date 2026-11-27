@@ -10,10 +10,10 @@ from google import genai
 from google.genai import Client as GeminiClient, types
 from sqlalchemy import create_engine, text
 
-import config
-from db.models import DailySummary, Reminder, ScheduleProfile, User
-from modules.ai_layer.client import _chat as gemini_chat
-from modules.auth.security import create_access_token
+from server import config
+from server.db.models import DailySummary, Reminder, ScheduleProfile, User
+from server.modules.ai_layer.client import _chat as gemini_chat
+from server.modules.auth.security import create_access_token
 
 
 def other_account(db):
@@ -100,7 +100,7 @@ def test_migrate_legacy_keys_and_deadlines(tmp_path, monkeypatch):
     url = f"sqlite:///{tmp_path / 'legacy.db'}"
     monkeypatch.setattr(config, "DATABASE_URL", url)
     cfg = Config()
-    cfg.set_main_option("script_location", "db/migrations")
+    cfg.set_main_option("script_location", str(Path(__file__).resolve().parents[1] / "server/db/migrations"))
     command.upgrade(cfg, "005")
     engine = create_engine(url)
     with engine.begin() as conn:

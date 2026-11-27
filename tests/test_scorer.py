@@ -1,5 +1,5 @@
 """
-Unit tests for modules/behavior_engine/scorer.py
+Unit tests for server/modules/behavior_engine/scorer.py
 
 Tests:
   - Score formula correctness
@@ -11,7 +11,7 @@ Tests:
 
 import pytest
 
-from modules.behavior_engine.scorer import ProductivityScorer, score_day
+from server.modules.behavior_engine.scorer import ProductivityScorer, score_day
 
 
 @pytest.fixture

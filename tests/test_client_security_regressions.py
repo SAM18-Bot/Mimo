@@ -4,8 +4,8 @@ from zoneinfo import ZoneInfo
 import pytest
 from starlette.websockets import WebSocketDisconnect
 
-from db.models import ScheduleBlock, ScheduleProfile, User
-from modules.auth.security import create_access_token
+from server.db.models import ScheduleBlock, ScheduleProfile, User
+from server.modules.auth.security import create_access_token
 
 
 def test_cloud_accounts_cannot_use_server_controls(client, auth_headers):
@@ -73,8 +73,8 @@ def test_assignment_and_live_stats_are_private_to_the_account(client, auth_heade
 def test_google_sign_in_requires_configuration_and_never_auto_links(
     client, auth_headers, monkeypatch,
 ):
-    import config
-    from modules.auth import manager
+    from server import config
+    from server.modules.auth import manager
 
     monkeypatch.setattr(config, "GOOGLE_CLIENT_ID", "")
     assert client.post("/auth/google", json={"token": "unused"}).status_code == 401

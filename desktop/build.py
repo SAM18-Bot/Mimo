@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 
 def build_executable():
@@ -34,16 +35,15 @@ def build_executable():
         "--hidden-import", "pystray",
         "--hidden-import", "plyer",
         "--hidden-import", "plyer.platforms.win.notification",
-        "--add-data", f"db/migrations{os.pathsep}db/migrations",
+        "--add-data", f"server/db/migrations{os.pathsep}server/db/migrations",
         "--collect-all", "mediapipe",
-        "--add-data", f"modules/cv_pipeline/models{os.pathsep}modules/cv_pipeline/models",
-        # Include static and assets directories
-        "--add-data", f"static{os.pathsep}static",
-        "--add-data", f"assets{os.pathsep}assets",
+        "--add-data", f"server/modules/cv_pipeline/models{os.pathsep}server/modules/cv_pipeline/models",
+        # Bundle the same web files the server serves in a source checkout.
+        "--add-data", f"web{os.pathsep}web",
         "--add-data", f"desktop{os.sep}assets{os.pathsep}desktop{os.sep}assets",
-        "--icon", "assets/app_icon.ico",
+        "--icon", "desktop/assets/app_icon.ico",
         "run_desktop.py"
-    ], check=True)
+    ], cwd=Path(__file__).resolve().parents[1], check=True)
     
     print("Build complete! Executable is in the 'dist/Mimo' folder.")
 

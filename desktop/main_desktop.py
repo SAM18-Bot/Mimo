@@ -5,7 +5,7 @@ Startup sequence:
   1. Single-instance check (prevent two copies running)
   2. Configure logging (console + optional file)
   3. Show splash screen (tkinter, no extra install)
-  4. Start FastAPI server (background thread)
+  4. Start the bundled FastAPI server when local mode is selected
   5. Wait for server health check
   6. Create pywebview window
   7. Start system tray (background thread)
@@ -179,7 +179,7 @@ def _start_server():
         try:
             import uvicorn
 
-            from main import app
+            from server.main import app
             app.state.local_controls_enabled = True
             uvicorn.run(
                 app,
@@ -263,13 +263,13 @@ def _shutdown(window_manager=None):
     log.info("Shutting down Mimo…")
 
     try:
-        from schedulers.background_tasks import stop_all
+        from server.schedulers.background_tasks import stop_all
         stop_all()
     except Exception:
         pass
 
     try:
-        from schedulers.daily_trigger import stop_scheduler
+        from server.schedulers.daily_trigger import stop_scheduler
         stop_scheduler()
     except Exception:
         pass

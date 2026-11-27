@@ -1,9 +1,9 @@
 from datetime import date, timedelta
 
-from db.models import DailySummary, RoastLog, User
-from modules.ai_layer.roast_engine import RoastEngine
-from modules.assignments.manager import create_assignment
-from modules.voice.intent_router import IntentRouter
+from server.db.models import DailySummary, RoastLog, User
+from server.modules.ai_layer.roast_engine import RoastEngine
+from server.modules.assignments.manager import create_assignment
+from server.modules.voice.intent_router import IntentRouter
 
 
 def test_push_sync_stress_column_names_and_dates(client, auth_headers, db_session):
@@ -131,7 +131,7 @@ def test_intent_router_what_to_study_multiuser(client, auth_headers, db_session,
     assert len(spoken_msgs) > 0
 
     # Test exception fallback path by breaking StudyAdvisor
-    from modules.ai_layer import study_advisor
+    from server.modules.ai_layer import study_advisor
     def faulty_init(self, db):
         raise RuntimeError("Advisor broken for stress test")
     

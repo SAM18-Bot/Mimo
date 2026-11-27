@@ -2,8 +2,8 @@ import json
 from datetime import date
 from unittest.mock import MagicMock, patch
 
-from db.models import AccountabilityLog, DailySummary
-from modules.ai_layer.daily_report import run_eod_report
+from server.db.models import AccountabilityLog, DailySummary
+from server.modules.ai_layer.daily_report import run_eod_report
 
 
 def test_run_eod_report(client, db_session):
@@ -18,8 +18,8 @@ def test_run_eod_report(client, db_session):
     
     mock_ai_response = {"overall_assessment": "Good", "struggles": "None", "advice": "Keep it up", "summary": "Did well"}
 
-    with patch("modules.ai_layer.daily_report.generate_eod_report", return_value=mock_ai_response):
-        with patch("modules.behavior_engine.pattern_detector.get_weekly_patterns", return_value={"insights": ["test"], "weekly_data": "", "peak_productive_hour": 14}):
+    with patch("server.modules.ai_layer.daily_report.generate_eod_report", return_value=mock_ai_response):
+        with patch("server.modules.behavior_engine.pattern_detector.get_weekly_patterns", return_value={"insights": ["test"], "weekly_data": "", "peak_productive_hour": 14}):
             run_eod_report(speak_fn=speak_mock, broadcast_fn=broadcast_mock)
 
     # Check DB

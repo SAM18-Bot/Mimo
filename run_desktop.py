@@ -1,23 +1,8 @@
 #!/usr/bin/env python3
-"""
-Mimo Desktop App Launcher
-─────────────────────────
-Run this file to start Mimo as a desktop application.
+"""Launch the Mimo Windows desktop app with `python run_desktop.py`.
 
-Usage:
-    python run_desktop.py
-
-What it does:
-  1. Starts the FastAPI server (background)
-  2. Shows a loading splash screen
-  3. Opens Mimo in a native window (via pywebview)
-     OR in your default browser if pywebview isn't installed
-  4. Adds a system tray icon for quick access
-  5. App continues running in tray when you close the window
-
-Requirements:
-    pip install -r requirements.txt
-    pip install -r requirements_desktop.txt
+The client connects to its configured HTTPS origin. Set MIMO_CLOUD_URL=local
+to start the bundled FastAPI server. See docs/clients.md for setup and builds.
 """
 
 import os

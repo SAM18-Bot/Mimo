@@ -1,8 +1,8 @@
 from datetime import date, timedelta
 from uuid import uuid4
 
-from db.models import Assignment, Reminder, User
-from modules.auth.security import create_access_token
+from server.db.models import Assignment, Reminder, User
+from server.modules.auth.security import create_access_token
 
 
 def test_retried_assignment_preserves_completion_and_reminders(client, auth_headers, db_session):

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mimo · Repository guide</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; line-height: 1.55; }
+    body { max-width: 48rem; margin: auto; padding: 2rem 1.2rem 4rem; }
+    h1 { margin-bottom: .35rem; }
+    a { color: #554ab6; text-underline-offset: .16em; }
+    details { margin: 1rem 0; padding: .8rem 1rem; border: 1px solid #9998; border-radius: .6rem; }
+    summary { cursor: pointer; font-weight: 650; }
+    li { margin: .45rem 0; }
+    @media (prefers-color-scheme: dark) { a { color: #b6aeff; } }
+  </style>
+</head>
+<body>
+  <nav aria-label="Mimo"><a href="/">Dashboard</a> · <a href="https://github.com/SAM18-Bot/Mimo#repository-guide">Repository on GitHub</a></nav>
+  <main>
+    <h1>Repository guide</h1>
+    <p>Find the source for the Mimo app you use, or open the shared server to follow a request from a route to the database.</p>
+    <details open>
+      <summary>Apps and firmware</summary>
+      <ul>
+        <li><a href="https://github.com/SAM18-Bot/Mimo/tree/main/android">android/</a> · Android Studio project and Compose screens.</li>
+        <li><a href="https://github.com/SAM18-Bot/Mimo/tree/main/desktop">desktop/</a> · Windows tray, tracker and packaging.</li>
+        <li><a href="https://github.com/SAM18-Bot/Mimo/tree/main/web">web/</a> · Student dashboard, schedule, settings and parent portal.</li>
+        <li><a href="https://github.com/SAM18-Bot/Mimo/tree/main/firmware">firmware/</a> · Optional ESP32-CAM Arduino sketch.</li>
+      </ul>
+    </details>
+    <details open>
+      <summary>Shared server</summary>
+      <ul>
+        <li><a href="https://github.com/SAM18-Bot/Mimo/blob/main/server/main.py">server/main.py</a> · FastAPI entry point and page routes.</li>
+        <li><a href="https://github.com/SAM18-Bot/Mimo/tree/main/server/api">server/api/</a> · HTTP routes, authentication and WebSocket events.</li>
+        <li><a href="https://github.com/SAM18-Bot/Mimo/tree/main/server/db">server/db/</a> · SQLAlchemy models and Alembic migrations.</li>
+        <li><a href="https://github.com/SAM18-Bot/Mimo/tree/main/server/modules">server/modules/</a> · Planning, screen tracking, coaching and optional hardware integrations.</li>
+        <li><a href="https://github.com/SAM18-Bot/Mimo/tree/main/server/schedulers">server/schedulers/</a> · Background services, reminders and scheduled reports.</li>
+      </ul>
+    </details>
+    <details>
+      <summary>Tests, builds and documentation</summary>
+      <ul>
+        <li><a href="https://github.com/SAM18-Bot/Mimo/tree/main/tests">tests/</a> and <a href="https://github.com/SAM18-Bot/Mimo/tree/main/scripts">scripts/</a> · Integration tests and verification tools.</li>
+        <li><a href="https://github.com/SAM18-Bot/Mimo/tree/main/.github/workflows">.github/workflows/</a> · Continuous integration and app builds.</li>
+        <li><a href="https://github.com/SAM18-Bot/Mimo/blob/main/CONTRIBUTING.md">Contributing</a> · Development setup and test commands.</li>
+        <li><a href="https://github.com/SAM18-Bot/Mimo/tree/main/docs">docs/</a> · Client, deployment and historical guides.</li>
+      </ul>
+    </details>
+  </main>
+</body>
+</html>

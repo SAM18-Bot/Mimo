@@ -1,104 +1,67 @@
-<div align="center">
-  <img src="https://raw.githubusercontent.com/lucide-icons/lucide/main/icons/shield-check.svg" width="80" alt="Mimo Logo" />
-  <h1>Mimo</h1>
-  <p><b>An intelligent, behavior-aware accountability system and strict screen-time enforcer.</b></p>
-  
-  <p>
-    <a href="#features">Features</a> •
-    <a href="#installation">Installation</a> •
-    <a href="#architecture">Architecture</a> •
-    <a href="#contributing">Contributing</a>
-  </p>
+<p align="center"><img src="android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="76" alt="Mimo app icon"></p>
 
-  <p>
-    <img src="https://img.shields.io/badge/Python-3.11+-blue.svg" alt="Python Version">
-    <img src="https://img.shields.io/badge/FastAPI-0.165.0-009688.svg" alt="FastAPI">
-    <img src="https://img.shields.io/badge/Kotlin-Android-green.svg" alt="Android Support">
-    <img src="https://img.shields.io/badge/License-MIT-gray.svg" alt="License">
-  </p>
-</div>
+# Mimo
 
----
+Mimo helps students fit study sessions around classes, keep track of deadlines and see where their screen time goes. The Windows app and Android companion share an account with the web dashboard. Students can invite a parent to view a weekly summary.
 
-## Overview
+[![Backend CI](https://github.com/SAM18-Bot/Mimo/actions/workflows/backend.yml/badge.svg?branch=main)](https://github.com/SAM18-Bot/Mimo/actions/workflows/backend.yml)
+[![Windows build](https://github.com/SAM18-Bot/Mimo/actions/workflows/desktop.yml/badge.svg?branch=main)](https://github.com/SAM18-Bot/Mimo/actions/workflows/desktop.yml)
+[![Android build](https://github.com/SAM18-Bot/Mimo/actions/workflows/android.yml/badge.svg?branch=main)](https://github.com/SAM18-Bot/Mimo/actions/workflows/android.yml)
 
-Mimo is an aggressive productivity tracker that goes beyond traditional screen-time applications. By leveraging multi-modal AI (Google Gemini), connected desktop clients, and an Android companion app, Mimo actively monitors your behavior, categorizes application usage, and forcibly terminates distracting processes during scheduled focus blocks.
+## Downloads
 
-## Features
+Sign in to GitHub to download an Actions artifact. For either app, open a successful build on `main` and select the named file under **Artifacts**.
 
-* **Strict Application Blocking:** Mimo actively polls the OS window manager. If time limits on distracting applications are exceeded during a scheduled study session, Mimo forces process termination (`taskkill`).
-* **Gemini Behavioral Analysis:** Native support for Google Gemini. The AI engine analyzes daily telemetry to identify productivity patterns, peak focus hours, and avoidance behaviors.
-* **Windows desktop client:** The tray application records screen sessions and sends them to the configured server while connected.
-* **Distributed Cloud Architecture:** A decoupled architecture allows the FastAPI backend and PostgreSQL database to be hosted remotely via Docker, while lightweight clients stream data from end-user devices.
-* **Android Companion App:** A native Kotlin Jetpack Compose application that monitors mobile application usage and mirrors the central web dashboard.
-* **Physical Presence Verification (Optional):** Integration with ESP32-CAM via computer vision to verify physical desk presence.
+| Get | GitHub download | What to open |
+| --- | --- | --- |
+| Windows 64-bit | [Windows builds](https://github.com/SAM18-Bot/Mimo/actions/workflows/desktop.yml?query=branch%3Amain) · `Mimo-Windows` | Extract the entire ZIP and run `Mimo.exe` alongside its bundled libraries. |
+| Android 8.0+ | [Android builds](https://github.com/SAM18-Bot/Mimo/actions/workflows/android.yml?query=branch%3Amain) · `Mimo-Android-debug` | Extract the ZIP and open `app-debug.apk` on the phone. This is the debug build. |
+| Promotional videos | [Download the promo kit](https://github.com/SAM18-Bot/Mimo/actions/runs/45913240450/artifacts/15160998421) | Extract the vertical and widescreen MP4s and the English captions. GitHub applies its artifact retention period. |
 
-## Architecture
+## What Mimo does
 
-Mimo is built using a decoupled client-server architecture:
+| During the study week | In Mimo |
+| --- | --- |
+| Plan around existing commitments | Enter school hours, fixed activities and a study goal to generate a weekly schedule. Add assignments with due times and to-dos with reminders. |
+| Start a focused session | Choose a 25-minute Pomodoro or a 50-minute deep-work timer. During scheduled study, Windows can close distracting apps after their limit. Android can send a reminder. |
+| Review a day | Compare productive and distracting app use, focus scores and weekly patterns. An optional ESP32-CAM can add desk-presence events. |
+| Get help and share progress | Ask the coach what is due, complete a check-in or review the daily report. Connect Gemini for model-generated advice. A linked parent can see study time and focus trends in their own portal. |
 
-1. **Central Server (`/api`)**: A FastAPI REST and WebSocket server connected to a PostgreSQL database. It handles user authentication, data aggregation, LLM inference scheduling, and serves the frontend dashboard.
-2. **Desktop Client (`/desktop`)**: A PyInstaller-compiled background daemon that monitors active window titles and processes on Windows.
-3. **Android Client (`/android`)**: A native Kotlin application interacting with the REST APIs to provide mobile telemetry and system notifications.
+![Mimo student dashboard showing a focus score, weekly activity, assignments and a focus timer with fictional student data](docs/images/student-dashboard.webp)
 
-## Installation
+## Run the dashboard locally
 
-### 1. Cloud Server Deployment (Docker)
-
-The Mimo central server is designed to be deployed instantly using Docker Compose.
-
-```bash
-git clone https://github.com/SAM18-Bot/Mimo.git
-cd Mimo
-
-# Configure environment variables
-echo "GEMINI_API_KEY=your_key_here" > .env
-echo "NO_HARDWARE=1" >> .env
-printf 'JWT_SECRET_KEY=%s\n' "$(python -c 'import secrets; print(secrets.token_urlsafe(48))')" >> .env
-
-# Build and start the backend and PostgreSQL database
-docker-compose up --build -d
-```
-The server will now be accessible at `http://localhost:8000`.
-
-### 2. Desktop Client (Windows)
-
-To deploy the tracker to an end-user device, compile the standalone executable:
-
-```bash
-# Set the address of your deployed cloud server
-set MIMO_CLOUD_URL=https://your-server-url.com
-
-# Build the executable
-python desktop/build.py
-```
-Distribute the entire `dist/Mimo/` folder. Launch `dist/Mimo/Mimo.exe` on Windows to open the dashboard and run the tray tracker against the configured `MIMO_CLOUD_URL`.
-
-### 3. Android Application
-
-To build the mobile companion app, use the included Gradle wrapper:
-
-```bash
-cd android
-./gradlew assembleDebug
-```
-The resulting `.apk` will be located in `android/app/build/outputs/apk/debug/`.
-
-## Development
-
-To run the server locally for development purposes without Docker:
+Use Python 3.11 from the repository root. These commands start a local SQLite-backed server on macOS or Linux. Windows PowerShell commands are in the [contributor guide](CONTRIBUTING.md#local-development).
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+source .venv/bin/activate
+python -m pip install -r requirements_server.txt
+NO_HARDWARE=1 NO_VOICE=1 python -m uvicorn server.main:app --host 127.0.0.1 --port 8000
 ```
 
-## Contributing
+Open the [student dashboard](http://127.0.0.1:8000/), [parent portal](http://127.0.0.1:8000/parents) or [API reference](http://127.0.0.1:8000/docs). On first startup, Mimo applies its database migrations. Email registration works with the local configuration.
 
-Contributions are welcome. Please ensure that all pull requests pass existing test suites and adhere to PEP 8 standards for Python codebase modifications. For major architectural changes, please open an issue first to discuss the proposed modifications.
+## Repository guide
+
+| Directory | What lives there |
+| --- | --- |
+| [server/](server/) | FastAPI application, configuration, [API and WebSocket routes](server/api/), [database models and migrations](server/db/), [study and tracking logic](server/modules/) and [scheduled jobs](server/schedulers/). |
+| [web/](web/) | Student dashboard, planner, settings and parent portal. The server serves these pages and their bundled assets. |
+| [desktop/](desktop/) | Windows launcher, tray and tracking code, app assets, PyInstaller packaging and desktop tests. |
+| [android/](android/) | Kotlin and Jetpack Compose app, Gradle wrapper, unit tests and instrumented device tests. |
+| [firmware/](firmware/) | Optional ESP32-CAM [Arduino sketch](firmware/cam_stream/cam_stream.ino). |
+| [tests/](tests/) and [scripts/](scripts/) | Python integration tests, browser and device checks, packaging checks and web asset tooling. |
+| [.github/workflows/](.github/workflows/) | Backend and container checks, Windows packaging and Android builds and device tests. |
+
+## Build, deploy or contribute
+
+- Build a Windows bundle or Android APK and connect it to your server. [Client guide](docs/clients.md)
+- Run PostgreSQL with Docker Compose or deploy the service on Render. [Deployment guide](docs/deployment.md)
+- Set up a development environment, run tests and contribute a change. [Contributing](CONTRIBUTING.md)
+
+Earlier project plans and setup notes are kept in the [documentation archive](docs/archive/).
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+Mimo is licensed under the MIT License. The bundled dashboard libraries and optional face-landmark model have their own notices. [Web library notices](web/vendor/) · [Model license](server/modules/cv_pipeline/models/LICENSE.txt)

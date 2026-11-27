@@ -1,12 +1,12 @@
 """
-Unit tests for modules/screen_tracker/session.py (SessionStitcher + analyze_sessions).
+Unit tests for server/modules/screen_tracker/session.py (SessionStitcher + analyze_sessions).
 """
 
 from datetime import datetime, timedelta
 
 import pytest
 
-from modules.screen_tracker.session import Session, SessionStitcher, analyze_sessions
+from server.modules.screen_tracker.session import Session, SessionStitcher, analyze_sessions
 
 
 @pytest.fixture

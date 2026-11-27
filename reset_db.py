@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from db.database import Base, engine
+from server.db.database import Base, engine
 
 
 def reset_database():

@@ -23,8 +23,8 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-import db.models  # noqa: F401 — register models
-from db.database import Base, get_db
+from server.db import models  # noqa: F401 — register models
+from server.db.database import Base, get_db
 
 # ── per-test SQLite file engine ───────────────────────────────────────────
 
@@ -64,7 +64,7 @@ def client(db_engine):
     from fastapi.testclient import TestClient
     from sqlalchemy.orm import sessionmaker as SM
 
-    import db.database as db_mod
+    from server.db import database as db_mod
 
     # Patch the global engine + SessionLocal so get_db_ctx() uses our engine
     original_engine      = db_mod.engine
@@ -74,7 +74,7 @@ def client(db_engine):
     db_mod.SessionLocal = SM(autocommit=False, autoflush=False, bind=db_engine)
 
     # Also override the FastAPI dependency
-    from main import app
+    from server.main import app
 
     def override_get_db():
         Session = SM(autocommit=False, autoflush=False, bind=db_engine)
@@ -104,7 +104,7 @@ def client(db_engine):
 
 @pytest.fixture
 def seed_sessions(db_session):
-    from db.models import ScreenSession
+    from server.db.models import ScreenSession
 
     def _seed(rows):
         objs = []
@@ -132,7 +132,7 @@ def seed_sessions(db_session):
 
 @pytest.fixture
 def seed_cv(db_session):
-    from db.models import CVEvent
+    from server.db.models import CVEvent
 
     def _seed(events):
         objs = []
@@ -154,7 +154,7 @@ def seed_cv(db_session):
 
 @pytest.fixture
 def seed_assignments(db_session):
-    from db.models import Assignment
+    from server.db.models import Assignment
 
     def _seed(rows):
         objs = []
@@ -182,8 +182,8 @@ def auth_headers(client, db_engine):
     """Create a test user and return auth headers with a valid JWT."""
     from sqlalchemy.orm import sessionmaker as SM
 
-    from db.models import User
-    from modules.auth.security import create_access_token
+    from server.db.models import User
+    from server.modules.auth.security import create_access_token
 
     Session = SM(autocommit=False, autoflush=False, bind=db_engine)
     session = Session()
@@ -210,7 +210,7 @@ def mock_gemini_ai(monkeypatch):
     """Mock Gemini/AI layer calls to speed up tests, prevent network calls, and eliminate sleep delays."""
     import json
 
-    import modules.ai_layer.client as ai_client
+    from server.modules.ai_layer import client as ai_client
 
     def mock_chat(system: str, user: str, model: str | None = None, json_mode: bool = False, engine: str = "gemini", api_key: str | None = None):
         if json_mode:

@@ -13,7 +13,7 @@ Output:
 
 Notes:
   - The .env file is NOT included — users must provide their own.
-  - The static/ directory IS included (the web dashboard).
+  - The web/ directory IS included (the web dashboard).
   - mediapipe and opencv binaries are collected automatically.
 """
 
@@ -100,10 +100,10 @@ from PyInstaller.utils.hooks import collect_all
 mp_data, mp_binaries, mp_imports = collect_all("mediapipe")
 hidden_imports += mp_imports
 datas = mp_data + [
-    (os.path.join(ROOT, "modules", "cv_pipeline", "models"), "modules/cv_pipeline/models"),
+    (os.path.join(ROOT, "server", "modules", "cv_pipeline", "models"), "server/modules/cv_pipeline/models"),
     # Web dashboard and settings page
-    (os.path.join(ROOT, "static"),         "static"),
-    (os.path.join(ROOT, "db", "migrations"), "db/migrations"),
+    (os.path.join(ROOT, "web"), "web"),
+    (os.path.join(ROOT, "server", "db", "migrations"), "server/db/migrations"),
     # Desktop assets (tray icons)
     (os.path.join(ROOT, "desktop", "assets"), os.path.join("desktop", "assets")),
     # .env example (users copy this to .env)
@@ -155,7 +155,7 @@ exe = EXE(
     target_arch      = None,
     codesign_identity = None,
     entitlements_file = None,
-    icon             = os.path.join(ROOT, "desktop", "assets", "mimo_active_64.png"),
+    icon             = os.path.join(ROOT, "desktop", "assets", "app_icon.ico"),
 )
 
 # ── COLLECT (one-folder mode) ─────────────────────────────────────────────
@@ -176,7 +176,7 @@ if sys.platform == "darwin":
     app = BUNDLE(
         coll,
         name             = "Mimo.app",
-        icon             = os.path.join(ROOT, "desktop", "assets", "mimo_active_64.png"),
+        icon             = os.path.join(ROOT, "desktop", "assets", "app_icon.ico"),
         bundle_identifier = "com.mimo.app",
         info_plist        = {
             "LSUIElement":             True,   # hide from Dock (tray app)

@@ -1,5 +1,5 @@
 """
-Unit tests for modules/screen_tracker/categorizer.py
+Unit tests for server/modules/screen_tracker/categorizer.py
 
 Tests app categorization with:
   - Direct app name matches
@@ -8,7 +8,7 @@ Tests app categorization with:
   - Edge cases (empty strings, mixed case)
 """
 
-from modules.screen_tracker.categorizer import categorize_app, is_browser
+from server.modules.screen_tracker.categorizer import categorize_app, is_browser
 
 
 class TestProductiveApps:

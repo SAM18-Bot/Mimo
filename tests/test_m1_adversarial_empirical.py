@@ -20,17 +20,17 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from sqlalchemy.orm import sessionmaker
 
-from api.websocket import ConnectionManager
-from db.models import (
+from server.api.websocket import ConnectionManager
+from server.db.models import (
     CVEvent,
     DailySummary,
     ScheduleBlock,
     User,
 )
-from modules.ai_layer.roast_engine import RoastEngine
-from modules.auth.security import create_access_token
-from modules.cv_pipeline.presence import PresenceMonitor
-from modules.schedule.manager import (
+from server.modules.ai_layer.roast_engine import RoastEngine
+from server.modules.auth.security import create_access_token
+from server.modules.cv_pipeline.presence import PresenceMonitor
+from server.modules.schedule.manager import (
     build_onboarding_schedule,
     get_weekly_schedule,
     reschedule_missed_blocks,
@@ -286,7 +286,7 @@ def test_presence_monitor_logs_event_with_user_id(db_session, db_engine):
     """
     Verify PresenceMonitor persists CVEvents tagged with the configured user_id.
     """
-    import db.database as db_mod
+    from server.db import database as db_mod
     original_engine = db_mod.engine
     original_session = db_mod.SessionLocal
     db_mod.engine = db_engine

@@ -1,5 +1,5 @@
 """
-Integration tests for modules/behavior_engine/aggregator.py
+Integration tests for server/modules/behavior_engine/aggregator.py
 
 Tests:
   - Daily stats computation from seeded DB data
@@ -12,8 +12,8 @@ Tests:
 
 from datetime import date, datetime, timedelta
 
-from db.models import DailySummary
-from modules.behavior_engine.aggregator import (
+from server.db.models import DailySummary
+from server.modules.behavior_engine.aggregator import (
     _compute_focus_score,
     get_daily_stats,
     save_daily_summary,

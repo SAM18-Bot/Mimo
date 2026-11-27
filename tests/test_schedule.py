@@ -9,7 +9,7 @@ def _minutes(value: str) -> int:
 
 
 def test_build_onboarding_schedule_creates_profile_and_blocks(db_session):
-    from modules.schedule.manager import build_onboarding_schedule, get_weekly_schedule
+    from server.modules.schedule.manager import build_onboarding_schedule, get_weekly_schedule
 
     profile = build_onboarding_schedule(
         db_session,
@@ -36,7 +36,7 @@ def test_build_onboarding_schedule_creates_profile_and_blocks(db_session):
 
 
 def test_generated_study_blocks_do_not_overlap_fixed_blocks(db_session):
-    from modules.schedule.manager import build_onboarding_schedule, get_weekly_schedule
+    from server.modules.schedule.manager import build_onboarding_schedule, get_weekly_schedule
 
     build_onboarding_schedule(
         db_session,
@@ -66,8 +66,8 @@ def test_generated_study_blocks_do_not_overlap_fixed_blocks(db_session):
 
 
 def test_rebuilding_schedule_deactivates_previous_profile(db_session):
-    from db.models import ScheduleProfile
-    from modules.schedule.manager import build_onboarding_schedule, schedule_status
+    from server.db.models import ScheduleProfile
+    from server.modules.schedule.manager import build_onboarding_schedule, schedule_status
 
     build_onboarding_schedule(
         db_session,
@@ -94,7 +94,7 @@ def test_rebuilding_schedule_deactivates_previous_profile(db_session):
 
 def test_overnight_schedule_generates_blocks(db_session):
     """Overnight schedule (wake 22:00, sleep 02:00) should now work, not raise."""
-    from modules.schedule.manager import build_onboarding_schedule, get_weekly_schedule
+    from server.modules.schedule.manager import build_onboarding_schedule, get_weekly_schedule
 
     profile = build_onboarding_schedule(
         db_session,
@@ -121,7 +121,7 @@ def test_overnight_schedule_generates_blocks(db_session):
 
 
 def test_same_wake_sleep_raises_value_error(db_session):
-    from modules.schedule.manager import build_onboarding_schedule
+    from server.modules.schedule.manager import build_onboarding_schedule
 
     with pytest.raises(ValueError, match="cannot be the same"):
         build_onboarding_schedule(
@@ -134,7 +134,7 @@ def test_same_wake_sleep_raises_value_error(db_session):
 
 
 def test_update_block_status(db_session):
-    from modules.schedule.manager import (
+    from server.modules.schedule.manager import (
         build_onboarding_schedule,
         get_weekly_schedule,
         update_block_status,
@@ -259,7 +259,7 @@ def test_patch_block_status_api(client, auth_headers):
 
 
 def test_reschedule_missed_blocks_creates_new_blocks(db_session):
-    from modules.schedule.manager import (
+    from server.modules.schedule.manager import (
         build_onboarding_schedule,
         get_weekly_schedule,
         reschedule_missed_blocks,
@@ -298,7 +298,7 @@ def test_reschedule_missed_blocks_creates_new_blocks(db_session):
 
 
 def test_reschedule_returns_empty_when_no_missed(db_session):
-    from modules.schedule.manager import (
+    from server.modules.schedule.manager import (
         build_onboarding_schedule,
         reschedule_missed_blocks,
     )
@@ -318,7 +318,7 @@ def test_reschedule_returns_empty_when_no_missed(db_session):
 
 
 def test_reschedule_returns_empty_when_no_profile(db_session):
-    from modules.schedule.manager import reschedule_missed_blocks
+    from server.modules.schedule.manager import reschedule_missed_blocks
 
     assert reschedule_missed_blocks(db_session, 1) == []
 
@@ -329,8 +329,8 @@ def test_reschedule_returns_empty_when_no_profile(db_session):
 
 
 def test_boost_creates_blocks_for_urgent_assignments(db_session):
-    from db.models import Assignment
-    from modules.schedule.manager import (
+    from server.db.models import Assignment
+    from server.modules.schedule.manager import (
         boost_subject_priority,
         build_onboarding_schedule,
     )
@@ -367,7 +367,7 @@ def test_boost_creates_blocks_for_urgent_assignments(db_session):
 
 
 def test_boost_returns_empty_when_no_urgent_assignments(db_session):
-    from modules.schedule.manager import (
+    from server.modules.schedule.manager import (
         boost_subject_priority,
         build_onboarding_schedule,
     )
@@ -387,8 +387,8 @@ def test_boost_returns_empty_when_no_urgent_assignments(db_session):
 
 
 def test_boost_ignores_done_assignments(db_session):
-    from db.models import Assignment
-    from modules.schedule.manager import (
+    from server.db.models import Assignment
+    from server.modules.schedule.manager import (
         boost_subject_priority,
         build_onboarding_schedule,
     )
@@ -420,7 +420,7 @@ def test_boost_ignores_done_assignments(db_session):
 
 
 def test_boost_returns_empty_when_no_profile(db_session):
-    from modules.schedule.manager import boost_subject_priority
+    from server.modules.schedule.manager import boost_subject_priority
 
     assert boost_subject_priority(db_session, 1) == []
 
@@ -431,7 +431,7 @@ def test_boost_returns_empty_when_no_profile(db_session):
 
 
 def test_smart_suggestions_no_profile(db_session):
-    from modules.schedule.manager import smart_suggestions
+    from server.modules.schedule.manager import smart_suggestions
 
     result = smart_suggestions(db_session, 1)
     assert len(result) == 1
@@ -440,7 +440,7 @@ def test_smart_suggestions_no_profile(db_session):
 
 
 def test_smart_suggestions_with_missed_blocks(db_session):
-    from modules.schedule.manager import (
+    from server.modules.schedule.manager import (
         build_onboarding_schedule,
         smart_suggestions,
         update_block_status,
@@ -456,7 +456,7 @@ def test_smart_suggestions_with_missed_blocks(db_session):
         subjects=[{"name": "Biology", "priority": "medium"}],
     )
 
-    from modules.schedule.manager import get_day_schedule
+    from server.modules.schedule.manager import get_day_schedule
 
     today_blocks = get_day_schedule(db_session, 1)
     study_blocks = [b for b in today_blocks if b.kind == "study"]
@@ -472,7 +472,7 @@ def test_smart_suggestions_with_missed_blocks(db_session):
 
 
 def test_smart_suggestions_on_track(db_session):
-    from modules.schedule.manager import build_onboarding_schedule, smart_suggestions
+    from server.modules.schedule.manager import build_onboarding_schedule, smart_suggestions
 
     build_onboarding_schedule(
         db_session,
@@ -559,8 +559,8 @@ def test_missed_status_accepted_in_block_update(client, auth_headers):
 def test_boost_subject_priority_user_isolation(db_session):
     from datetime import date, timedelta
 
-    from db.models import Assignment, User
-    from modules.schedule.manager import (
+    from server.db.models import Assignment, User
+    from server.modules.schedule.manager import (
         boost_subject_priority,
         build_onboarding_schedule,
     )
@@ -600,8 +600,8 @@ def test_boost_subject_priority_user_isolation(db_session):
 def test_smart_suggestions_user_isolation(db_session):
     from datetime import date, timedelta
 
-    from db.models import Assignment, User
-    from modules.schedule.manager import build_onboarding_schedule, smart_suggestions
+    from server.db.models import Assignment, User
+    from server.modules.schedule.manager import build_onboarding_schedule, smart_suggestions
 
     u1 = User(email="u1_sugg@test.com", password_hash="pw")
     u2 = User(email="u2_sugg@test.com", password_hash="pw")
@@ -627,8 +627,8 @@ def test_smart_suggestions_user_isolation(db_session):
 
 
 def test_update_block_status_ownership(db_session):
-    from db.models import User
-    from modules.schedule.manager import (
+    from server.db.models import User
+    from server.modules.schedule.manager import (
         build_onboarding_schedule,
         get_weekly_schedule,
         update_block_status,

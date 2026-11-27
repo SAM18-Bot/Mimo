@@ -1,8 +1,8 @@
 from datetime import date
 
-from db.models import Assignment, DailySummary, RoastLog, User
-from modules.ai_layer.roast_engine import RoastEngine
-from modules.voice.intent_router import IntentRouter
+from server.db.models import Assignment, DailySummary, RoastLog, User
+from server.modules.ai_layer.roast_engine import RoastEngine
+from server.modules.voice.intent_router import IntentRouter
 
 
 def test_roast_engine_save_roast(db_session, auth_headers):

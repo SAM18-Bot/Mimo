@@ -2,7 +2,7 @@
 .env
 .env.*
 !.env.example
-modules/cv_pipeline/models
+server/modules/cv_pipeline/models
 android
 desktop
 tests

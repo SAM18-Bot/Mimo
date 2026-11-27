@@ -8,8 +8,8 @@ Unit tests for assignment management:
 
 from datetime import date, timedelta
 
-from db.models import Reminder
-from modules.assignments.manager import (
+from server.db.models import Reminder
+from server.modules.assignments.manager import (
     create_assignment,
     delete_assignment,
     get_all_assignments,
@@ -165,7 +165,7 @@ class TestReminders:
         """Only reminders with remind_at in the past and not delivered."""
         from datetime import datetime, timedelta
 
-        from db.models import Reminder
+        from server.db.models import Reminder
 
         # Past undelivered
         r1 = Reminder(

@@ -1,12 +1,12 @@
 import logging
 import threading
 from datetime import datetime
-import config
+from server import config
 from desktop.session import get_token
 
-from modules.screen_tracker.tracker import get_active_window
-from modules.screen_tracker.categorizer import categorize_app
-from modules.screen_tracker.session import SessionStitcher, Session
+from server.modules.screen_tracker.tracker import get_active_window
+from server.modules.screen_tracker.categorizer import categorize_app
+from server.modules.screen_tracker.session import SessionStitcher, Session
 import platform
 
 log = logging.getLogger(__name__)
@@ -141,7 +141,7 @@ class DesktopTracker:
             return False
 
     def _kill_process(self, app_name: str):
-        from modules.screen_tracker.categorizer import is_browser
+        from server.modules.screen_tracker.categorizer import is_browser
         if is_browser(app_name):
             log.warning(f"Browser {app_name} is distracting, emitting roast skipped locally (handled by backend).")
             return

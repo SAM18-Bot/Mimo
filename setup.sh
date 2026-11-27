@@ -70,8 +70,8 @@ fi
 if [ ! -f ".env" ]; then
   cp .env.example .env
   warn ".env created from template. EDIT IT NOW:"
-  warn "  1. Add your GEMINI_API_KEY"
-  warn "  2. Set ESP32_STREAM_URL to your ESP32-CAM IP"
+  warn "  Add a Gemini API key if you want model-generated coaching."
+  warn "  Set ESP32_STREAM_URL if you connect an ESP32-CAM."
   echo ""
   info "Opening .env for editing (Ctrl+C to skip)..."
   sleep 2
@@ -82,7 +82,7 @@ fi
 
 # ── DB init check ─────────────────────────────────────────────
 info "Initializing database..."
-$PYTHON -c "from db.database import init_db; init_db(); print('DB OK')"
+$PYTHON -c "from server.db.database import init_db; init_db(); print('DB OK')"
 
 # ── done ─────────────────────────────────────────────────────
 echo ""

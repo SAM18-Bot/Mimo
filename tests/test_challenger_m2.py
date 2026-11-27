@@ -8,20 +8,20 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from api.websocket import ConnectionManager
-from db.models import Assignment, ScheduleBlock, User
-from modules.ai_layer.roast_engine import RoastEngine
-from modules.assignments.reminder import ReminderLoop
-from modules.auth.security import create_access_token
-from modules.cv_pipeline.presence import PresenceMonitor
-from modules.schedule.manager import (
+from server.api.websocket import ConnectionManager
+from server.db.models import Assignment, ScheduleBlock, User
+from server.modules.ai_layer.roast_engine import RoastEngine
+from server.modules.assignments.reminder import ReminderLoop
+from server.modules.auth.security import create_access_token
+from server.modules.cv_pipeline.presence import PresenceMonitor
+from server.modules.schedule.manager import (
     boost_subject_priority,
     build_onboarding_schedule,
     get_weekly_schedule,
     smart_suggestions,
     update_block_status,
 )
-from schedulers.daily_trigger import _push_live_stats
+from server.schedulers.daily_trigger import _push_live_stats
 
 # ============================================================================
 # 1. Update Block Status Security Tests
@@ -340,7 +340,7 @@ def test_daily_trigger_stats_push_includes_user_id(db_session, db_engine):
 
     from sqlalchemy.orm import sessionmaker as SM
 
-    import db.database as db_mod
+    from server.db import database as db_mod
 
     # Patch global engine so get_db_ctx() reads from test DB
     original_engine = db_mod.engine
@@ -357,7 +357,7 @@ def test_daily_trigger_stats_push_includes_user_id(db_session, db_engine):
         db_session.commit()
 
         # Mock the connection manager to report both users as connected
-        with patch("api.websocket.manager") as mgr_mock:
+        with patch("server.api.websocket.manager") as mgr_mock:
             mgr_mock.connected_user_ids = {u1.id, u2.id}
             _push_live_stats(broadcast_fn=broadcast_mock)
 

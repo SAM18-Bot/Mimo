@@ -37,6 +37,19 @@ def _insert_session(client, headers, app, title, cat, dur=60):
         print("ERROR IN INSERT:", r.json())
 
 
+def test_web_pages_and_legacy_entrypoint_from_another_directory(client, tmp_path, monkeypatch):
+    from main import app as deployed_app
+    from server.main import app
+
+    assert deployed_app is app
+    monkeypatch.chdir(tmp_path)
+    for route in ("/", "/settings", "/schedule", "/parents", "/static/file_tree.html"):
+        response = client.get(route)
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/html")
+    assert client.get("/static/vendor/dashboard.css").status_code == 200
+
+
 # ── health ────────────────────────────────────────────────────────────────
 
 class TestHealth:

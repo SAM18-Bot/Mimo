@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from api.websocket import ConnectionManager
-from db.models import Assignment, ScheduleBlock, User
-from modules.schedule.manager import (
+from server.api.websocket import ConnectionManager
+from server.db.models import Assignment, ScheduleBlock, User
+from server.modules.schedule.manager import (
     boost_subject_priority,
     build_onboarding_schedule,
     smart_suggestions,
