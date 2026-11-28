@@ -50,9 +50,43 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: mimo
+          POSTGRES_PASSWORD: image-check
+          POSTGRES_DB: mimo_check
+        options: >-
+          --health-cmd "pg_isready -U mimo -d mimo_check"
+          --health-interval 3s --health-timeout 3s --health-retries 10
     steps:
     - uses: actions/checkout@v5
     - name: Build the production image
       run: docker build --pull --tag mimo-server:ci .
-    - name: Verify production startup and authenticated routes
+    - name: Verify production startup and authenticated routes with SQLite
       run: bash scripts/check_server_image.sh mimo-server:ci
+    - name: Verify migrations and authenticated routes with PostgreSQL
+      env:
+        POSTGRES_NETWORK: ${{ job.services.postgres.network }}
+      run: bash scripts/check_server_image.sh mimo-server:ci "${POSTGRES_NETWORK:?Missing PostgreSQL service network}"
+    - name: Scan the production image
+      uses: anchore/scan-action@11983a512817154c80a9db660c1a184be7513ed6 # v7.4.3
+      with:
+        image: docker:mimo-server:ci
+        grype-version: v0.122.1
+        output-format: json
+        output-file: ${{ runner.temp }}/mimo-server-security.json
+        fail-build: false
+    - name: Publish the container security report
+      uses: actions/upload-artifact@v4
+      with:
+        name: Mimo-server-security
+        path: ${{ runner.temp }}/mimo-server-security.json
+        if-no-files-found: error
+    - name: Check for high or critical findings with a published fix
+      run: |
+        jq -e '[.matches[].vulnerability | select(
+          .fix.state == "fixed" and (.severity == "High" or .severity == "Critical")
+        ) | .id] | unique | if length == 0 then true else error(join(", ")) end' \
+          "$RUNNER_TEMP/mimo-server-security.json"

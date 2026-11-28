@@ -24,6 +24,8 @@ curl --fail http://127.0.0.1:8000/health
 
 Keep both keys in private configuration across deployments. The JWT key signs sessions. The Fernet key protects personal Gemini keys stored in the database. The Compose database credentials in this repository are for local development.
 
+The production image runs as user and group `10001`. It installs Python 3.11, SQLite and the PostgreSQL client from Wolfi's signed package repository. For a container that uses SQLite, the default database is `/app/mimo.db`. Give that user write access to the database and its journal directory on an existing bind mount.
+
 ## Render with a managed PostgreSQL database
 
 Create a PostgreSQL database and a Render Docker web service connected to this repository. The root [Dockerfile](../Dockerfile) installs the server dependencies, copies the backend and dashboard, and starts Uvicorn on Render’s assigned `PORT`. Use the image’s default start command and configure `/health` as the service health check.
@@ -40,6 +42,8 @@ Create a PostgreSQL database and a Render Docker web service connected to this r
 Mimo applies [Alembic migrations](../server/db/migrations/) before accepting traffic. Back up an existing database before upgrading. Startup recognizes an older unversioned Mimo schema and stops on an unfamiliar schema so it can be reviewed.
 
 After deployment, visit `/health` and sign in to the student dashboard at `/`. An authenticated request to `/reports/stats` exercises account access and the database. The interactive API reference is at `/docs`. Use the [client guide](clients.md) to point a client at the new origin.
+
+If a deploy stops with `Set a strong JWT_SECRET_KEY for production`, open the service's **Environment** tab. Set a persistent signing key using the first command above and keep the existing Fernet key. For a new installation, generate the Fernet key with the second command. Select **Save, rebuild, and deploy**. In **Events**, check that the live deploy lists the intended Git commit. Its `/openapi.json` should include `GET /reports/accountability/questions` and `PUT /auth/me/gemini-key`.
 
 ## Optional desk camera
 
